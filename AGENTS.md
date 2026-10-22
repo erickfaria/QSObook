@@ -48,3 +48,13 @@ Estas instruções se aplicam a todo o repositório QSObook. Leia os arquivos ex
 - Não faça commit, push, merge nem altere configurações remotas sem instrução explícita do usuário.
 - Alterações devem seguir o fluxo de pull request e revisão do mantenedor; não contorne proteções da `main`.
 - Ao terminar, apresente resumo das alterações, arquivos afetados, verificações executadas e pontos de atenção. Informe claramente o que ficou pendente.
+
+
+## Implementação atual
+
+- Um pacote Go na raiz: `main.go`, `store.go`, `web.go` e testes correspondentes. Templates, estáticos, migração SQL e licença são incorporados ao executável.
+- Driver `modernc.org/sqlite` sem CGO; preserve alinhamento com a versão transitiva de `modernc.org/libc`. Mudanças exigem revalidar ARM64 e licenças.
+- Preserve a separação entre cadastro (`stations`), cópia histórica (`qsos`) e rodada (`participants`). Não propague edições de cadastro para QSOs antigos.
+- Evolua o esquema com migrações transacionais versionadas por `PRAGMA user_version`, preservando dados e recusando versões futuras.
+- Execute `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` e `CGO_ENABLED=0 go build -o bin/qsobook .`. Mantenha caches/temporários em `.cache/` quando o ambiente exigir trabalho exclusivo no repositório; instruções no README.
+- Não use banco padrão do usuário para desenvolvimento/testes nem inicie servidor persistente. O endereço deve permanecer em loopback até discussão de outro modelo de acesso.

@@ -4,7 +4,7 @@ O QSObook é um projeto pessoal, gratuito e de software livre para radioamadores
 
 ## Antes de começar
 
-Leia o [README](README.md), a [arquitetura](docs/ARCHITECTURE.md), o [roadmap](docs/ROADMAP.md) e as [instruções para agentes](AGENTS.md), quando aplicáveis. O projeto ainda não possui aplicação utilizável. Não implemente funcionalidades só por estarem no roadmap: discuta mudanças importantes, novas dependências, esquema de dados e alterações arquiteturais antes de começar.
+Leia o [README](README.md), a [arquitetura](docs/ARCHITECTURE.md), o [roadmap](docs/ROADMAP.md) e as [instruções para agentes](AGENTS.md), quando aplicáveis. A primeira versão já possui servidor, SQLite, cadastro, caderno e Modo QSO. Não implemente funcionalidades só por estarem no roadmap: discuta mudanças importantes, novas dependências, esquema de dados e alterações arquiteturais antes de começar.
 
 As contribuições devem preservar Go, SQLite, frontend sem frameworks pesados, funcionamento local/offline e compatibilidade Linux ARM64. Telemetria e rastreamento não são aceitos. Ao contribuir, disponibilize sua contribuição sob a AGPL v3 adotada pelo projeto e respeite as licenças de material de terceiros.
 
@@ -31,9 +31,9 @@ Mensagens de commit devem descrever a intenção com clareza. Não há necessida
 
 Prefira a biblioteca padrão, código Go idiomático, `gofmt`, erros explícitos, SQL parametrizado e testes de comportamento. Justifique qualquer dependência e seu impacto em ARM64 e CGO. Não altere o nome do módulo nem atualize a versão Go incidentalmente.
 
-Quando houver pacotes Go, use `go test ./...` e `go vet ./...` em ambiente de desenvolvimento apropriado. Use bancos temporários e dados fictícios. Testes não podem depender de serviços externos ou tocar bancos reais. Mudanças que afetem portabilidade devem validar Linux ARM64 e documentar limitações do ambiente. Atualmente não existem pacotes nem testes Go; não há build ou execução da aplicação a validar.
+Use `go test ./...` e `go vet ./...` em ambiente de desenvolvimento apropriado. Use bancos temporários e dados fictícios. Testes não podem depender de serviços externos ou tocar bancos reais. Mudanças que afetem portabilidade devem validar Linux ARM64 e documentar limitações do ambiente. Compile com `CGO_ENABLED=0 go build -o bin/qsobook .`. Veja no README como manter caches e temporários dentro do repositório. Os testes HTTP usam `httptest` sem iniciar serviços persistentes.
 
-Para documentação, revise clareza, links relativos e execute `git diff --check`. Preserve `go.mod`, futuro `go.sum`, arquivos SQL, recursos estáticos e fixtures sintéticas necessárias ao projeto. As exceções para SQLite em `testdata/` não autorizam incluir dados pessoais.
+Para documentação, revise clareza, links relativos e execute `git diff --check`. Preserve `go.mod`, `go.sum`, arquivos SQL, recursos estáticos e fixtures sintéticas necessárias ao projeto. As exceções para SQLite em `testdata/` não autorizam incluir dados pessoais.
 
 Não instale ferramentas nem altere serviços ou configurações do host sem autorização. No Raspberry Pi que hospeda outros serviços, mantenha todo o trabalho restrito ao repositório.
 

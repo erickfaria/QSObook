@@ -49,3 +49,6 @@
 Thumbs.db
 
 # go.mod, go.sum, SQL, fontes e assets NÃO devem ser ignorados.
+
+# Caches locais: manter builds e downloads dentro do projeto
+/.cache/

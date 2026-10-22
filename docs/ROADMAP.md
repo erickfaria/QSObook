@@ -1,53 +1,33 @@
 # Roadmap incremental
 
-Sem datas prometidas. Apenas a preparação documental foi realizada; os itens de aplicação abaixo estão pendentes. Cada etapa deve caber em alterações pequenas e revisáveis. Mudanças de escopo devem ser discutidas antes de implementar.
+Sem datas prometidas. Funcionalidades planejadas não estão disponíveis até implementação e validação.
 
-## Etapa 0 — Preparação do projeto (esta etapa)
+## Primeira versão — implementada
 
-- Documentar objetivos, arquitetura, contribuição, segurança e instruções para agentes.
-- Adotar AGPL v3 e regras locais para não versionar dados privados.
-- Preservar o módulo Go existente, sem criar camadas ou pastas sem uso.
-- Orientar proteção da `main`; aplicação das regras no GitHub fica a cargo do proprietário.
+- A — Fundação: Go 1.24.4 preservado, HTTP com recursos incorporados, SQLite sem CGO, configuração local e testes básicos.
+- B — Persistência: estações, QSOs com cópia histórica e participantes separados; migração transacional, integridade referencial, testes com reabertura de banco temporário.
+- C — Caderno: cadastro, listagem, busca por indicativo/nome, detalhes e edição.
+- D — Modo QSO: tabela de participantes, edição/remoção, preenchimento automático local e registro permanente sem duplicação por cliques repetidos.
+- E — Refinamento: CSS responsivo, rótulos e foco, CSRF, limites HTTP, erros seguros, testes HTTP e documentação operacional.
 
-## Etapa 1 — Primeira versão utilizável (planejada)
+Build, testes e vet realizados em Linux ARM64, sem CGO. Validação gráfica em navegadores desktop/celular e revisão de acessibilidade com tecnologia assistiva ainda pendentes. Testes automatizados não validam layout nem executam o JavaScript. Não há scanner de vulnerabilidades configurado.
 
-Entregar primeiro uma base mínima Go/HTTP/templates e SQLite, escolhendo o driver e o modelo de acesso antes da implementação. Em incrementos:
+## Preservação e portabilidade — planejadas
 
-1. Cadastro local de contatos de radioamador.
-2. Campos de indicativo, nome, cidade, estado e país.
-3. Data e horário automáticos com política de fuso definida.
-4. Modo de comunicação: AM, FM, DMR, EchoLink e outros, com possibilidade de evolução sem depender de catálogo remoto.
-5. Campo de observações.
-6. Modo QSO com tabela de participantes de uma sessão; esclarecer o fluxo e a relação com o cadastro antes de modelar as tabelas.
-7. Busca rápida de contatos anteriores.
-8. Preenchimento automático com dados já registrados localmente, sem consultas externas.
+- Exportação/importação com formatos documentados e tratamento explícito de duplicidades.
+- Backup consistente e restauração testada em banco separado.
+- Paginação do histórico e melhoria da busca Unicode.
+- Revisão periódica das versões do driver e dependências.
 
-Critérios para considerar a primeira versão utilizável: persistência após reinício, validação de entradas, busca e reutilização dos dados locais, interface responsiva acessível e uso do núcleo sem internet. Testar os fluxos principais com dados fictícios, incluindo erros, e validar execução em Linux ARM64. Documentar execução e atualização reais. Não expor o servidor à rede antes de definir controles de acesso.
+## Interoperabilidade — planejada
 
-## Etapa 2 — Portabilidade e preservação dos dados (planejada)
+- Avaliar ADIF e conversão dos campos sem perda silenciosa.
 
-- Exportação e importação em formato simples e documentado, a escolher.
-- Backup local consistente e restauração validada.
-- Tratamento de duplicidades e proteção contra sobrescrita acidental na importação.
-- Documentação de migrações e preservação de dados durante atualizações.
+## Integrações opcionais — planejadas
 
-Priorizar a recuperação dos dados antes de ampliar integrações externas.
+- Mapas e geocodificação OpenStreetMap somente com ativação consciente, desativados por padrão, informando provedor, atribuição e dados enviados.
+- Falhas ou ausência de internet nunca devem bloquear o caderno local.
 
-## Etapa 3 — Interoperabilidade (planejada)
+## Possibilidades sem compromisso
 
-- Avaliar compatibilidade ADIF, campos suportados e limitações.
-- Implementar e testar conversão sem perda silenciosa de dados, após definir o escopo.
-
-## Etapa 4 — Mapas opcionais (planejada)
-
-- Mapa de contatos com OpenStreetMap e geocodificação opcional.
-- Escolher provedor e atender atribuição e condições de uso.
-- Manter recurso desativado por padrão e explicar comunicação externa antes de ativar.
-- Garantir que falhas de rede não afetem o caderno local.
-
-## Possibilidades posteriores, sem compromisso
-
-- Avaliar aplicativo Android a partir das necessidades reais.
-- Discutir instalação e atualização mais convenientes após estabilizar a aplicação.
-
-Contas, sincronização em nuvem e serviços externos obrigatórios não fazem parte do escopo definido. Não antecipar infraestrutura para possibilidades ainda não aprovadas.
+Aplicativo Android e facilidades de atualização poderão ser avaliados após estabilizar os dados. Contas em nuvem, telemetria e serviços externos obrigatórios não fazem parte do escopo.
