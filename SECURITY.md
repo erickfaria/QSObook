@@ -2,7 +2,7 @@
 
 ## Status and support
 
-QSObook has an initial functional implementation for personal local use. There is no supported release line or guaranteed response time yet. There is no authentication or isolation between local users. Do not expose it directly to the internet. The listen address is restricted to loopback; do not bypass that restriction with a proxy before discussing authentication, TLS and access control.
+QSObook has an initial functional implementation for personal local use. There is no supported release line or guaranteed response time yet. There is no authentication or isolation between local users. Do not expose it directly to the internet. The standalone listener is restricted to loopback. Docker uses an explicit `-container` opt-in for its internal bridge listener; the supplied Compose file publishes only on host `127.0.0.1`. Host, Origin, CSRF and frame protections remain in place. Do not remove that port binding or add a proxy before discussing authentication, TLS and access control. Docker hosts and other containers on the same container network are trusted local access; the container does not add application authentication. See the [Docker guide](docs/DOCKER.md).
 
 ## Reporting a vulnerability
 

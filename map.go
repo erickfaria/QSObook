@@ -86,11 +86,11 @@ func (a *App) configureMap(tiles, geocoder string) error {
 func (a *App) mapPreference(w http.ResponseWriter, r *http.Request) {
 	value := r.PostForm.Get("enabled")
 	if value != "0" && value != "1" {
-		http.Error(w, "Preferência inválida", 400)
+		a.httpError(w, r, "Preferência inválida", 400)
 		return
 	}
 	if _, err := a.store.db.ExecContext(r.Context(), "UPDATE app_settings SET map_enabled=? WHERE id=1", value == "1"); err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	redirect(w, r, "/#map-title")
@@ -99,31 +99,31 @@ func (a *App) mapPreference(w http.ResponseWriter, r *http.Request) {
 func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 	enabled, err := a.store.mapEnabled(r.Context())
 	if err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	if !enabled {
-		http.Error(w, "Ative o mapa antes de localizar uma cidade", 403)
+		a.httpError(w, r, "Ative o mapa antes de localizar uma cidade", 403)
 		return
 	}
 	c := ContactCity{City: r.PostForm.Get("city"), State: r.PostForm.Get("state"), Country: r.PostForm.Get("country")}
 	st := Station{Callsign: "MAP", City: c.City, State: c.State, Country: c.Country}
 	if err := st.validate(); err != nil || strings.TrimSpace(c.City) == "" {
-		http.Error(w, "Localização inválida", 400)
+		a.httpError(w, r, "Localização inválida", 400)
 		return
 	}
 	var count int
 	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE city=? AND state=? AND country=?", c.City, c.State, c.Country).Scan(&count); err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	if count == 0 {
-		a.fail(w, sql.ErrNoRows)
+		a.fail(w, r, sql.ErrNoRows)
 		return
 	}
 	var cached int
 	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM city_coordinates WHERE city=? AND state=? AND country=?", c.City, c.State, c.Country).Scan(&cached); err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	if cached > 0 {
@@ -132,12 +132,12 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 	}
 	claimed, err := a.store.claimGeocoding(r.Context())
 	if err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	if !claimed {
 		w.Header().Set("Retry-After", "2")
-		http.Error(w, "Uma consulta está em andamento. Aguarde antes de tentar outra cidade.", 429)
+		a.httpError(w, r, "Uma consulta está em andamento. Aguarde antes de tentar outra cidade.", 429)
 		return
 	}
 	cooldown := 1100 * time.Millisecond
@@ -152,7 +152,7 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 	}()
 	u, err := url.Parse(a.geocoderURL)
 	if err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	q := u.Query()
@@ -164,7 +164,7 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 	u.RawQuery = q.Encode()
 	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u.String(), nil)
 	if err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	req.Header.Set("User-Agent", "QSObook/1 (+https://github.com/erickfaria/QSObook)")
@@ -202,7 +202,7 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 		c.Longitude = sql.NullFloat64{Float64: lon, Valid: true}
 	}
 	if _, err = a.store.db.ExecContext(r.Context(), `INSERT INTO city_coordinates(city,state,country,latitude,longitude,checked_at) VALUES(?,?,?,?,?,?) ON CONFLICT(city,state,country) DO NOTHING`, c.City, c.State, c.Country, c.Latitude, c.Longitude, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
-		a.fail(w, err)
+		a.fail(w, r, err)
 		return
 	}
 	redirect(w, r, "/#map-title")

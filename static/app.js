@@ -30,14 +30,14 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
       }
       current = callsign;
     }
-    if (!callsign) { status.textContent = 'Informe um indicativo.'; return; }
-    status.textContent = 'Consultando cadastro local…';
+    if (!callsign) { status.textContent = window.qsobookText("Informe um indicativo."); return; }
+    status.textContent = window.qsobookText("Consultando cadastro local…");
     timer = setTimeout(async () => {
       request = new AbortController();
       try {
         const response = await fetch('/lookup?callsign=' + encodeURIComponent(callsign), {signal: request.signal});
         if (version !== sequence) return;
-        if (response.status === 404) { status.textContent = 'Indicativo novo no cadastro local.'; return; }
+        if (response.status === 404) { status.textContent = window.qsobookText("Indicativo novo no cadastro local."); return; }
         if (!response.ok) throw new Error('lookup');
         const station = await response.json();
         if (version !== sequence) return;
@@ -46,10 +46,10 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
             form.elements[name].value = station[name];
           }
         }
-        status.textContent = `Operador conhecido · ${station.contacts} QSO(s) anteriores. Para corrigir dados salvos, use Editar.`;
+        status.textContent = window.qsobookText("Operador conhecido · {count} QSO(s) anteriores. Para corrigir dados salvos, use Editar.", {count: station.contacts});
       } catch (error) {
         if (version === sequence && error.name !== 'AbortError') {
-          status.textContent = 'Não foi possível consultar. Você pode preencher os dados manualmente.';
+          status.textContent = window.qsobookText("Não foi possível consultar. Você pode preencher os dados manualmente.");
         }
       }
     }, 250);

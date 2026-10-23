@@ -1,10 +1,11 @@
 {{define "layout.html"}}<!doctype html>
-<html lang="pt-BR">
+<html lang="{{.Language}}" data-messages="{{.JSMessages}}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · QSObook</title>
 <script src="/static/theme.js"></script>
+<script src="/static/locale.js" defer></script>
 {{if .MapEnabled}}<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
 <script src="/static/vendor/leaflet/leaflet.js" defer></script>
 <script src="/static/map.js" defer></script>{{end}}
@@ -13,19 +14,34 @@
 </script>
 </head>
 <body>
-<a class="skip" href="#main">Ir para o conteúdo</a>
+<a class="skip" href="#main">{{t "Ir para o conteúdo"}}</a>
 <header>
-<a class="brand" href="/">QSObook <span>caderno de rádio</span>
+<a class="brand" href="/">QSObook <span>{{t "caderno de rádio"}}</span>
 </a>
-<nav aria-label="Principal">
-<a href="/" {{if eq .View "dashboard"}}aria-current="page"{{end}}>Início</a>
-<a href="/round" {{if eq .View "round"}}aria-current="page"{{end}}>Modo QSO</a>
-<a href="/history" {{if eq .View "history"}}aria-current="page"{{end}}>Caderno</a>
-<a href="/stations" {{if eq .View "stations"}}aria-current="page"{{end}}>Estações</a>
+<nav aria-label="{{t "Principal"}}">
+<a href="/" {{if eq .View "dashboard"}}aria-current="page"{{end}}>{{t "Início"}}</a>
+<a href="/round" {{if eq .View "round"}}aria-current="page"{{end}}>{{t "Modo QSO"}}</a>
+<a href="/history" {{if eq .View "history"}}aria-current="page"{{end}}>{{t "Caderno"}}</a>
+<a href="/stations" {{if eq .View "stations"}}aria-current="page"{{end}}>{{t "Estações"}}</a>
 </nav>
-<label class="theme-picker" hidden>Tema
-<select id="theme"><option value="system">Automático</option><option value="light">Claro</option><option value="dark">Escuro</option></select>
+<details class="preferences">
+<summary>{{t "Preferências"}}</summary>
+<div class="preference-controls">
+<form method="post" action="/language" class="language-picker">
+<input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="return_to" value="{{.ReturnTo}}">
+<label for="language">{{t "Idioma"}}</label>
+<select name="language" id="language">
+<option value="pt-BR" {{if eq .Language "pt-BR"}}selected{{end}}>Português</option>
+<option value="en" {{if eq .Language "en"}}selected{{end}}>English</option>
+<option value="es" {{if eq .Language "es"}}selected{{end}}>Español</option>
+<option value="fr" {{if eq .Language "fr"}}selected{{end}}>Français</option>
+</select><button class="secondary">{{t "Aplicar"}}</button>
+</form>
+<label class="theme-picker" hidden>{{t "Tema"}}
+<select id="theme"><option value="system">{{t "Automático"}}</option><option value="light">{{t "Claro"}}</option><option value="dark">{{t "Escuro"}}</option></select>
 </label>
+</div>
+</details>
 </header>
 <main id="main">
 <h1>{{.Title}}</h1>{{if .Message}}<p class="notice" role="status">{{.Message}}</p>{{end}}
@@ -40,82 +56,82 @@
 <option value="D-Star">
 <option value="C4FM">
 <option value="EchoLink">
-<option value="Outros">
+<option value="Outros">{{t "Outros"}}</option>
 </datalist>
-<footer>Local e sem telemetria · <a href="/license">AGPL-3.0</a> · <a href="/third-party-licenses">Licenças de terceiros</a> · <a href="https://github.com/erickfaria/QSObook" rel="noreferrer">Código-fonte</a>
+<footer>{{t "Local e sem telemetria ·"}} <a href="/license">AGPL-3.0</a> · <a href="/third-party-licenses">{{t "Licenças de terceiros"}}</a> · <a href="https://github.com/erickfaria/QSObook" rel="noreferrer">{{t "Código-fonte"}}</a>
 </footer>
 </body>
 </html>{{end}}
 {{define "fields"}}
 <div class="fields">
-<label>Indicativo <input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" {{if or .Station.ID .Contact.ID}}readonly{{else}}data-lookup{{end}} aria-describedby="lookup-status">
+<label>{{t "Indicativo"}} <input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" {{if or .Station.ID .Contact.ID}}readonly{{else}}data-lookup{{end}} aria-describedby="lookup-status">
 </label>
-<label>Nome <input name="name" maxlength="120" value="{{.Station.Name}}" autocomplete="off">
+<label>{{t "Nome"}} <input name="name" maxlength="120" value="{{.Station.Name}}" autocomplete="off">
 </label>
-<label>Cidade <input name="city" maxlength="120" value="{{.Station.City}}">
+<label>{{t "Cidade"}} <input name="city" maxlength="120" value="{{.Station.City}}">
 </label>
-<label>Estado <input name="state" maxlength="120" value="{{.Station.State}}">
+<label>{{t "Estado"}} <input name="state" maxlength="120" value="{{.Station.State}}">
 </label>
-<label>País <input name="country" maxlength="120" value="{{.Station.Country}}">
+<label>{{t "País"}} <input name="country" maxlength="120" value="{{.Station.Country}}">
 </label>
-{{if or .IsContact (eq .Action "/participant")}}<label>Modo <input name="mode" required maxlength="40" value="{{.Mode}}" list="modes">
+{{if or .IsContact (eq .Action "/participant")}}<label>{{t "Modo"}} <input name="mode" required maxlength="40" value="{{.Mode}}" list="modes">
 </label>{{end}}
-<label class="wide">{{if or .IsContact (eq .Action "/participant")}}Observações da conversa{{else}}Observações do operador{{end}} <textarea name="notes" maxlength="4000" rows="2">{{if or .IsContact (eq .Action "/participant")}}{{.Notes}}{{else}}{{.Station.Notes}}{{end}}</textarea>
+<label class="wide">{{if or .IsContact (eq .Action "/participant")}}{{t "Observações da conversa"}}{{else}}{{t "Observações do operador"}}{{end}} <textarea name="notes" maxlength="4000" rows="2">{{if or .IsContact (eq .Action "/participant")}}{{.Notes}}{{else}}{{.Station.Notes}}{{end}}</textarea>
 </label>
 </div>
-<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{if or .Station.ID .Contact.ID}}O indicativo identifica a estação.{{else}}Indicativos conhecidos recuperam dados locais; revise antes de salvar.{{end}}</p>
+<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{if or .Station.ID .Contact.ID}}{{t "O indicativo identifica a estação."}}{{else}}{{t "Indicativos conhecidos recuperam dados locais; revise antes de salvar."}}{{end}}</p>
 {{end}}
 {{define "participant-fields"}}
 <input type="hidden" name="round_id" value="{{.RoundID}}">
 <div class="fields qso-fields">
-<label>Indicativo <input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" {{if .Station.ID}}readonly{{else}}data-lookup aria-describedby="lookup-status" autofocus{{end}}></label>
-<label>Nome <input name="name" maxlength="120" value="{{.Station.Name}}" autocomplete="off"></label>
-<label>Cidade <input name="city" maxlength="120" value="{{.Station.City}}"></label>
-<label>UF / Estado <input name="state" maxlength="120" value="{{.Station.State}}"></label>
-<label>Modo <input name="mode" required maxlength="40" value="{{.Mode}}" list="modes"></label>
+<label>{{t "Indicativo"}} <input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" {{if .Station.ID}}readonly{{else}}data-lookup aria-describedby="lookup-status" autofocus{{end}}></label>
+<label>{{t "Nome"}} <input name="name" maxlength="120" value="{{.Station.Name}}" autocomplete="off"></label>
+<label>{{t "Cidade"}} <input name="city" maxlength="120" value="{{.Station.City}}"></label>
+<label>{{t "UF / Estado"}} <input name="state" maxlength="120" value="{{.Station.State}}"></label>
+<label>{{t "Modo"}} <input name="mode" required maxlength="40" value="{{.Mode}}" list="modes"></label>
 </div>
-{{if not .Station.ID}}<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">Digite um indicativo para consultar seu cadastro local.</p>{{end}}
+{{if not .Station.ID}}<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{t "Digite um indicativo para consultar seu cadastro local."}}</p>{{end}}
 <details class="extra-fields" {{if .Notes}}open{{end}}>
-<summary>País e observações da conversa</summary>
+<summary>{{t "País e observações da conversa"}}</summary>
 <div class="fields">
-<label>País <input name="country" maxlength="120" value="{{.Station.Country}}"></label>
-<label class="conversation-notes">Observações da conversa <textarea name="notes" maxlength="4000" rows="2">{{.Notes}}</textarea></label>
+<label>{{t "País"}} <input name="country" maxlength="120" value="{{.Station.Country}}"></label>
+<label class="conversation-notes">{{t "Observações da conversa"}} <textarea name="notes" maxlength="4000" rows="2">{{.Notes}}</textarea></label>
 </div>
 </details>
 {{end}}
 {{define "form"}}
-{{if .Contact.ID}}<p>Registrado em <time datetime="{{.Contact.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}">{{localTime .Contact.OccurredAt}}</time>. Alterações afetam somente este QSO.</p>{{else if .Station.ID}}<p>Alterações no cadastro não modificam os QSOs já registrados.</p>{{end}}
+{{if .Contact.ID}}<p>{{t "Registrado em"}} <time datetime="{{.Contact.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}">{{localTime .Contact.OccurredAt}}</time>{{t ". Alterações afetam somente este QSO."}}</p>{{else if .Station.ID}}<p>{{t "Alterações no cadastro não modificam os QSOs já registrados."}}</p>{{end}}
 <form method="post" action="{{.Action}}">
 <input type="hidden" name="csrf" value="{{.Token}}">
 {{if .ParticipantID}}<input type="hidden" name="id" value="{{.ParticipantID}}">{{else if .Contact.ID}}<input type="hidden" name="id" value="{{.Contact.ID}}">{{else if .Station.ID}}<input type="hidden" name="id" value="{{.Station.ID}}">{{end}}
 {{if eq .Action "/participant"}}{{template "participant-fields" .}}{{else}}{{template "fields" .}}{{end}}<div class="actions">
-<button type="submit">{{if .IsContact}}{{if .Contact.ID}}Salvar alterações{{else}}Registrar QSO{{end}}{{else}}Salvar{{end}}</button>
-<a href="{{.Back}}">Voltar</a>
+<button type="submit">{{if .IsContact}}{{if .Contact.ID}}{{t "Salvar alterações"}}{{else}}{{t "Registrar QSO"}}{{end}}{{else}}{{t "Salvar"}}{{end}}</button>
+<a href="{{.Back}}">{{t "Voltar"}}</a>
 </div>
 </form>
 {{end}}
 {{define "search"}}<form class="search" method="get">
 {{if .CityFilter.City}}<input type="hidden" name="city" value="{{.CityFilter.City}}"><input type="hidden" name="state" value="{{.CityFilter.State}}"><input type="hidden" name="country" value="{{.CityFilter.Country}}">{{end}}
-<label for="q">Buscar por indicativo ou nome</label>
+<label for="q">{{t "Buscar por indicativo ou nome"}}</label>
 <input id="q" name="q" value="{{.Query}}" maxlength="200" type="search">
-<button>Buscar</button>
+<button>{{t "Buscar"}}</button>
 </form>
-<p class="hint">Até 200 resultados por busca. Refine o termo para localizar registros antigos. Letras acentuadas são diferenciadas na busca por nome.</p>{{end}}
+<p class="hint">{{t "Até 200 resultados por busca. Refine o termo para localizar registros antigos. Letras acentuadas são diferenciadas na busca por nome."}}</p>{{end}}
 {{define "stations"}}<div class="toolbar">
-<p>Cadastro local de estações e pessoas.</p>
-<a class="button" href="/station">Cadastrar estação</a>
+<p>{{t "Cadastro local de estações e pessoas."}}</p>
+<a class="button" href="/station">{{t "Cadastrar estação"}}</a>
 </div>{{template "search" .}}
-<div class="table-scroll" tabindex="0" role="region" aria-label="Estações cadastradas">
+<div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Estações cadastradas"}}">
 <table>
-<caption>Estações</caption>
+<caption>{{t "Estações"}}</caption>
 <thead>
 <tr>
-<th>Indicativo</th>
-<th>Nome</th>
-<th>Cidade</th>
-<th>Estado</th>
-<th>País</th>
-<th>Ação</th>
+<th>{{t "Indicativo"}}</th>
+<th>{{t "Nome"}}</th>
+<th>{{t "Cidade"}}</th>
+<th>{{t "Estado"}}</th>
+<th>{{t "País"}}</th>
+<th>{{t "Ação"}}</th>
 </tr>
 </thead>
 <tbody>{{range .Stations}}<tr>
@@ -125,31 +141,31 @@
 <td>{{.State}}</td>
 <td>{{.Country}}</td>
 <td>
-<a href="/station?id={{.ID}}">Editar<span class="sr-only"> {{.Callsign}}</span>
+<a href="/station?id={{.ID}}">{{t "Editar"}}<span class="sr-only"> {{.Callsign}}</span>
 </a>
 </td>
 </tr>{{else}}<tr>
-<td colspan="6">Nenhuma estação encontrada.</td>
+<td colspan="6">{{t "Nenhuma estação encontrada."}}</td>
 </tr>{{end}}</tbody>
 </table>
 </div>{{end}}
 {{define "history"}}<div class="toolbar">
-<p>Contatos permanentes, com data e hora no fuso configurado.{{if .CityFilter.City}} Cidade: {{.CityFilter.City}} / {{.CityFilter.State}} · {{.CityFilter.Country}}. <a href="/history">Ver todos</a>{{end}}</p>
-<a class="button" href="/contact">Registrar QSO</a>
+<p>{{t "Contatos permanentes, com data e hora no fuso configurado."}}{{if .CityFilter.City}} {{t "Cidade:"}} {{.CityFilter.City}} / {{.CityFilter.State}} · {{.CityFilter.Country}}. <a href="/history">{{t "Ver todos"}}</a>{{end}}</p>
+<a class="button" href="/contact">{{t "Registrar QSO"}}</a>
 </div>{{template "search" .}}
-<div class="table-scroll" tabindex="0" role="region" aria-label="Histórico de contatos">
+<div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Histórico de contatos"}}">
 <table>
-<caption>Caderno de contatos</caption>
+<caption>{{t "Caderno de contatos"}}</caption>
 <thead>
 <tr>
-<th>Data e hora</th>
-<th>Indicativo</th>
-<th>Nome</th>
-<th>Cidade / Estado</th>
-<th>País</th>
-<th>Modo</th>
-<th>Observações</th>
-<th>Ação</th>
+<th>{{t "Data e hora"}}</th>
+<th>{{t "Indicativo"}}</th>
+<th>{{t "Nome"}}</th>
+<th>{{t "Cidade / Estado"}}</th>
+<th>{{t "País"}}</th>
+<th>{{t "Modo"}}</th>
+<th>{{t "Observações"}}</th>
+<th>{{t "Ação"}}</th>
 </tr>
 </thead>
 <tbody>{{range .Contacts}}<tr>
@@ -161,97 +177,97 @@
 <td>{{.Mode}}</td>
 <td class="notes">{{.Notes}}</td>
 <td>
-<a href="/contact?id={{.ID}}">Detalhes / editar<span class="sr-only"> {{.Callsign}}</span>
+<a href="/contact?id={{.ID}}">{{t "Detalhes / editar"}}<span class="sr-only"> {{.Callsign}}</span>
 </a>
 </td>
 </tr>{{else}}<tr>
-<td colspan="8">Nenhum QSO encontrado.</td>
+<td colspan="8">{{t "Nenhum QSO encontrado."}}</td>
 </tr>{{end}}</tbody>
 </table>
 </div>{{end}}
 {{define "round"}}
 {{if not .Round.ID}}
-<p class="intro">Comece uma rodada para acompanhar quem está no rádio. Confirme apenas os contatos que você realizou.</p>
+<p class="intro">{{t "Comece uma rodada para acompanhar quem está no rádio. Confirme apenas os contatos que você realizou."}}</p>
 {{template "start-round" .}}
 {{else}}
 <div class="toolbar round-heading">
-<div><h2>{{if .Round.Name}}{{.Round.Name}}{{else}}Rodada{{end}}</h2><p class="hint">Iniciada em {{localTime .Round.StartedAt}}{{if .Round.EndedAt.Valid}} · Encerrada{{end}}</p></div>
-{{if not .Round.EndedAt.Valid}}<form method="post" action="/round/end"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="id" value="{{.Round.ID}}"><button class="secondary">Encerrar QSO</button></form>{{end}}
+<div><h2>{{if .Round.Name}}{{.Round.Name}}{{else}}{{t "Rodada"}}{{end}}</h2><p class="hint">{{t "Iniciada em"}} {{localTime .Round.StartedAt}}{{if .Round.EndedAt.Valid}} {{t "· Encerrada"}}{{end}}</p></div>
+{{if not .Round.EndedAt.Valid}}<form method="post" action="/round/end"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="id" value="{{.Round.ID}}"><button class="secondary">{{t "Encerrar QSO"}}</button></form>{{end}}
 </div>
 {{if not .Round.EndedAt.Valid}}
 <section class="quick-add" aria-labelledby="add-title">
-<h2 id="add-title" class="sr-only">Adicionar participante</h2>
+<h2 id="add-title" class="sr-only">{{t "Adicionar participante"}}</h2>
 <form method="post" action="/participant">
 <input type="hidden" name="csrf" value="{{.Token}}">
 {{template "participant-fields" .}}
-<button type="submit">Adicionar à rodada</button>
+<button type="submit">{{t "Adicionar à rodada"}}</button>
 </form>
 </section>
 {{end}}
-<div class="table-scroll" tabindex="0" role="region" aria-label="Participantes da rodada">
+<div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Participantes da rodada"}}">
 <table class="qso-table">
-<caption>{{if .Round.EndedAt.Valid}}Participantes da rodada encerrada{{else}}Rodada atual{{end}}</caption>
-<thead><tr><th>Indicativo</th><th>Nome</th><th>Cidade / UF</th><th>Observações</th><th>Contato / presença</th></tr></thead>
+<caption>{{if .Round.EndedAt.Valid}}{{t "Participantes da rodada encerrada"}}{{else}}{{t "Rodada atual"}}{{end}}</caption>
+<thead><tr><th>{{t "Indicativo"}}</th><th>{{t "Nome"}}</th><th>{{t "Cidade / UF"}}</th><th>{{t "Observações"}}</th><th>{{t "Contato / presença"}}</th></tr></thead>
 <tbody>{{range .Participants}}<tr {{if not .Active}}class="qrt-row"{{end}}>
-<th scope="row"><a href="/history?q={{.Callsign}}" title="Consultar contatos anteriores">{{.Callsign}}</a><span class="cell-detail">{{.Mode}}</span>
-<span class="presence {{if not .Active}}is-qrt{{end}}">{{if .Active}}{{if $.Round.EndedAt.Valid}}Presente ao encerrar{{else}}Ativo{{end}}{{else}}QRT{{end}}</span></th>
+<th scope="row"><a href="/history?q={{.Callsign}}" title="{{t "Consultar contatos anteriores"}}">{{.Callsign}}</a><span class="cell-detail">{{.Mode}}</span>
+<span class="presence {{if not .Active}}is-qrt{{end}}">{{if .Active}}{{if $.Round.EndedAt.Valid}}{{t "Presente ao encerrar"}}{{else}}{{t "Ativo"}}{{end}}{{else}}QRT{{end}}</span></th>
 <td>{{.Name}}</td>
 <td>{{.City}}{{if and .City .State}} / {{end}}{{.State}}{{if .Country}}<span class="cell-detail">{{.Country}}</span>{{end}}</td>
 <td class="round-notes">
-{{if .Station.Notes}}<p><span class="note-kind">Operador</span><span class="note-text">{{.Station.Notes}}</span></p>{{end}}
-{{if .Notes}}<p><span class="note-kind">Conversa</span><span class="note-text">{{.Notes}}</span></p>{{end}}</td>
+{{if .Station.Notes}}<p><span class="note-kind">{{t "Operador"}}</span><span class="note-text">{{.Station.Notes}}</span></p>{{end}}
+{{if .Notes}}<p><span class="note-kind">{{t "Conversa"}}</span><span class="note-text">{{.Notes}}</span></p>{{end}}</td>
 <td><div class="row-actions">
-{{if .QSOID.Valid}}<a class="recorded" href="/contact?id={{.QSOID.Int64}}">QSO registrado<span class="sr-only"> com {{.Callsign}}</span></a>
-{{else if not $.Round.EndedAt.Valid}}<form method="post" action="/participant/record"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><button type="submit">Registrar QSO<span class="sr-only"> com {{.Callsign}}</span></button></form>
-{{else}}<span class="hint">Sem QSO confirmado</span>{{end}}
+{{if .QSOID.Valid}}<a class="recorded" href="/contact?id={{.QSOID.Int64}}">{{t "QSO registrado"}}<span class="sr-only"> {{t "com"}} {{.Callsign}}</span></a>
+{{else if not $.Round.EndedAt.Valid}}<form method="post" action="/participant/record"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><button type="submit">{{t "Registrar QSO"}}<span class="sr-only"> {{t "com"}} {{.Callsign}}</span></button></form>
+{{else}}<span class="hint">{{t "Sem QSO confirmado"}}</span>{{end}}
 {{if not $.Round.EndedAt.Valid}}
-<form method="post" action="/participant/status"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="active" value="{{if .Active}}0{{else}}1{{end}}"><button class="secondary">{{if .Active}}QRT{{else}}Voltou{{end}}<span class="sr-only"> · {{.Callsign}}</span></button></form>
-<details class="participant-options"><summary>Mais<span class="sr-only"> opções para {{.Callsign}}</span></summary>
-<div class="row-actions"><a href="/participant?id={{.ID}}" data-edit-participant aria-controls="participant-edit-{{.ID}}" aria-expanded="false">Editar<span class="sr-only"> {{.Callsign}}</span></a>
-<form method="post" action="/participant/remove"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="text-button">Remover<span class="sr-only"> {{.Callsign}} da lista</span></button></form></div>
+<form method="post" action="/participant/status"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="active" value="{{if .Active}}0{{else}}1{{end}}"><button class="secondary">{{if .Active}}QRT{{else}}{{t "Voltou"}}{{end}}<span class="sr-only"> · {{.Callsign}}</span></button></form>
+<details class="participant-options"><summary>{{t "Mais"}}<span class="sr-only"> {{t "opções para"}} {{.Callsign}}</span></summary>
+<div class="row-actions"><a href="/participant?id={{.ID}}" data-edit-participant aria-controls="participant-edit-{{.ID}}" aria-expanded="false">{{t "Editar"}}<span class="sr-only"> {{.Callsign}}</span></a>
+<form method="post" action="/participant/remove"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="text-button">{{t "Remover"}}<span class="sr-only"> {{.Callsign}} {{t "da lista"}}</span></button></form></div>
 </details>{{end}}
 </div></td></tr>
 {{if not $.Round.EndedAt.Valid}}<tr id="participant-edit-{{.ID}}" class="participant-editor" hidden><td colspan="5">
-<form method="post" action="/participant" aria-label="Editar {{.Callsign}}">
+<form method="post" action="/participant" aria-label="{{t "Editar"}} {{.Callsign}}">
 <input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}">
 {{template "participant-fields" .}}
-<div class="actions"><button type="submit">Salvar alterações</button><a href="/round">Cancelar</a></div>
-<p class="hint">QSOs já registrados permanecem como estavam. <a href="/station?id={{.StationID}}">Editar cadastro e observações permanentes do operador</a>.</p>
+<div class="actions"><button type="submit">{{t "Salvar alterações"}}</button><a href="/round">{{t "Cancelar"}}</a></div>
+<p class="hint">{{t "QSOs já registrados permanecem como estavam."}} <a href="/station?id={{.StationID}}">{{t "Editar cadastro e observações permanentes do operador"}}</a>.</p>
 </form></td></tr>{{end}}
-{{else}}<tr><td colspan="5">A rodada está vazia. Digite um indicativo acima para começar.</td></tr>{{end}}</tbody>
+{{else}}<tr><td colspan="5">{{t "A rodada está vazia. Digite um indicativo acima para começar."}}</td></tr>{{end}}</tbody>
 </table></div>
-<p class="hint">QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato.</p>
+<p class="hint">{{t "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato."}}</p>
 {{end}}{{end}}
 
 {{define "start-round"}}<form class="start-round" method="post" action="/round/start">
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="previous_round" value="{{.PreviousRound}}">
-<label>Nome da rodada <span class="hint">Opcional, por exemplo TG Brasil · DMR</span><input name="name" maxlength="120" autocomplete="off"></label>
-<button>Iniciar QSO</button>
+<label>{{t "Nome da rodada"}} <span class="hint">{{t "Opcional, por exemplo TG Brasil · DMR"}}</span><input name="name" maxlength="120" autocomplete="off"></label>
+<button>{{t "Iniciar QSO"}}</button>
 </form>{{end}}
 
 {{define "dashboard"}}
-<div class="dashboard-intro"><div><p class="contact-total">{{.ContactCount}}</p><p>contatos confirmados no seu caderno</p></div>
-{{if .Round.ID}}<div><p class="hint">Uma rodada está em andamento{{if .Round.Name}} · {{.Round.Name}}{{end}}.</p><a class="button" href="/round">Continuar QSO</a></div>{{else}}{{template "start-round" .}}{{end}}</div>
+<div class="dashboard-intro"><div><p class="contact-total">{{.ContactCount}}</p><p>{{t "contatos confirmados no seu caderno"}}</p></div>
+{{if .Round.ID}}<div><p class="hint">{{t "Uma rodada está em andamento"}}{{if .Round.Name}} · {{.Round.Name}}{{end}}.</p><a class="button" href="/round">{{t "Continuar QSO"}}</a></div>{{else}}{{template "start-round" .}}{{end}}</div>
 {{template "contact-map" .}}
-{{if .Rounds}}<section aria-labelledby="rounds-title"><h2 id="rounds-title">Suas rodadas</h2><ul class="round-list">{{range .Rounds}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Name}}{{else}}Rodada{{end}}</a><span class="hint">{{localTime .StartedAt}} · {{if .EndedAt.Valid}}Encerrada{{else}}Em andamento{{end}}</span></li>{{end}}</ul><p class="hint">Últimas 50 rodadas. Os contatos continuam disponíveis no Caderno.</p></section>{{end}}
+{{if .Rounds}}<section aria-labelledby="rounds-title"><h2 id="rounds-title">{{t "Suas rodadas"}}</h2><ul class="round-list">{{range .Rounds}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Name}}{{else}}{{t "Rodada"}}{{end}}</a><span class="hint">{{localTime .StartedAt}} · {{if .EndedAt.Valid}}{{t "Encerrada"}}{{else}}{{t "Em andamento"}}{{end}}</span></li>{{end}}</ul><p class="hint">{{t "Últimas 50 rodadas. Os contatos continuam disponíveis no Caderno."}}</p></section>{{end}}
 {{end}}
 
 {{define "contact-map"}}<section class="map-section" aria-labelledby="map-title">
-<div class="toolbar"><h2 id="map-title">Cidades no seu caderno</h2>
-{{if .MapEnabled}}<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="0"><button class="text-button">Desativar mapa</button></form>{{end}}</div>
+<div class="toolbar"><h2 id="map-title">{{t "Cidades no seu caderno"}}</h2>
+{{if .MapEnabled}}<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="0"><button class="text-button">{{t "Desativar mapa"}}</button></form>{{end}}</div>
 {{if .MapEnabled}}
-<p class="hint">Pontos aproximados por cidade, somente de contatos confirmados. Selecione um ponto para consultar os contatos.</p>
-<div id="contact-map" data-tiles="{{.MapTilesURL}}" role="region" aria-label="Mapa das cidades dos contatos"></div>
-<p id="map-status" class="hint" role="status" aria-live="polite">As cidades e seus contatos também estão na lista abaixo. Coordenadas já localizadas ficam salvas neste computador.</p>
-<noscript><p class="hint">Ative o JavaScript para o mapa interativo. A lista de cidades funciona sem JavaScript.</p></noscript>
+<p class="hint">{{t "Pontos aproximados por cidade, somente de contatos confirmados. Selecione um ponto para consultar os contatos."}}</p>
+<div id="contact-map" data-tiles="{{.MapTilesURL}}" role="region" aria-label="{{t "Mapa das cidades dos contatos"}}"></div>
+<p id="map-status" class="hint" role="status" aria-live="polite">{{t "As cidades e seus contatos também estão na lista abaixo. Coordenadas já localizadas ficam salvas neste computador."}}</p>
+<noscript><p class="hint">{{t "Ative o JavaScript para o mapa interativo. A lista de cidades funciona sem JavaScript."}}</p></noscript>
 {{else}}
-<div class="map-placeholder"><p>Veja por onde suas conversas passaram.</p><p class="hint">Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita.</p>
-<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="1"><button>Ativar mapa</button></form></div>
+<div class="map-placeholder"><p>{{t "Veja por onde suas conversas passaram."}}</p><p class="hint">{{t "Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita."}}</p>
+<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="1"><button>{{t "Ativar mapa"}}</button></form></div>
 {{end}}
-<p class="hint">Dados © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a> · <a href="https://operations.osmfoundation.org/policies/tiles/" rel="noreferrer">Uso do mapa</a> · <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noreferrer">Uso da geocodificação</a>. Buscas de cidades são manuais. Sem internet, o caderno continua funcionando.</p>
-<details class="city-details"><summary>Cidades dos contatos · {{len .MapCities}}</summary>
+<p class="hint">{{t "Dados ©"}} <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a> · <a href="https://operations.osmfoundation.org/policies/tiles/" rel="noreferrer">{{t "Uso do mapa"}}</a> · <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noreferrer">{{t "Uso da geocodificação"}}</a>{{t ". Buscas de cidades são manuais. Sem internet, o caderno continua funcionando."}}</p>
+<details class="city-details"><summary>{{t "Cidades dos contatos ·"}} {{len .MapCities}}</summary>
 <ul class="city-list">{{range .MapCities}}<li {{if .Latitude.Valid}}data-map-city data-lat="{{.Latitude.Float64}}" data-lon="{{.Longitude.Float64}}" data-count="{{.Count}}"{{end}}>
-<div><a data-city-link href="/history?city={{.City}}&state={{.State}}&country={{.Country}}">{{.City}}{{if .State}} / {{.State}}{{end}}{{if .Country}} · {{.Country}}{{end}}</a><span class="cell-detail">{{.Count}} contato(s) confirmado(s){{if .Latitude.Valid}} · Localizada{{else if .CheckedAt.Valid}} · Não localizada{{end}}</span></div>
-{{if and $.MapEnabled (not .CheckedAt.Valid)}}<form method="post" action="/map/locate"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="city" value="{{.City}}"><input type="hidden" name="state" value="{{.State}}"><input type="hidden" name="country" value="{{.Country}}"><button class="secondary">Localizar cidade</button></form>{{end}}
-</li>{{else}}<li>Nenhuma cidade informada em contatos confirmados.</li>{{end}}</ul></details>
+<div><a data-city-link href="/history?city={{.City}}&state={{.State}}&country={{.Country}}">{{.City}}{{if .State}} / {{.State}}{{end}}{{if .Country}} · {{.Country}}{{end}}</a><span class="cell-detail">{{.Count}} {{t "contato(s) confirmado(s)"}}{{if .Latitude.Valid}} {{t "· Localizada"}}{{else if .CheckedAt.Valid}} {{t "· Não localizada"}}{{end}}</span></div>
+{{if and $.MapEnabled (not .CheckedAt.Valid)}}<form method="post" action="/map/locate"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="city" value="{{.City}}"><input type="hidden" name="state" value="{{.State}}"><input type="hidden" name="country" value="{{.Country}}"><button class="secondary">{{t "Localizar cidade"}}</button></form>{{end}}
+</li>{{else}}<li>{{t "Nenhuma cidade informada em contatos confirmados."}}</li>{{end}}</ul></details>
 </section>{{end}}

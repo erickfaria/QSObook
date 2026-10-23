@@ -25,13 +25,13 @@ func main() {
 func run() error {
 	dbPath := flag.String("db", "", "caminho SQLite (padrão: diretório de dados do usuário)")
 	addr := flag.String("addr", "127.0.0.1:8080", "endereço HTTP em loopback")
+	container := flag.Bool("container", false, "allow 0.0.0.0 inside a container; publish its port on host loopback only")
 	zone := flag.String("timezone", "America/Sao_Paulo", "fuso IANA para apresentação")
 	tiles := flag.String("map-tiles-url", defaultMapTiles, "URL de tiles com {z}/{x}/{y}; usado apenas com mapa ativado")
 	geocoder := flag.String("geocoder-url", defaultGeocoder, "URL de geocodificação; consultas manuais de cidades com mapa ativado")
 	flag.Parse()
-	host, _, err := net.SplitHostPort(*addr)
-	if err != nil || net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback() {
-		return errors.New("-addr deve usar um IP de loopback, por exemplo 127.0.0.1:8080")
+	if err := validateListenAddress(*addr, *container); err != nil {
+		return err
 	}
 	if *dbPath == "" {
 		base := os.Getenv("XDG_DATA_HOME")
@@ -89,4 +89,15 @@ func run() error {
 		return nil
 	}
 	return err
+}
+
+// Containers need an internal bridge listener. This explicit opt-in does not
+// change the Host/Origin/CSRF rules or the default standalone loopback listener.
+func validateListenAddress(addr string, container bool) error {
+	host, _, err := net.SplitHostPort(addr)
+	ip := net.ParseIP(host)
+	if err != nil || ip == nil || (!ip.IsLoopback() && !(container && host == "0.0.0.0")) {
+		return errors.New("-addr requires a loopback IP; 0.0.0.0 is allowed only with -container and a host-loopback port mapping")
+	}
+	return nil
 }

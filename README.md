@@ -4,7 +4,7 @@
 
 A small, free, self-hosted amateur radio notebook. Keep track of operators during a roundtable and record only the contacts you actually confirm.
 
-Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. The interface is currently in Brazilian Portuguese; this documentation is in English.
+Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English.
 
 ## A calm home screen
 
@@ -20,7 +20,7 @@ Add a callsign, name and city without leaving the current roundtable. Known call
 
 ![QSO mode showing participants, separate operator and conversation notes, and explicit QSO confirmation](docs/screenshots/qso-mode.png)
 
-Screenshots use demonstration data with fictitious operators and callsigns. The example roundtable includes two confirmed contacts and one participant marked QRT without a confirmed contact. No personal database is included.
+Screenshots use demonstration data with fictitious operators and callsigns. The desktop example includes two confirmed contacts and one participant marked QRT without a confirmed contact. The phone example below uses two participants and one confirmed contact. No personal database is included.
 
 **Adding a participant does not record a QSO.** Click **Registrar QSO** (Record QSO) once you have actually made contact. Repeated or simultaneous confirmations create at most one QSO for that participation. Adding someone already in the list preserves their mode, conversation notes and confirmation status.
 
@@ -82,6 +82,26 @@ Provider URLs can be changed without updating the application, for example to us
 
 Tiles must be compatible with Leaflet's XYZ format and geocoding must accept Nominatim's structured query and JSON format. URLs require HTTPS, with HTTP allowed for loopback services. Review a provider's privacy and usage terms before enabling it. Leaflet 1.9.4 and its assets are embedded locally under BSD-2-Clause; no runtime CDN, npm toolchain or Leaflet plugin is used.
 
+## Languages and phone layout
+
+Open **Preferências / Preferences / Preferencias / Préférences** in the header. Choose **Português**, **English**, **Español** or **Français** and apply. Portuguese is the default. The choice is saved in a local browser cookie for future visits; no external service or account is used. Save drafts first: applying changes the current page language and reloads it. Names, places, notes, callsigns and historical snapshots are never translated or rewritten.
+
+Light, dark and system themes are available in the same preferences area. On phones, participants appear as compact rows with notes and touch-sized actions; the normal table remains on desktop. Registration and language selection also work without JavaScript.
+
+<img src="docs/screenshots/qso-mobile.png" alt="Phone layout with two fictitious participants, one confirmed QSO and one QRT" width="390">
+
+## Docker Compose
+
+You can build and run locally without publishing an image or creating a Docker Hub account. Install Docker Engine and the Compose plugin first, then from this repository:
+
+```sh
+docker compose up -d --build
+```
+
+Open **http://127.0.0.1:8080**. SQLite stays in the named `qsobook_data` volume when the container is recreated. `docker compose stop` stops the app; `docker compose start` resumes it. Never delete the data volume or use `down -v` to update.
+
+Read the [step-by-step Docker guide](docs/DOCKER.md) for prerequisites, Raspberry Pi, local ports, offline backups, updates and troubleshooting. The default container deployment remains local-only. It does not automatically import your standalone notebook or enable direct LAN/phone access.
+
 ## Build
 
 Requires **Go 1.24.4 or compatible**. SQLite, a C compiler and frontend build tools are not required. The module path and declared Go version are unchanged.
@@ -117,7 +137,7 @@ Choose another database, loopback port and time zone with:
 ./bin/qsobook -db "$HOME/.local/share/qsobook/my-notebook.db" -addr 127.0.0.1:8081 -timezone America/Sao_Paulo
 ```
 
-The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC display. Time comes from the host clock, without an external time service. The `-addr` flag accepts loopback IPs only. There is no authentication: this version assumes trusted local users. Do not expose it to the internet or add a proxy/LAN access before defining authentication, TLS and the access model. See [SECURITY.md](SECURITY.md).
+The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC display. Time comes from the host clock, without an external time service. In standalone mode, `-addr` accepts loopback IPs only. The explicit `-container` flag additionally permits `0.0.0.0` inside the container network; the supplied Compose file publishes only on host loopback. Host, Origin and CSRF restrictions stay in place. There is no authentication: this version assumes trusted local users. Do not expose it to the internet or add a proxy/LAN access before defining authentication, TLS and the access model. See [SECURITY.md](SECURITY.md).
 
 ## Upgrading and preserving data
 
@@ -129,7 +149,7 @@ There is no in-app backup/restore, import/export or ADIF feature yet. The applic
 
 ## Continuous integration
 
-[GitHub Actions](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml) validates pull requests targeting `main`, pushes to `main` and manual runs. The workflow checks Go formatting, pinned module integrity, Go tests, `go vet`, JavaScript syntax/regressions and native Linux AMD64/ARM64 builds with CGO disabled. It also checks that validation does not modify tracked sources.
+[GitHub Actions](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml) validates pull requests targeting `main`, pushes to `main` and manual runs. The workflow checks Go formatting, pinned module integrity, Go tests, `go vet`, JavaScript syntax/regressions and native Linux AMD64/ARM64 builds with CGO disabled. It also builds the Docker image and smoke-tests Compose on each architecture, including non-root execution, local port binding, writes, repeated submissions and persistence after container recreation. It also checks that validation does not modify tracked sources.
 
 CI uses the Go version declared in `go.mod` and Node.js 24 solely for the built-in JavaScript test runner, without npm packages. Official setup actions are pinned to full commit IDs; the workflow token has read-only repository contents access and checkout credentials are not persisted. CI uses temporary test databases and fake map providers, never personal data or public geocoding requests. Native ARM64 CI does not replace testing on a Raspberry Pi with Debian.
 
@@ -149,7 +169,7 @@ JavaScript tests optionally use Node.js and its built-in test runner:
 node --test tests/*.test.cjs
 ```
 
-No npm packages are required. The tests run lookup/form behavior against a simulated DOM with controlled requests and timers, and verify theme persistence, system changes and unavailable browser storage. They do not replace real browser testing.
+No npm packages are required. The tests run lookup/form behavior against a simulated DOM with controlled requests and timers, and verify translated browser messages, theme persistence, system changes and unavailable browser storage. They do not replace real browser testing.
 
 To keep development caches and temporary files inside the repository:
 
@@ -161,7 +181,7 @@ export GOTMPDIR="$PWD/.cache/tmp"
 export TMPDIR="$PWD/.cache/tmp"
 ```
 
-The UI uses labels, visible keyboard focus, responsive forms and horizontal scrolling confined to the participant table. Desktop layout, local lookup, theme selection/persistence and phone/tablet widths have been checked in the browser. A real geographic-only Nominatim request, loaded OpenStreetMap tiles, a city marker and its filtered-history link were also checked with fictitious contact data. POSTs in the integrated browser were blocked by its mediated origin; writes were checked through HTTP tests and valid-origin local requests. Full testing on a physical phone and with assistive technology remains pending. Security controls were kept in place.
+The UI uses labels, visible keyboard focus, responsive forms and compact QSO rows on phones. Other wide tables keep horizontal scrolling inside their own regions. Desktop layout, local lookup, theme selection/persistence and phone/tablet widths have been checked in the browser. A real geographic-only Nominatim request, loaded OpenStreetMap tiles, a city marker and its filtered-history link were also checked with fictitious contact data. POSTs in the integrated browser were blocked by its mediated origin; writes were checked through HTTP tests and valid-origin local requests. Full testing on a physical phone and with assistive technology remains pending. Security controls were kept in place.
 
 ## Manual QSO checklist
 
@@ -181,7 +201,8 @@ Use a separate database for fictitious test records:
 8. In a second tab, keep an old record/remove form open. Remove that participant and add another in the first tab. The old action should return not found and leave the new participant untouched.
 9. Mark a participant **QRT**, then **Voltou**. Confirm that presence changes without a new QSO. End the roundtable, consult it from the home screen and start a new one with the same operator. The old roundtable and contacts should remain intact.
 10. Choose light, dark and system themes, then navigate/reload. Stop and restart with the same database. Check persistence, keyboard navigation and the fallback without JavaScript.
-11. The map starts disabled. Enable it after reading the disclosure, locate a city with a confirmed contact, reload and open its marker/history. Disable it and confirm the local notebook remains usable without map requests. Public providers must only be exercised manually and sparingly; use fake local providers for automated tests.
+11. Open Preferences, apply each of the four languages and navigate/reload. Check validation and known-callsign lookup in each language; saved names, notes and confirmed contacts must stay unchanged. Try QSO mode at phone widths, including the inline editor and light/dark themes.
+12. The map starts disabled. Enable it after reading the disclosure, locate a city with a confirmed contact, reload and open its marker/history. Disable it and confirm the local notebook remains usable without map requests. Public providers must only be exercised manually and sparingly; use fake local providers for automated tests.
 
 ## Structure and maintenance
 
@@ -197,6 +218,10 @@ migration_test.go       migration preservation and rollback tests
 web_test.go             HTTP workflows and security tests
 rounds_test.go          lifecycle, QRT and migration regressions
 map_test.go             privacy, cache and provider-failure regressions
+locale.go / locales/    local UI translations and language preference
+locale_test.go          language coverage, security and data-preservation checks
+Dockerfile / compose.yaml  local container build and persistent deployment
+tests/container_smoke.py  disposable container integration checks
 tests/*.test.cjs        JavaScript regressions using built-in modules
 migrations/             versioned SQL schema
 templates/              HTML interface
