@@ -14,8 +14,8 @@ import (
 	"strings"
 )
 
-// Additional hosts are an explicit private-network opt-in. A password is
-// mandatory for that mode; local-only use retains the existing defaults.
+// Additional hosts are an explicit private-network opt-in. Authentication is
+// optional; without it, access is controlled by the deployment network.
 func (a *App) configureAccess(passwordFile, hosts string) error {
 	allowed := make(map[string]bool)
 	for _, entry := range strings.Split(hosts, ",") {
@@ -34,9 +34,6 @@ func (a *App) configureAccess(passwordFile, hosts string) error {
 		allowed[entry] = true
 	}
 	if passwordFile == "" {
-		if len(allowed) != 0 {
-			return errors.New("additional hosts require -password-file; do not expose an unauthenticated notebook")
-		}
 		a.allowedHosts = allowed
 		a.passwordHash = nil
 		return nil

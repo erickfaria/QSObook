@@ -7,7 +7,7 @@ name: Publish beta
         description: 'New beta version, e.g. v0.1.0-beta.1 (never reuse a version)'
         required: true
         type: string
-        default: v0.1.0-beta.1
+        default: v0.1.0-beta.2
 
 permissions:
   contents: read
@@ -74,6 +74,7 @@ jobs:
             --label "org.opencontainers.image.version=$VERSION" --tag "$image" .
           QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.release.yaml python3 tests/container_smoke.py
           QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.lan.yaml python3 tests/container_smoke.py
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.auth.yaml python3 tests/container_smoke.py
 
       - name: Push tested architecture image using the temporary repository token
         env:
@@ -164,14 +165,14 @@ jobs:
           import os
           from pathlib import Path
           image = f"{os.environ['IMAGE']}:{os.environ['VERSION']}@{os.environ['DIGEST']}"
-          for source, destination in [('compose.release.yaml', 'compose.yaml'), ('compose.lan.yaml', 'compose.lan.yaml')]:
+          for source, destination in [('compose.release.yaml', 'compose.yaml'), ('compose.lan.yaml', 'compose.lan.yaml'), ('compose.auth.yaml', 'compose.auth.yaml')]:
               text = Path(source).read_text().replace('ghcr.io/erickfaria/qsobook:beta', image)
               Path('release-assets', destination).write_text(text)
           Path('release-assets/image-digest.txt').write_text(image + '\n')
           PY
           cp image-manifest.json release-assets/
           cd release-assets
-          sha256sum compose.yaml compose.lan.yaml image-digest.txt image-manifest.json > SHA256SUMS
+          sha256sum compose.yaml compose.lan.yaml compose.auth.yaml image-digest.txt image-manifest.json > SHA256SUMS
 
       - name: Publish the beta release and update the opt-in beta channel
         run: |

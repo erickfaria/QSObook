@@ -18,13 +18,10 @@ func accessPassword(t *testing.T, password string) string {
 	return path
 }
 
-func TestNetworkAccessRequiresPasswordAndExplicitHosts(t *testing.T) {
+func TestOptionalPasswordAndExplicitHosts(t *testing.T) {
 	a := testApp(t)
 	password := "synthetic-test-password-only"
 	file := accessPassword(t, password+"\n")
-	if err := a.configureAccess("", "tortuga.local:8088"); err == nil {
-		t.Fatal("network allowed without authentication")
-	}
 	for _, hosts := range []string{"*", "http://tortuga.local:8088", "tortuga.local", "tortuga.local:0", "tortuga.local:65536", "bad/name:8088", "tortuga.local:abc"} {
 		if err := a.configureAccess(file, hosts); err == nil {
 			t.Errorf("accepted unsafe host list %q", hosts)
@@ -105,5 +102,59 @@ func TestAccessPasswordValidationAndLocalDefaults(t *testing.T) {
 	}
 	if w := request(a, "GET", "/", nil); w.Code != 200 {
 		t.Fatalf("local mode: %d", w.Code)
+	}
+}
+
+func TestNetworkAccessWithoutPassword(t *testing.T) {
+	a := testApp(t)
+	if err := a.configureAccess("", "tortuga.local:18088,100.101.102.103:18088"); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		host string
+		code int
+	}{
+		{"tortuga.local:18088", 200}, {"100.101.102.103:18088", 200},
+		{"evil.example:18088", 403}, {"tortuga.local:18089", 403},
+	} {
+		r := httptest.NewRequest("GET", "http://"+tc.host+"/", nil)
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		if w.Code != tc.code || w.Header().Get("WWW-Authenticate") != "" || w.Header().Get("X-Frame-Options") != "DENY" {
+			t.Errorf("host %s: status %d headers %v", tc.host, w.Code, w.Header())
+		}
+	}
+	for _, tc := range []struct {
+		origin, token string
+		code          int
+	}{
+		{"http://100.101.102.103:18088", a.token, 303},
+		{"http://evil.example:18088", a.token, 403},
+		{"http://100.101.102.103:18089", a.token, 403},
+		{"http://100.101.102.103:18088", "wrong", 403},
+	} {
+		form := url.Values{"csrf": {tc.token}, "language": {"en"}, "return_to": {"/round"}}
+		r := httptest.NewRequest("POST", "http://100.101.102.103:18088/language", strings.NewReader(form.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("Origin", tc.origin)
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		if w.Code != tc.code {
+			t.Errorf("origin %s: got %d want %d", tc.origin, w.Code, tc.code)
+		}
+	}
+	// A configured but invalid password must fail, never silently disable authentication.
+	file := accessPassword(t, "synthetic-valid-password")
+	if err := a.configureAccess(file, "tortuga.local:18088"); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.configureAccess(filepath.Join(t.TempDir(), "missing"), "tortuga.local:18088"); err == nil {
+		t.Fatal("missing password accepted")
+	}
+	r := httptest.NewRequest("GET", "http://tortuga.local:18088/", nil)
+	w := httptest.NewRecorder()
+	a.ServeHTTP(w, r)
+	if w.Code != 401 {
+		t.Fatalf("failed configuration disabled authentication: %d", w.Code)
 	}
 }

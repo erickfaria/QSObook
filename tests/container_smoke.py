@@ -30,7 +30,9 @@ compose_file = os.environ.get("QSOBOOK_COMPOSE_FILE", "compose.yaml")
 compose = ["docker", "compose", "--project-name", project, "--file", compose_file]
 private_files = tempfile.TemporaryDirectory(prefix=project + "-")
 auth_headers = {}
-if compose_file == "compose.lan.yaml":
+if compose_file in ("compose.lan.yaml", "compose.auth.yaml"):
+    env.update(QSOBOOK_BIND_ADDRESS="127.0.0.1", QSOBOOK_ALLOWED_HOSTS=f"tortuga.local:{port}")
+if compose_file == "compose.auth.yaml":
     password = "synthetic-password-" + uuid.uuid4().hex
     password_file = Path(private_files.name) / "password"
     password_file.write_text(password + "\n")
@@ -81,8 +83,10 @@ try:
             raise AssertionError("Unauthenticated LAN request accepted")
         except urllib.error.HTTPError as error:
             assert error.code == 401
+    if compose_file in ("compose.lan.yaml", "compose.auth.yaml"):
         with opener.open(urllib.request.Request(base, headers={**auth_headers, "Host": f"tortuga.local:{port}"}), timeout=5) as response:
             assert response.status == 200
+            assert response.headers.get("WWW-Authenticate") is None
     container = run("ps", "--quiet", "qsobook", capture=True).strip()
     info = json.loads(subprocess.check_output(["docker", "inspect", container], text=True))[0]
     assert info["Config"]["User"] == "10001:10001"

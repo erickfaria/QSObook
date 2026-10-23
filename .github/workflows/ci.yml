@@ -93,6 +93,7 @@ jobs:
           docker build --tag "$image" .
           QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.release.yaml python3 tests/container_smoke.py
           QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.lan.yaml python3 tests/container_smoke.py
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.auth.yaml python3 tests/container_smoke.py
 
       - name: Check source remains unchanged
         run: |

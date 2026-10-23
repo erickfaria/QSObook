@@ -30,7 +30,7 @@ func run() error {
 	tiles := flag.String("map-tiles-url", defaultMapTiles, "URL de tiles com {z}/{x}/{y}; usado apenas com mapa ativado")
 	geocoder := flag.String("geocoder-url", defaultGeocoder, "URL de geocodificação; consultas manuais de cidades com mapa ativado")
 	passwordFile := flag.String("password-file", "", "file containing the local access password (username: qsobook)")
-	allowedHosts := flag.String("allowed-hosts", "", "additional private-network host:port entries; requires -password-file")
+	allowedHosts := flag.String("allowed-hosts", "", "additional private-network host:port entries (password optional)")
 	flag.Parse()
 	if err := validateListenAddress(*addr, *container); err != nil {
 		return err
