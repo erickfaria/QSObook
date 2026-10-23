@@ -391,3 +391,97 @@ func TestInvalidEditPreservesRecord(t *testing.T) {
 		t.Fatalf("edit duplicated record: %+v %v", list, err)
 	}
 }
+
+// Ordinary browser form submissions must retain their Origin. no-referrer
+// changes it to null, even for same-origin forms, so every POST is rejected.
+func TestBrowserFormsKeepOriginAndPersist(t *testing.T) {
+	a, err := newApp(testStore(t), time.UTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const host = "192.168.1.93:18088"
+	if err := a.configureAccess("", host); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/", "/round", "/contact"} {
+		r := httptest.NewRequest("GET", "http://"+host+path, nil)
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		if w.Code != 200 || w.Header().Get("Referrer-Policy") != "same-origin" {
+			t.Fatalf("browser policy %s: %d %v", path, w.Code, w.Header())
+		}
+	}
+	for _, tc := range []struct {
+		path   string
+		fields url.Values
+	}{
+		{"/round/start", url.Values{"previous_round": {"0"}, "name": {"Browser round"}}},
+		{"/map/preference", url.Values{"enabled": {"1"}}},
+		{"/contact", url.Values{"callsign": {"ZZ0BROWSER"}, "name": {"Example operator"}, "city": {"Example city"}, "mode": {"FM"}, "notes": {"Example conversation"}}},
+	} {
+		tc.fields.Set("csrf", a.token)
+		r := httptest.NewRequest("POST", "http://"+host+tc.path, strings.NewReader(tc.fields.Encode()))
+		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		r.Header.Set("Origin", "http://"+host)
+		r.Header.Set("Sec-Fetch-Site", "same-origin")
+		w := httptest.NewRecorder()
+		a.ServeHTTP(w, r)
+		if w.Code != 303 {
+			t.Fatalf("browser POST %s: %d %s", tc.path, w.Code, w.Body)
+		}
+	}
+	ctx := context.Background()
+	enabled, err := a.store.mapEnabled(ctx)
+	if err != nil || !enabled {
+		t.Fatalf("map preference not saved: %v %v", enabled, err)
+	}
+	contacts, err := a.store.contacts(ctx, "ZZ0BROWSER")
+	if err != nil || len(contacts) != 1 || contacts[0].Notes != "Example conversation" {
+		t.Fatalf("contact not saved: %+v %v", contacts, err)
+	}
+	w := request(a, "GET", "/round", nil)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "Browser round") {
+		t.Fatalf("round not saved: %d %s", w.Code, w.Body)
+	}
+}
+
+func TestBrowserFormsStillRejectUntrustedRequests(t *testing.T) {
+	a, err := newApp(testStore(t), time.UTC)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const host = "192.168.1.93:18088"
+	if err := a.configureAccess("", host); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"/round/start", "/map/preference", "/contact"} {
+		for _, tc := range []struct{ origin, fetchSite, token string }{
+			{"null", "same-origin", a.token},
+			{"http://evil.example:18088", "cross-site", a.token},
+			{"http://192.168.1.93:18089", "same-site", a.token},
+			{"https://192.168.1.93:18088", "same-origin", a.token},
+			{"http://" + host, "cross-site", a.token},
+			{"http://" + host, "same-origin", "wrong"},
+		} {
+			form := url.Values{"csrf": {tc.token}, "previous_round": {"0"}, "enabled": {"1"}, "callsign": {"ZZ0UNTRUSTED"}, "mode": {"FM"}}
+			r := httptest.NewRequest("POST", "http://"+host+path, strings.NewReader(form.Encode()))
+			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			r.Header.Set("Origin", tc.origin)
+			r.Header.Set("Sec-Fetch-Site", tc.fetchSite)
+			w := httptest.NewRecorder()
+			a.ServeHTTP(w, r)
+			if w.Code != 403 {
+				t.Errorf("%s origin=%q site=%q: %d", path, tc.origin, tc.fetchSite, w.Code)
+			}
+		}
+	}
+	var rounds, contacts, enabled int
+	for query, target := range map[string]*int{"SELECT count(*) FROM rounds": &rounds, "SELECT count(*) FROM qsos": &contacts, "SELECT map_enabled FROM app_settings WHERE id=1": &enabled} {
+		if err := a.store.db.QueryRow(query).Scan(target); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if rounds != 0 || contacts != 0 || enabled != 0 {
+		t.Fatalf("rejected request changed data: rounds=%d contacts=%d map=%d", rounds, contacts, enabled)
+	}
+}
