@@ -7,7 +7,8 @@
     status.textContent = window.qsobookText("Não foi possível abrir o mapa. Seus contatos estão na lista de cidades.");
     return;
   }
-  const map = L.map(container, {scrollWheelZoom: false}).setView([0, 0], 2);
+  const map = L.map(container, {scrollWheelZoom: false, zoomControl: false}).setView([0, 0], 2);
+  L.control.zoom({zoomInTitle: window.qsobookText("Aproximar"), zoomOutTitle: window.qsobookText("Afastar")}).addTo(map);
   const tiles = L.tileLayer(container.dataset.tiles, {
     maxZoom: 18,
     // Only the application origin is sent, never a URL with operator details.
@@ -30,9 +31,13 @@
     contacts.href = link.getAttribute('href');
     contacts.textContent = window.qsobookText("{count} contato(s) · Abrir caderno", {count: city.dataset.count});
     popup.append(title, contacts);
-    L.circleMarker([latitude, longitude], {
+    const marker = L.circleMarker([latitude, longitude], {
       radius: 7, color: '#3e6250', weight: 2, fillColor: '#c4dbcc', fillOpacity: 0.9
     }).addTo(map).bindPopup(popup);
+    marker.on("popupopen", event => {
+      const close = event.popup.getElement().querySelector(".leaflet-popup-close-button");
+      if (close) close.setAttribute("aria-label", window.qsobookText("Fechar"));
+    });
     bounds.push([latitude, longitude]);
   }
   if (bounds.length) map.fitBounds(bounds, {padding: [28, 28], maxZoom: 7});

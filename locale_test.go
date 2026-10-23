@@ -161,7 +161,7 @@ func TestLocalizedPagesPreserveDataAndIndependentRequests(t *testing.T) {
 			t.Errorf("%s changed local lookup: %d %s", language, w.Code, w.Body)
 		}
 		w = languageRequest(a, language, "POST", "/participant", url.Values{"csrf": {a.token}, "round_id": {"1"}, "callsign": {"invalid space"}, "mode": {"FM"}, "name": {"Draft name"}})
-		if w.Code != 400 || !strings.Contains(w.Body.String(), a.translate(language, "informe um indicativo de até 32 caracteres: letras, números, /, ponto ou hífen")) || !strings.Contains(w.Body.String(), `value="Draft name"`) {
+		if w.Code != 400 || !strings.Contains(w.Body.String(), a.translate(language, "informe um indicativo de até 32 caracteres: letras, números, /, ponto ou hífen")) || !strings.Contains(w.Body.String(), `value="Draft name"`) || !strings.Contains(w.Body.String(), `name="return_to" value="/round"`) {
 			t.Errorf("%s validation lost translation/draft: %d %s", language, w.Code, w.Body)
 		}
 		w = languageRequest(a, language, "GET", "/station?id=999", nil)

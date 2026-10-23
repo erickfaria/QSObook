@@ -156,6 +156,22 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p Page) {
 	p.Token = a.token
 	p.Language = requestLanguage(r)
 	p.ReturnTo = r.URL.RequestURI()
+	if r.Method == http.MethodPost {
+		p.ReturnTo = p.Action
+		id := p.Station.ID
+		if p.IsContact {
+			id = p.Contact.ID
+		}
+		if p.Action == "/participant" {
+			id = p.ParticipantID
+			if id == 0 {
+				p.ReturnTo = "/round"
+			}
+		}
+		if id > 0 {
+			p.ReturnTo += "?id=" + strconv.FormatInt(id, 10)
+		}
+	}
 	p.Title = a.translate(p.Language, p.Title)
 	p.Message = a.translate(p.Language, p.Message)
 	messages := make(map[string]string, len(browserMessages()))

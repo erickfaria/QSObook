@@ -413,7 +413,9 @@ button:disabled { cursor:wait; opacity:.65 }
 @media(max-width:700px) { #contact-map { height:300px } }
 
 /* Keep preferences compact, with explicit submission to avoid losing drafts. */
-.preferences { display:flex; align-items:center; gap:.9rem; flex-wrap:wrap }
+.preferences { margin:0 }
+.preferences>summary { font-size:.85rem }
+.preference-controls { display:flex; align-items:center; gap:.9rem; flex-wrap:wrap; padding:.6rem 0 }
 .language-picker { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap }
 .language-picker label,.language-picker button { font-size:.8rem }
 .language-picker button { padding:.35rem .55rem }
@@ -421,17 +423,20 @@ input,textarea,select { min-width:0 }
 [hidden] { display:none !important }
 
 @media(max-width:700px) {
-  header { gap:.65rem; padding:1rem 4% }
-  nav { width:100%; gap:.3rem 1.15rem }
+  header { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.5rem 1rem; padding:.8rem 4% }
+  header .brand { grid-column:1; grid-row:1 }
+  header .preferences { grid-column:2; grid-row:1; align-self:center }
+  header .preferences[open] { grid-column:1/-1; grid-row:3 }
+  nav { width:100%; gap:.3rem 1.15rem; grid-column:1/-1; grid-row:2 }
   nav a { min-height:44px; display:flex; align-items:center }
-  .preferences { width:100%; gap:.6rem 1rem }
-  .language-picker { flex:1 }
+  .preference-controls { gap:.6rem 1rem }
+  .language-picker { flex:1 1 100% }
   .language-picker select { flex:1; max-width:10rem }
   input,textarea,select { font-size:1rem }
   button,.button,select,summary { min-height:44px }
   summary { align-content:center }
   .language-picker button { min-height:44px }
-  .theme-picker { margin-left:auto }
+  .theme-picker { margin-left:0 }
   .start-round label { width:100% }
   .start-round button,.quick-add>form>button { width:100% }
   .map-placeholder { padding:1rem }

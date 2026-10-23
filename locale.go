@@ -102,6 +102,7 @@ func (a *App) languagePreference(w http.ResponseWriter, r *http.Request) {
 
 func browserMessages() []string {
 	return []string{
+		"Aproximar", "Afastar", "Fechar",
 		"Informe um indicativo.",
 		"Consultando cadastro local…",
 		"Indicativo novo no cadastro local.",

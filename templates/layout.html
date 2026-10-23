@@ -24,7 +24,9 @@
 <a href="/history" {{if eq .View "history"}}aria-current="page"{{end}}>{{t "Caderno"}}</a>
 <a href="/stations" {{if eq .View "stations"}}aria-current="page"{{end}}>{{t "Estações"}}</a>
 </nav>
-<div class="preferences">
+<details class="preferences">
+<summary>{{t "Preferências"}}</summary>
+<div class="preference-controls">
 <form method="post" action="/language" class="language-picker">
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="return_to" value="{{.ReturnTo}}">
 <label for="language">{{t "Idioma"}}</label>
@@ -39,6 +41,7 @@
 <select id="theme"><option value="system">{{t "Automático"}}</option><option value="light">{{t "Claro"}}</option><option value="dark">{{t "Escuro"}}</option></select>
 </label>
 </div>
+</details>
 </header>
 <main id="main">
 <h1>{{.Title}}</h1>{{if .Message}}<p class="notice" role="status">{{.Message}}</p>{{end}}
