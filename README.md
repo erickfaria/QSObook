@@ -1,65 +1,87 @@
 # QSObook
 
-Caderno digital de contatos de radioamador, gratuito, self-hosted e livre sob [AGPL-3.0](LICENSE). Go, SQLite, HTML/CSS e JavaScript puro. Sem telemetria, analytics, CDN ou consultas externas de indicativos.
+A small, free, self-hosted amateur radio notebook. Keep track of operators during a roundtable and record only the contacts you actually confirm.
 
-## Primeira versão funcional
+Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The application runs offline after compilation. The interface is currently in Brazilian Portuguese; this documentation is in English.
 
-- **Modo QSO:** tabela centrada em indicativo, nome, cidade/UF e observações; modo e país aparecem como informações secundárias. Inclusão rápida e edição na própria tabela, com página de edição como alternativa sem JavaScript.
-- **Estações:** cadastro e edição; indicativo normalizado em maiúsculas e único.
-- **Caderno:** registro manual, listagem, busca por indicativo/nome e detalhes com edição dos dados e observações.
-- **Preenchimento local:** ao digitar um indicativo conhecido, recupera o cadastro e informa quantos QSOs anteriores existem. Os dados continuam editáveis. O indicativo na rodada também abre o histórico.
-- **Persistência:** estações, contatos e rodada sobrevivem ao reinício. Horários automáticos em UTC, apresentados no fuso configurado.
+## QSO mode: follow the conversation
 
-A rodada é única e compartilhada pelas abas. **Adicionar à rodada não registra um QSO.** Use **Registrar QSO** para confirmar um contato com um clique. Adicionar novamente alguém já presente preserva o modo, as observações da conversa e o estado de confirmação; use **Editar** para modificá-los. Cada participante pode registrar um QSO; reenvios e cliques simultâneos não duplicam esse registro. Remover da rodada mantém a estação e os contatos. Para outro QSO com a mesma estação, remova e adicione novamente.
+Add a callsign, name and city without leaving the current roundtable. Known callsigns recover their operator details from the local database. The table puts callsign, name, city/state and notes first; mode and country stay secondary.
 
-Na inclusão e na edição de uma conversa, valores não vazios podem completar ou corrigir nome e localidade do cadastro; campos vazios preservam os valores existentes, mesmo sem JavaScript ou antes de a consulta terminar. Para apagar intencionalmente um campo do cadastro, use **Estações → Editar**. A inclusão na rodada é transacional: uma falha não deixa um cadastro parcialmente atualizado.
+**Adding a participant does not record a QSO.** Click **Registrar QSO** (Record QSO) once you have actually made contact. Repeated or simultaneous confirmations create at most one QSO for that participation. Adding someone already in the list preserves their mode, conversation notes and confirmation status.
 
-**Observações do operador** são permanentes e editadas em **Estações**. **Observações da conversa** pertencem à participação e são copiadas para o QSO somente na confirmação. Nunca atualizam automaticamente as observações permanentes. A tabela identifica os dois tipos. O registro manual de QSO segue essa separação e também usa transação; cada envio manual continua sendo um contato independente.
+Use **Editar** (Edit) to open an editor in the table. Country and conversation notes are available in an expandable section. Without JavaScript, the same edit link opens a separate page and the forms remain usable.
 
-Cada QSO guarda uma cópia histórica: editar a estação ou a participação não altera contatos anteriores. Editar um QSO altera somente esse registro. Indicativo e instante de um registro existente não são editáveis nesta versão.
+The current roundtable is shared by browser tabs and survives restarts. Removing someone keeps their operator record and confirmed contacts. To record another contact with the same operator, remove and add them again. Removed participation IDs are never reused, so old record/remove forms cannot affect a later participation.
 
-O preenchimento automático mantém as edições feitas durante a consulta, ignora respostas antigas (inclusive ao trocar A → B → A) e não apaga campos com respostas vazias. Rascunhos de operadores diferentes ficam separados enquanto a página permanece aberta. Observações permanentes só são preenchidas automaticamente no formulário de cadastro, nunca no formulário de conversa.
+## Local callsign lookup and safe notes
 
-As buscas retornam até 200 registros, com os QSOs mais recentes primeiro. Refine o termo para localizar registros antigos. Busca por nome ignora maiúsculas/minúsculas ASCII; acentos são diferenciados.
+Typing a known callsign retrieves the operator name, city, state and country, plus the number of earlier QSOs. No callsign data is sent to an external service. Lookups ignore stale responses, including A → B → A changes, and preserve edits made while a request is pending. Drafts remain separate by callsign while the page is open. Clearing the callsign clears the previous operator fields.
 
-## Preparar e compilar
+New participant, manual QSO and operator registration forms preserve fields already saved for a known callsign and only fill missing values. To replace existing data, use **Editar**. Empty fields in a conversation edit preserve the current registration. To intentionally clear an operator field, use **Estações → Editar** (Stations → Edit).
 
-É necessário Go **1.24.4 ou compatível**. Não é necessário instalar SQLite, compilador C ou pacotes do sistema. O módulo e a versão Go original foram preservados.
+- **Operator notes** are permanent and edited in Stations.
+- **Conversation notes** belong to a participation and are copied into the QSO when it is confirmed. They never replace permanent operator notes.
+- Each QSO keeps its own historical copy. Later operator or participation edits do not change earlier contacts. Editing a QSO changes only that contact; its callsign and timestamp stay fixed.
 
-A primeira compilação baixa os módulos Go pela internet; depois de compilado, o executável funciona offline e inclui templates, CSS, JavaScript e dados de fuso horário.
+Explicit edits in different tabs still use the last saved values; there is no edit-version conflict detection. Reload a record before editing it if another tab has changed it. A manual QSO submission is intentionally a new contact each time.
+
+## Notebook: confirmed contacts
+
+The **Caderno** (Notebook) lists confirmed contacts with their automatic date/time, mode and conversation notes. Search by callsign or name, open contact details or register a contact manually. Clicking a callsign in QSO mode opens its history search.
+
+Timestamps are stored in UTC and displayed in the configured time zone. Searches return up to 200 records, with the newest contacts first. Name searches ignore ASCII letter case but distinguish accented characters; refine the term to find older records.
+
+## Operators: reusable local records
+
+The **Estações** (Stations) page keeps operator details separate from contact history. Callsigns are unique and normalized to uppercase. Edit names, locations and permanent notes here without rewriting past contacts.
+
+## Build
+
+Requires **Go 1.24.4 or compatible**. SQLite, a C compiler and frontend build tools are not required. The module path and declared Go version are unchanged.
+
+The first build downloads the pinned Go modules. The resulting executable embeds templates, styles, scripts, time-zone data and license notices, and runs offline.
 
 ```sh
 go mod download
 CGO_ENABLED=0 go build -o bin/qsobook .
 ```
 
-Em Linux ARM64, esses comandos compilam nativamente para Raspberry Pi. Sem CGO, também é possível gerar um binário ARM64 em outro computador:
+These commands also build natively on Linux ARM64, including Raspberry Pi with Debian. To cross-compile from another computer:
 
 ```sh
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/qsobook-linux-arm64 .
 ```
 
-Cross-compilation não substitui testar no hardware de destino. A versão inicial foi validada nativamente em Linux ARM64 com Go 1.24.4. Esta etapa foi validada em Linux AMD64 com Go 1.27.3, sem CGO, incluindo compilação cruzada para ARM64. A execução desta etapa na Raspberry Pi permanece pendente.
+Cross-compilation does not replace testing on the target hardware. The current changes have been tested on Linux AMD64 with Go 1.27.3, with CGO disabled, and cross-compiled for ARM64. Running this revision on a Raspberry Pi remains pending.
 
-## Executar localmente
+## Run locally
 
 ```sh
 ./bin/qsobook
 ```
 
-Abra **http://127.0.0.1:8080** no mesmo computador. Encerre com `Ctrl+C`. O servidor roda em primeiro plano e não instala serviço algum.
+Open **http://127.0.0.1:8080** on the same computer. Stop with `Ctrl+C`. The application runs in the foreground and installs no system service.
 
-O banco padrão fica em `$XDG_DATA_HOME/qsobook/qsobook.db`; sem essa variável, em `$HOME/.local/share/qsobook/qsobook.db`. O diretório é criado quando necessário. Não guarde dados reais no diretório versionado ou entre recursos estáticos.
+The default database is `$XDG_DATA_HOME/qsobook/qsobook.db`, or `$HOME/.local/share/qsobook/qsobook.db` when `XDG_DATA_HOME` is unset. The directory is created as needed. Keep real data outside the source tree and static assets.
 
-Para escolher caminho, porta local e fuso:
+Choose another database, loopback port and time zone with:
 
 ```sh
-./bin/qsobook -db "$HOME/.local/share/qsobook/meu-caderno.db" -addr 127.0.0.1:8081 -timezone America/Sao_Paulo
+./bin/qsobook -db "$HOME/.local/share/qsobook/my-notebook.db" -addr 127.0.0.1:8081 -timezone America/Sao_Paulo
 ```
 
-O fuso padrão é `America/Sao_Paulo`. `-timezone UTC` apresenta os horários em UTC. O registro usa o relógio do host, sem consultar serviços de hora. A opção `-addr` aceita somente IPs de loopback. Não há autenticação: o modelo é uso pessoal por usuários locais confiáveis. **Não exponha diretamente à internet** nem configure proxy ou acesso de rede sem definir autenticação, TLS e o modelo de acesso. Veja [SECURITY.md](SECURITY.md).
+The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC display. Time comes from the host clock, without an external time service. The `-addr` flag accepts loopback IPs only. There is no authentication: this version assumes trusted local users. Do not expose it to the internet or add a proxy/LAN access before defining authentication, TLS and the access model. See [SECURITY.md](SECURITY.md).
 
-## Testes e verificações
+## Upgrading and preserving data
+
+Stop the application and every other process using its database before making a manual copy. Preserve any SQLite journal files. Do not copy only the `.db` file while it is in use. Test a copy at a separate path before relying on it.
+
+Database migrations run in a transaction and retain operator, contact and participation records. Schema version 2 makes participation IDs persistent and non-reusable, retaining existing IDs and QSO links. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
+
+There is no in-app backup/restore, import/export, ADIF or map feature yet. The application does not permanently delete operators or QSOs. See the [roadmap](docs/ROADMAP.md).
+
+## Tests
 
 ```sh
 CGO_ENABLED=0 go test ./...
@@ -67,19 +89,17 @@ CGO_ENABLED=0 go vet ./...
 git diff --check
 ```
 
-Os testes usam bancos temporários e dados fictícios. Cobrem persistência após reabertura, cadastro, consulta, busca, edição, validação, integridade, migrações e rotas HTTP, inclusive CSRF e escape de conteúdo. Nenhum banco pessoal é utilizado.
+Tests use temporary databases and fictitious data. They cover persistence, validation, historical snapshots, independent notes, rollback, concurrent confirmation, callsign reuse, HTTP security and migrations from schema version 1. Migration tests verify that records and links survive, failures roll back and removed participation IDs stay unused after reopening the database.
 
-As regressões do Modo QSO incluem preservação de campos vazios, separação de observações, rollback por falha de escrita, confirmação concorrente e edição com IDs de cadastro e participação distintos.
-
-Para verificar o JavaScript, opcionalmente use Node.js com o executor de testes nativo:
+JavaScript tests optionally use Node.js and its built-in test runner:
 
 ```sh
 node --test tests/app.test.cjs
 ```
 
-Não há pacotes npm nem instalação de dependências. Esses testes executam `static/app.js` em um DOM simulado, com consultas e temporizadores controlados; não substituem a verificação em navegador.
+No npm packages are required. The tests run `static/app.js` against a simulated DOM with controlled requests and timers. They do not replace real browser testing.
 
-Para manter caches e temporários de desenvolvimento dentro do projeto, como nesta implementação:
+To keep development caches and temporary files inside the repository:
 
 ```sh
 mkdir -p .cache/go-build .cache/go-mod .cache/tmp
@@ -89,46 +109,44 @@ export GOTMPDIR="$PWD/.cache/tmp"
 export TMPDIR="$PWD/.cache/tmp"
 ```
 
-Não há dependências de frontend. A interface usa tabela com rolagem horizontal em telas pequenas, formulários adaptáveis, rótulos, foco visível e navegação por teclado. Foram conferidos no navegador o layout desktop, as dimensões em largura de celular, o preenchimento local e a abertura da edição. O navegador integrado bloqueou POSTs por sua origem intermediada; os envios foram validados por testes HTTP e requisições locais com origem válida. A revisão visual completa em celular físico e a revisão com tecnologia assistiva permanecem pendentes.
+The UI uses labels, visible keyboard focus, responsive forms and horizontal scrolling confined to the participant table. Desktop layout, lookup and inline editing have been checked in the browser, along with dimensions at phone/tablet widths. POSTs in the integrated browser were blocked by its mediated origin; writes were checked through HTTP tests and valid-origin local requests. Full testing on a physical phone and with assistive technology remains pending. Security controls were kept in place.
 
-## Testar o Modo QSO manualmente
+## Manual QSO checklist
 
-Após compilar, inicie com um banco separado para dados fictícios:
+Use a separate database for fictitious test records:
 
 ```sh
-./bin/qsobook -db .cache/teste-manual.db -addr 127.0.0.1:8081
+./bin/qsobook -db .cache/manual-test.db -addr 127.0.0.1:8081
 ```
 
-1. Abra `http://127.0.0.1:8081` em um navegador local. Adicione `ZZ0TEST`, nome e cidade. Confira a tabela; o Caderno deve continuar sem esse QSO.
-2. Clique em **Editar**, abra **País e observações da conversa**, escreva uma nota e salve. Confira que a edição ficou na própria rodada.
-3. Em **Estações**, edite o operador e salve uma observação permanente diferente. Ela deve aparecer identificada como **Operador** na tabela.
-4. Digite novamente `zz0test`. Aguarde a recuperação de nome e localidade. As observações da conversa devem continuar vazias. Envie imediatamente ou com nome/cidade vazios: o cadastro salvo deve ser preservado e a participação existente não deve se duplicar.
-5. Clique em **Registrar QSO**. Confira um único contato no Caderno, com a nota da conversa. Atualizar a página não deve criar outro contato.
-6. Altere o cadastro e a nota da rodada. Confira que o contato confirmado manteve seus dados e que a observação permanente não foi substituída pela nota da conversa.
-7. Troque rapidamente entre indicativos conhecidos. Confira os dados do indicativo atual e a preservação de suas edições durante a consulta.
-8. Encerre com `Ctrl+C` e abra novamente com o mesmo comando. A lista, os cadastros e o histórico devem continuar disponíveis. Verifique também a alternativa sem JavaScript e a navegação por teclado.
+1. Open `http://127.0.0.1:8081`. Add `ZZ0TEST`, a name and city. The participant should appear in QSO mode without a new contact in the Notebook.
+2. Use **Editar**, expand the conversation notes section, add a note and save in place.
+3. In Stations, save a different permanent operator note. QSO mode should label the permanent and conversation notes separately.
+4. Enter `zz0test` again. Name and location should fill locally while conversation notes stay empty. An immediate submission, empty fields or a stale inclusion form must not replace saved operator data or duplicate the participation.
+5. Click **Registrar QSO**. Check for one contact in the Notebook with the conversation note. Reloading must not create another QSO.
+6. Edit the operator and roundtable notes. The confirmed contact should keep its historical values.
+7. Switch rapidly between callsigns and clear the callsign field. Check that drafts and asynchronous responses never mix operators.
+8. In a second tab, keep an old record/remove form open. Remove that participant and add another in the first tab. The old action should return not found and leave the new participant untouched.
+9. Stop and restart with the same database. Records and the roundtable should persist. Also check keyboard navigation and the fallback without JavaScript.
 
-## Estrutura e manutenção
+## Structure and maintenance
 
 ```text
-main.go                 configuração, composição e ciclo HTTP
-store.go                validação e operações SQLite
-web.go                  rotas, templates e proteção HTTP
-store_test.go           persistência e integridade
-web_test.go             fluxos HTTP e segurança
-tests/app.test.cjs       regressões JavaScript sem pacotes externos
-migrations/             esquema SQL versionado
-templates/             interface HTML
-static/                 CSS e JavaScript locais
-docs/                   arquitetura e roadmap
+main.go                 configuration and HTTP lifecycle
+store.go                SQLite operations and validation
+web.go                  routes, templates and HTTP protection
+store_test.go           persistence and data integrity tests
+migration_test.go       migration preservation and rollback tests
+web_test.go             HTTP workflows and security tests
+tests/app.test.cjs       JavaScript regressions using built-in modules
+migrations/             versioned SQL schema
+templates/              HTML interface
+static/                 local CSS and JavaScript
+docs/                   architecture, roadmap and screenshots
 ```
 
-O driver é `modernc.org/sqlite v1.36.3`, sem CGO e sob BSD-3-Clause. É a única dependência direta; há dependências transitivas registradas em `go.mod`/`go.sum`. A [arquitetura](docs/ARCHITECTURE.md) documenta a escolha, limites e manutenção.
+The only direct dependency is `modernc.org/sqlite v1.36.3`, a BSD-3-Clause SQLite driver without CGO. Transitive dependencies are pinned in `go.mod`/`go.sum`. See [architecture](docs/ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Changes use maintainer review; the application itself does not perform Git operations.
 
-Não há exportação, importação, ADIF, mapas ou backup automatizado nesta versão; consulte o [roadmap](docs/ROADMAP.md). Para uma cópia manual, **pare a aplicação e qualquer outro processo que abra o banco antes de copiar o banco**; preserve eventuais arquivos auxiliares SQLite. Não copie apenas o `.db` enquanto estiver em uso. Teste restauração em caminho separado antes de depender da cópia. A aplicação não exclui estações nem QSOs permanentemente.
+## License
 
-Leia [CONTRIBUTING.md](CONTRIBUTING.md) e [AGENTS.md](AGENTS.md). A integração segue revisão pelo mantenedor. Nenhum commit, push, PR ou configuração remota é feito pela aplicação.
-
-## Licença
-
-GNU Affero General Public License, versão 3: texto integral em [LICENSE](LICENSE). A distribuição oficial é gratuita; a licença permite redistribuição comercial sem restrições adicionais. O rodapé oferece acesso à licença e ao repositório do código. Quem disponibilizar uma versão modificada pela rede deve oferecer o código correspondente conforme a AGPL.
+GNU Affero General Public License, version 3: the full text is in [LICENSE](LICENSE). The official project is free of charge; the license permits commercial redistribution without additional restrictions. The footer links to the license, third-party notices and source repository. Modified versions offered over a network must provide their corresponding source as required by the AGPL.
