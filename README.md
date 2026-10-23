@@ -90,7 +90,13 @@ Light, dark and system themes are available in the same preferences area. On pho
 
 <img src="docs/screenshots/qso-mobile.png" alt="Phone layout with two fictitious participants, one confirmed QSO and one QRT" width="390">
 
-## Docker Compose
+## Ready-made beta image
+
+The beta release workflow publishes tested Linux ARM64/AMD64 images to **GitHub Container Registry**, with digest-pinned Compose downloads and provenance attestations. No Docker Hub account or local compilation is needed. See the [beta installation guide](docs/BETA.md) for the release files, Tortuga/private-LAN access with a mandatory password, backups and manual updates. A new GitHub commit does not automatically deploy to your server.
+
+The network option is for a trusted home LAN; HTTP does not encrypt traffic. Use HTTPS/VPN for untrusted networks or internet access. Standalone/local-only defaults remain unchanged. Do not expose the unauthenticated local configuration.
+
+## Docker Compose from source
 
 You can build and run locally without publishing an image or creating a Docker Hub account. Install Docker Engine and the Compose plugin first, then from this repository:
 
@@ -137,7 +143,7 @@ Choose another database, loopback port and time zone with:
 ./bin/qsobook -db "$HOME/.local/share/qsobook/my-notebook.db" -addr 127.0.0.1:8081 -timezone America/Sao_Paulo
 ```
 
-The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC display. Time comes from the host clock, without an external time service. In standalone mode, `-addr` accepts loopback IPs only. The explicit `-container` flag additionally permits `0.0.0.0` inside the container network; the supplied Compose file publishes only on host loopback. Host, Origin and CSRF restrictions stay in place. There is no authentication: this version assumes trusted local users. Do not expose it to the internet or add a proxy/LAN access before defining authentication, TLS and the access model. See [SECURITY.md](SECURITY.md).
+The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC display. Time comes from the host clock, without an external time service. In standalone mode, `-addr` accepts loopback IPs only. The explicit `-container` flag additionally permits `0.0.0.0` inside the container network; the supplied Compose file publishes only on host loopback. Host, Origin and CSRF restrictions stay in place. Local-only mode assumes trusted local users. Optional private-LAN access requires a shared password file and explicit allowed host:port entries; see the [beta guide](docs/BETA.md). Do not expose it to the internet or add a proxy/LAN access before defining authentication, TLS and the access model. See [SECURITY.md](SECURITY.md).
 
 ## Upgrading and preserving data
 
@@ -208,6 +214,7 @@ Use a separate database for fictitious test records:
 
 ```text
 main.go                 configuration and HTTP lifecycle
+access.go               optional shared-password access and explicit network hosts
 store.go                SQLite operations and validation
 rounds.go               saved roundtables, presence and lifecycle
 map.go                  optional providers and local coordinate cache

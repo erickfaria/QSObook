@@ -1,0 +1,179 @@
+name: Publish beta
+
+'on':
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'New beta version, e.g. v0.1.0-beta.1 (never reuse a version)'
+        required: true
+        type: string
+        default: v0.1.0-beta.1
+
+permissions:
+  contents: read
+
+# Never cancel an image/release publication halfway through.
+concurrency:
+  group: qsobook-beta-publication
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/erickfaria/qsobook
+
+jobs:
+  preflight:
+    if: github.ref == 'refs/heads/main' && github.repository == 'erickfaria/QSObook'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Check version and prevent replacing a release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" >/dev/null 2>&1; then
+            echo 'This tag already exists. Choose a new beta version.' >&2
+            exit 1
+          fi
+
+  validate:
+    needs: preflight
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  image:
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out the validated source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Build and test the exact image before pushing
+        env:
+          VERSION: ${{ inputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          image="$IMAGE:sha-$GITHUB_SHA-$ARCH"
+          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "org.opencontainers.image.version=$VERSION" --tag "$image" .
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.release.yaml python3 tests/container_smoke.py
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.lan.yaml python3 tests/container_smoke.py
+
+      - name: Push tested architecture image using the temporary repository token
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker push "$IMAGE:sha-$GITHUB_SHA-$ARCH"
+
+      - name: Remove registry credentials
+        if: always()
+        run: docker logout ghcr.io
+
+  publish:
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      packages: write
+      id-token: write
+      attestations: write
+    env:
+      VERSION: ${{ inputs.version }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out validated release assets
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Publish the versioned multi-architecture manifest
+        id: manifest
+        run: |
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create \
+            --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
+            --annotation "index:org.opencontainers.image.version=$VERSION" \
+            --tag "$IMAGE:$VERSION" \
+            "$IMAGE:sha-$GITHUB_SHA-amd64" "$IMAGE:sha-$GITHUB_SHA-arm64"
+          digest="$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{.Manifest.Digest}}')"
+          [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]]
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+
+      - name: Attest the image provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/erickfaria/qsobook
+          subject-digest: ${{ steps.manifest.outputs.digest }}
+          push-to-registry: true
+
+      - name: Verify anonymous pulls and both supported architectures
+        run: |
+          mkdir -p "$RUNNER_TEMP/anonymous-docker"
+          # New GHCR packages start private. The owner must make the package
+          # public once in GitHub's package settings before this check passes.
+          for attempt in $(seq 1 60); do
+            if DOCKER_CONFIG="$RUNNER_TEMP/anonymous-docker" docker manifest inspect "$IMAGE:$VERSION" > image-manifest.json; then
+              break
+            fi
+            if [ "$attempt" = 60 ]; then
+              echo 'Make the GHCR package public, then rerun the failed jobs.' >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          python3 - <<'PY'
+          import json
+          manifest = json.load(open('image-manifest.json'))
+          platforms = {(m['platform']['os'], m['platform']['architecture']) for m in manifest['manifests']}
+          assert {('linux', 'amd64'), ('linux', 'arm64')} <= platforms, platforms
+          PY
+
+      - name: Prepare digest-pinned installation files
+        env:
+          DIGEST: ${{ steps.manifest.outputs.digest }}
+        run: |
+          mkdir release-assets
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          image = f"{os.environ['IMAGE']}:{os.environ['VERSION']}@{os.environ['DIGEST']}"
+          for source, destination in [('compose.release.yaml', 'compose.yaml'), ('compose.lan.yaml', 'compose.lan.yaml')]:
+              text = Path(source).read_text().replace('ghcr.io/erickfaria/qsobook:beta', image)
+              Path('release-assets', destination).write_text(text)
+          Path('release-assets/image-digest.txt').write_text(image + '\n')
+          PY
+          cp image-manifest.json release-assets/
+          cd release-assets
+          sha256sum compose.yaml compose.lan.yaml image-digest.txt image-manifest.json > SHA256SUMS
+
+      - name: Publish the beta release and update the opt-in beta channel
+        run: |
+          gh release create "$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "QSObook $VERSION" --prerelease --latest=false \
+            --notes-file docs/BETA_RELEASE.md release-assets/*
+          docker buildx imagetools create --tag "$IMAGE:beta" "$IMAGE@${{ steps.manifest.outputs.digest }}"
+          printf '### Beta published\n\nVersion: `%s`\n\nImage: `%s@%s`\n' \
+            "$VERSION" "$IMAGE" '${{ steps.manifest.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Remove registry credentials
+        if: always()
+        run: docker logout ghcr.io
