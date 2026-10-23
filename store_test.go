@@ -21,6 +21,65 @@ func testStore(t *testing.T) *Store {
 	return s
 }
 
+func TestNewFormsPreserveCurrentRegistration(t *testing.T) {
+	for _, operation := range []string{"station", "participant", "contact"} {
+		t.Run(operation, func(t *testing.T) {
+			s := testStore(t)
+			ctx := context.Background()
+			original := Station{Callsign: "ZZ0SAFE", Name: "Nome atual", City: "Cidade atual", State: "UF", Notes: "Nota permanente atual"}
+			id, err := s.saveStation(ctx, original)
+			if err != nil {
+				t.Fatal(err)
+			}
+			original.ID = id
+			stale := Station{Callsign: " zz0safe ", Name: "Nome antigo", City: "Cidade antiga", State: "Outra UF", Country: "Brasil", Notes: "Nota antiga"}
+			switch operation {
+			case "station":
+				_, err = s.saveStation(ctx, stale)
+			case "participant":
+				err = s.saveParticipant(ctx, stale, "DMR", "Conversa")
+			case "contact":
+				_, err = s.createContact(ctx, stale, "DMR", "Conversa")
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			original.Country = "Brasil" // An empty field may be completed.
+			got, err := s.station(ctx, id)
+			if err != nil || got != original {
+				t.Fatalf("new form replaced existing data: %+v, want %+v (%v)", got, original, err)
+			}
+			// Replaying an addition after a deliberate edit must not undo it.
+			original.Name = "Nome corrigido depois"
+			if _, err := s.saveStation(ctx, original); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.saveParticipant(ctx, stale, "FM", "Reenvio antigo"); err != nil {
+				t.Fatal(err)
+			}
+			got, err = s.station(ctx, id)
+			if err != nil || got != original {
+				t.Fatalf("replayed addition undid edit: %+v %v", got, err)
+			}
+			stations, err := s.stations(ctx, "ZZ0SAFE")
+			if err != nil || len(stations) != 1 {
+				t.Fatalf("duplicate registration: %+v %v", stations, err)
+			}
+			contacts, err := s.contacts(ctx, "")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if operation == "contact" {
+				if len(contacts) != 1 || contacts[0].Name != "Nome atual" || contacts[0].Notes != "Conversa" {
+					t.Fatalf("contact did not retain current snapshot: %+v", contacts)
+				}
+			} else if len(contacts) != 0 {
+				t.Fatalf("addition recorded a QSO: %+v", contacts)
+			}
+		})
+	}
+}
+
 func TestParticipantConfirmationAndIndependentNotes(t *testing.T) {
 	s := testStore(t)
 	ctx := context.Background()
@@ -125,7 +184,7 @@ func TestConversationTransactionsRollback(t *testing.T) {
 				t.Fatal(err)
 			}
 			for _, callsign := range []string{"ZZ0KEEP", "ZZ0NEW"} {
-				st := Station{Callsign: callsign, Name: "Changed"}
+				st := Station{Callsign: callsign, Name: "Changed", City: "Preenchida nesta transação"}
 				if operation == "participant" {
 					err = s.saveParticipant(ctx, st, "FM", "Conversa")
 				} else {
@@ -136,7 +195,7 @@ func TestConversationTransactionsRollback(t *testing.T) {
 				}
 			}
 			got, err := s.station(ctx, id)
-			if err != nil || got.Name != "Original" || got.Notes != "Permanente" {
+			if err != nil || got.Name != "Original" || got.City != "" || got.Notes != "Permanente" {
 				t.Fatalf("partial registration update: %+v %v", got, err)
 			}
 			if _, err := s.lookup(ctx, "ZZ0NEW"); !errors.Is(err, sql.ErrNoRows) {

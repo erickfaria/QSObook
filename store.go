@@ -159,14 +159,14 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 	}
 	var id int64
 	err := s.db.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country,notes) VALUES(?,?,?,?,?,?) ON CONFLICT(callsign) DO UPDATE SET
-		name=coalesce(nullif(excluded.name,''),stations.name), city=coalesce(nullif(excluded.city,''),stations.city),
-		state=coalesce(nullif(excluded.state,''),stations.state), country=coalesce(nullif(excluded.country,''),stations.country),
-		notes=coalesce(nullif(excluded.notes,''),stations.notes) RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country, st.Notes).Scan(&id)
+		name=coalesce(nullif(stations.name,''),excluded.name), city=coalesce(nullif(stations.city,''),excluded.city),
+		state=coalesce(nullif(stations.state,''),excluded.state), country=coalesce(nullif(stations.country,''),excluded.country),
+		notes=coalesce(nullif(stations.notes,''),excluded.notes) RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country, st.Notes).Scan(&id)
 	return id, err
 }
 
-// Conversation forms may complete the current registration, but never erase
-// fields with empty values or write permanent operator notes.
+// New conversations only complete missing registration fields. Replacing an
+// existing value requires an explicit edit by ID; permanent notes stay separate.
 func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int64, error) {
 	var id int64
 	if st.ID > 0 {
@@ -178,8 +178,8 @@ func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int6
 	}
 	err := tx.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country) VALUES(?,?,?,?,?)
 		ON CONFLICT(callsign) DO UPDATE SET
-		name=coalesce(nullif(excluded.name,''),stations.name), city=coalesce(nullif(excluded.city,''),stations.city),
-		state=coalesce(nullif(excluded.state,''),stations.state), country=coalesce(nullif(excluded.country,''),stations.country)
+		name=coalesce(nullif(stations.name,''),excluded.name), city=coalesce(nullif(stations.city,''),excluded.city),
+		state=coalesce(nullif(stations.state,''),excluded.state), country=coalesce(nullif(stations.country,''),excluded.country)
 		RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country).Scan(&id)
 	return id, err
 }

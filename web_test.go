@@ -67,6 +67,34 @@ func TestHTTPParticipantPreservesRegistrationWithoutLookup(t *testing.T) {
 	}
 }
 
+func TestStaleLookupFormDoesNotOverwriteOperator(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	st := Station{Callsign: "ZZ0SAFE", Name: "Nome anterior", City: "Cidade anterior", Notes: "Nota permanente"}
+	id, err := a.store.saveStation(ctx, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{"csrf": {a.token}, "callsign": {" zz0safe "}, "name": {st.Name}, "city": {st.City}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
+	st.ID = id
+	st.Name = "Nome atual"
+	st.City = "Cidade atual"
+	if _, err := a.store.saveStation(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	if w := request(a, "POST", "/participant", form); w.Code != 303 {
+		t.Fatalf("addition: %d %s", w.Code, w.Body)
+	}
+	w := request(a, "GET", "/lookup?callsign="+url.QueryEscape(" zz0safe "), nil)
+	var data struct {
+		Station
+		Contacts int `json:"contacts"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil || w.Code != 200 || data.Station != st || data.Contacts != 0 {
+		t.Fatalf("lookup returned overwritten or duplicate registration: %+v, status %d, error %v", data, w.Code, err)
+	}
+}
+
 func TestRoundInlineEditAndValidation(t *testing.T) {
 	a := testApp(t)
 	ctx := context.Background()
