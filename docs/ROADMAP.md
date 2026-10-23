@@ -10,7 +10,16 @@ Sem datas prometidas. Funcionalidades planejadas não estão disponíveis até i
 - D — Modo QSO: tabela de participantes, edição/remoção, preenchimento automático local e registro permanente sem duplicação por cliques repetidos.
 - E — Refinamento: CSS responsivo, rótulos e foco, CSRF, limites HTTP, erros seguros, testes HTTP e documentação operacional.
 
-Build, testes e vet realizados em Linux ARM64, sem CGO. Validação gráfica em navegadores desktop/celular e revisão de acessibilidade com tecnologia assistiva ainda pendentes. Testes automatizados não validam layout nem executam o JavaScript. Não há scanner de vulnerabilidades configurado.
+## Confiabilidade do Modo QSO — implementada
+
+- Inclusão na rodada separada da confirmação explícita de contato.
+- Cadastro preservado diante de campos vazios, com transação para inclusão/edição de participação e registro manual de QSO.
+- Observações permanentes independentes das observações da conversa e dos contatos confirmados.
+- Reenvio de inclusão preserva a participação; confirmação concorrente não duplica QSOs.
+- Formulário compacto, edição na tabela, notas identificadas e alternativas sem JavaScript.
+- Preenchimento com proteção contra respostas antigas e testes JavaScript sem pacotes externos.
+
+A versão inicial foi validada em Linux ARM64. Esta etapa teve testes, vet e build em Linux AMD64 com Go 1.27.3, CGO desativado, e compilação cruzada ARM64. Foram conferidos o layout desktop, as dimensões em largura de celular, o preenchimento e a edição no navegador integrado. POSTs nesse navegador foram bloqueados pela origem intermediada; os fluxos de escrita passaram em testes HTTP e requisições locais. Execução da etapa atual na Raspberry Pi, revisão visual em celular físico e acessibilidade com tecnologia assistiva permanecem pendentes. Não há scanner de vulnerabilidades configurado.
 
 ## Preservação e portabilidade — planejadas
 
