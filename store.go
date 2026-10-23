@@ -23,6 +23,9 @@ var initialSchema string
 //go:embed migrations/002_participant_identity.sql
 var participantIdentitySchema string
 
+//go:embed migrations/003_rounds.sql
+var roundsSchema string
+
 type Station struct {
 	ID       int64  `json:"id"`
 	Callsign string `json:"callsign"`
@@ -46,6 +49,8 @@ type Participant struct {
 	Mode      string
 	Notes     string
 	QSOID     sql.NullInt64
+	RoundID   int64
+	Active    bool
 }
 type Store struct{ db *sql.DB }
 
@@ -99,7 +104,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	schemas := []string{initialSchema, participantIdentitySchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema}
 	if version < 0 || version > len(schemas) {
 		return errors.New("banco criado por versão mais recente")
 	}
@@ -190,7 +195,7 @@ func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int6
 
 // Saving a participant does not confirm a QSO. Only an explicit edit changes
 // an existing participation; resubmitting an addition preserves it.
-func (s *Store) saveParticipant(ctx context.Context, st Station, mode, notes string) error {
+func (s *Store) saveParticipant(ctx context.Context, roundID, participantID int64, st Station, mode, notes string) error {
 	if err := st.validate(); err != nil {
 		return err
 	}
@@ -206,12 +211,23 @@ func (s *Store) saveParticipant(ctx context.Context, st Station, mode, notes str
 		return err
 	}
 	defer tx.Rollback()
+	var currentID int64
+	if err := tx.QueryRowContext(ctx, "SELECT id FROM rounds WHERE id=? AND ended_at IS NULL", roundID).Scan(&currentID); err != nil {
+		return err
+	}
+	if participantID > 0 {
+		if err := tx.QueryRowContext(ctx, "SELECT station_id FROM participants WHERE id=? AND round_id=? AND removed_at IS NULL", participantID, roundID).Scan(&st.ID); err != nil {
+			return err
+		}
+	} else {
+		st.ID = 0
+	}
 	id, err := mergeConversationStation(ctx, tx, st)
 	if err != nil {
 		return fmt.Errorf("salvar operador da rodada: %w", err)
 	}
 	if st.ID > 0 {
-		result, err := tx.ExecContext(ctx, `UPDATE participants SET mode=?,notes=? WHERE station_id=?`, strings.TrimSpace(mode), notes, id)
+		result, err := tx.ExecContext(ctx, `UPDATE participants SET mode=?,notes=? WHERE id=? AND round_id=? AND station_id=? AND removed_at IS NULL`, strings.TrimSpace(mode), notes, participantID, roundID, id)
 		if err != nil {
 			return err
 		}
@@ -222,7 +238,7 @@ func (s *Store) saveParticipant(ctx context.Context, st Station, mode, notes str
 		if n == 0 {
 			return sql.ErrNoRows
 		}
-	} else if _, err := tx.ExecContext(ctx, `INSERT INTO participants(station_id,mode,notes) VALUES(?,?,?) ON CONFLICT(station_id) DO NOTHING`, id, strings.TrimSpace(mode), notes); err != nil {
+	} else if _, err := tx.ExecContext(ctx, `INSERT INTO participants(round_id,station_id,mode,notes) VALUES(?,?,?,?) ON CONFLICT(round_id,station_id) WHERE removed_at IS NULL DO NOTHING`, roundID, id, strings.TrimSpace(mode), notes); err != nil {
 		return fmt.Errorf("adicionar participante: %w", err)
 	}
 	return tx.Commit()
@@ -354,18 +370,18 @@ func (s *Store) updateContact(ctx context.Context, c Contact) error {
 	}
 	return nil
 }
-func (s *Store) addParticipant(ctx context.Context, id int64, mode, notes string) error {
-	if err := validateMode(mode); err != nil {
-		return err
-	}
-	if err := validateNotes(notes); err != nil {
-		return err
-	}
-	_, err := s.db.ExecContext(ctx, `INSERT INTO participants(station_id,mode,notes) VALUES(?,?,?) ON CONFLICT(station_id) DO UPDATE SET mode=excluded.mode,notes=excluded.notes`, id, strings.TrimSpace(mode), notes)
-	return err
-}
 func (s *Store) participants(ctx context.Context) ([]Participant, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT p.id,s.id,s.callsign,s.name,s.city,s.state,s.country,s.notes,p.mode,p.notes,p.qso_id FROM participants p JOIN stations s ON s.id=p.station_id ORDER BY p.id`)
+	round, err := s.currentRound(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return []Participant{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.participantsInRound(ctx, round.ID)
+}
+func (s *Store) participantsInRound(ctx context.Context, roundID int64) ([]Participant, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id,s.id,s.callsign,s.name,s.city,s.state,s.country,s.notes,p.mode,p.notes,p.qso_id,p.round_id,p.active FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.round_id=? AND p.removed_at IS NULL ORDER BY p.active DESC,p.id`, roundID)
 	if err != nil {
 		return nil, err
 	}
@@ -373,7 +389,7 @@ func (s *Store) participants(ctx context.Context) ([]Participant, error) {
 	list := []Participant{}
 	for rows.Next() {
 		var p Participant
-		err := rows.Scan(&p.ID, &p.StationID, &p.Callsign, &p.Name, &p.City, &p.State, &p.Country, &p.Station.Notes, &p.Mode, &p.Notes, &p.QSOID)
+		err := rows.Scan(&p.ID, &p.StationID, &p.Callsign, &p.Name, &p.City, &p.State, &p.Country, &p.Station.Notes, &p.Mode, &p.Notes, &p.QSOID, &p.RoundID, &p.Active)
 		if err != nil {
 			return nil, err
 		}
@@ -391,13 +407,13 @@ func (s *Store) recordParticipant(ctx context.Context, id int64) error {
 	}
 	defer tx.Rollback()
 	var existing sql.NullInt64
-	if err = tx.QueryRowContext(ctx, `SELECT qso_id FROM participants WHERE id=?`, id).Scan(&existing); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT p.qso_id FROM participants p JOIN rounds r ON r.id=p.round_id WHERE p.id=? AND p.removed_at IS NULL AND r.ended_at IS NULL`, id).Scan(&existing); err != nil {
 		return err
 	}
 	if existing.Valid {
 		return tx.Commit()
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,? FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.id=?`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
+	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at,round_id) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,?,p.round_id FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.id=?`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
 	if err != nil {
 		return err
 	}

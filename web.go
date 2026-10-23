@@ -38,6 +38,12 @@ type Page struct {
 	Mode                                             string
 	Notes                                            string
 	IsContact                                        bool
+	Round                                            Round
+	Rounds                                           []Round
+	PreviousRound                                    int64
+	ParticipantID                                    int64
+	RoundID                                          int64
+	ContactCount                                     int64
 }
 
 func newApp(store *Store, loc *time.Location) (*App, error) {
@@ -55,7 +61,11 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 		return nil, err
 	}
 	a.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
-	a.mux.HandleFunc("GET /{$}", a.round)
+	a.mux.HandleFunc("GET /{$}", a.dashboard)
+	a.mux.HandleFunc("GET /round", a.round)
+	a.mux.HandleFunc("POST /round/start", a.startRound)
+	a.mux.HandleFunc("POST /round/end", a.endRound)
+	a.mux.HandleFunc("POST /participant/status", a.participantStatus)
 	a.mux.HandleFunc("GET /stations", a.stations)
 	a.mux.HandleFunc("GET /station", a.stationForm)
 	a.mux.HandleFunc("POST /station", a.saveStation)
@@ -137,6 +147,10 @@ func (a *App) render(w http.ResponseWriter, p Page) {
 	w.Write(b.Bytes())
 }
 func (a *App) fail(w http.ResponseWriter, err error) {
+	if errors.Is(err, errRoundChanged) {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "Registro não encontrado", 404)
 		return
@@ -155,14 +169,6 @@ func readStation(r *http.Request) Station {
 }
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, path, http.StatusSeeOther)
-}
-func (a *App) round(w http.ResponseWriter, r *http.Request) {
-	list, err := a.store.participants(r.Context())
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	a.render(w, Page{Title: "Modo QSO", View: "round", Participants: list, Mode: "FM", Action: "/participant", Message: r.URL.Query().Get("message")})
 }
 func (a *App) stations(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
@@ -231,19 +237,38 @@ func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, va
 		}
 		if p.IsContact {
 			p.Contact.ID = id
+		} else if r.URL.Path == "/participant" {
+			p.ParticipantID = id
 		} else {
 			p.Station.ID = id
 		}
 	}
-	if r.URL.Path == "/participant" && p.Station.ID == 0 {
-		list, err := a.store.participants(r.Context())
+	if r.URL.Path == "/participant" {
+		id, err := identifier(r, "round_id")
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		p.Round, err = a.store.round(r.Context(), id)
 		if err != nil {
 			a.fail(w, err)
 			return
 		}
-		p.Title = "Modo QSO"
-		p.View = "round"
-		p.Participants = list
+		if p.Round.EndedAt.Valid {
+			a.fail(w, errRoundChanged)
+			return
+		}
+		p.Back = "/round"
+		p.RoundID = id
+		if p.ParticipantID == 0 {
+			p.Participants, err = a.store.participantsInRound(r.Context(), id)
+			if err != nil {
+				a.fail(w, err)
+				return
+			}
+			p.Title = "Modo QSO"
+			p.View = "round"
+		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusBadRequest)
@@ -323,22 +348,25 @@ func (a *App) saveContact(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/contact?id="+strconv.FormatInt(qid, 10))
 }
 func (a *App) saveParticipant(w http.ResponseWriter, r *http.Request) {
+	roundID, err := identifier(r, "round_id")
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
 	st := readStation(r)
+	var participantID int64
 	if r.PostForm.Get("id") != "" {
-		id, err := identifier(r, "id")
+		participantID, err = identifier(r, "id")
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		existing, err := a.store.station(r.Context(), id)
+		err = a.store.db.QueryRowContext(r.Context(), `SELECT s.id,s.callsign FROM participants p JOIN stations s ON s.id=p.station_id JOIN rounds r ON r.id=p.round_id WHERE p.id=? AND p.round_id=? AND p.removed_at IS NULL AND r.ended_at IS NULL`, participantID, roundID).Scan(&st.ID, &st.Callsign)
 		if err != nil {
 			a.fail(w, err)
 			return
 		}
-		st.ID = id
-		st.Callsign = existing.Callsign
 	}
-
 	mode := strings.TrimSpace(r.PostForm.Get("mode"))
 	if err := st.validate(); err != nil {
 		a.invalidForm(w, r, st, err)
@@ -348,11 +376,15 @@ func (a *App) saveParticipant(w http.ResponseWriter, r *http.Request) {
 		a.invalidForm(w, r, st, err)
 		return
 	}
-	if err := a.store.saveParticipant(r.Context(), st, mode, st.Notes); err != nil {
+	if err := validateNotes(st.Notes); err != nil {
+		a.invalidForm(w, r, st, err)
+		return
+	}
+	if err := a.store.saveParticipant(r.Context(), roundID, participantID, st, mode, st.Notes); err != nil {
 		a.fail(w, err)
 		return
 	}
-	redirect(w, r, "/?message=Participante+salvo")
+	redirect(w, r, "/round?message=Participante+salvo")
 }
 func (a *App) removeParticipant(w http.ResponseWriter, r *http.Request) {
 	id, err := identifier(r, "id")
@@ -360,21 +392,11 @@ func (a *App) removeParticipant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	result, err := a.store.db.ExecContext(r.Context(), "DELETE FROM participants WHERE id=?", id)
-	if err != nil {
+	if err = a.store.removeParticipant(r.Context(), id); err != nil {
 		a.fail(w, err)
 		return
 	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	if n == 0 {
-		a.fail(w, sql.ErrNoRows)
-		return
-	}
-	redirect(w, r, "/?message=Participante+removido+da+rodada")
+	redirect(w, r, "/round?message=Participante+removido+da+lista")
 }
 func (a *App) recordParticipant(w http.ResponseWriter, r *http.Request) {
 	id, err := identifier(r, "id")
@@ -386,7 +408,7 @@ func (a *App) recordParticipant(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err)
 		return
 	}
-	redirect(w, r, "/?message=QSO+registrado+no+caderno")
+	redirect(w, r, "/round?message=QSO+registrado+no+caderno")
 }
 func (a *App) lookup(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("callsign")
@@ -425,7 +447,7 @@ func (a *App) participantForm(w http.ResponseWriter, r *http.Request) {
 	for _, p := range list {
 		if p.ID == id {
 			st := p.Station
-			a.render(w, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/", Station: st, Mode: p.Mode, Notes: p.Notes})
+			a.render(w, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/round", Station: st, Mode: p.Mode, Notes: p.Notes, ParticipantID: p.ID, RoundID: p.RoundID, Round: Round{ID: p.RoundID}})
 			return
 		}
 	}

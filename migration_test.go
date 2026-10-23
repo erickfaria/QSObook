@@ -45,7 +45,7 @@ func TestParticipantIdentityMigrationPreservesData(t *testing.T) {
 		}
 	}()
 	var version int
-	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 2 {
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 3 {
 		t.Fatalf("schema version: %d %v", version, err)
 	}
 	st, err := s.station(ctx, 7)
@@ -87,7 +87,7 @@ func TestParticipantIdentityMigrationPreservesData(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := s.saveParticipant(ctx, Station{Callsign: callsign}, "FM", "New participation"); err != nil {
+		if err := saveTestParticipant(t, s, ctx, Station{Callsign: callsign}, "FM", "New participation"); err != nil {
 			t.Fatal(err)
 		}
 		participants, err = s.participants(ctx)

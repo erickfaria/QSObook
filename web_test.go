@@ -18,6 +18,9 @@ func testApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := a.store.startRound(context.Background(), "", 0); err != nil {
+		t.Fatal(err)
+	}
 	return a
 }
 
@@ -28,7 +31,7 @@ func TestHTTPParticipantPreservesRegistrationWithoutLookup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	form := url.Values{"csrf": {a.token}, "callsign": {" zz0local "}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {" zz0local "}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
 	for i := 0; i < 2; i++ {
 		if w := request(a, "POST", "/participant", form); w.Code != 303 {
 			t.Fatalf("addition: %d %s", w.Code, w.Body)
@@ -75,7 +78,7 @@ func TestStaleLookupFormDoesNotOverwriteOperator(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	form := url.Values{"csrf": {a.token}, "callsign": {" zz0safe "}, "name": {st.Name}, "city": {st.City}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {" zz0safe "}, "name": {st.Name}, "city": {st.City}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
 	st.ID = id
 	st.Name = "Nome atual"
 	st.City = "Cidade atual"
@@ -101,7 +104,7 @@ func TestRoundInlineEditAndValidation(t *testing.T) {
 	if _, err := a.store.saveStation(ctx, Station{Callsign: "ZZ0OTHER"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := a.store.saveParticipant(ctx, Station{Callsign: "ZZ0EDIT", Name: "Nome atual", Notes: "Não copiar"}, "DMR", "Nota da conversa"); err != nil {
+	if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0EDIT", Name: "Nome atual", Notes: "Não copiar"}, "DMR", "Nota da conversa"); err != nil {
 		t.Fatal(err)
 	}
 	st, err := a.store.lookup(ctx, "ZZ0EDIT")
@@ -112,9 +115,9 @@ func TestRoundInlineEditAndValidation(t *testing.T) {
 	if _, err := a.store.saveStation(ctx, st); err != nil {
 		t.Fatal(err)
 	}
-	w := request(a, "GET", "/", nil)
+	w := request(a, "GET", "/round", nil)
 	body := w.Body.String()
-	for _, want := range []string{`data-edit-participant`, `id="participant-edit-1"`, `name="id" value="2"`, `Nota permanente`, `Nota da conversa`, `Registrar QSO`, `Cidade / UF`} {
+	for _, want := range []string{`data-edit-participant`, `id="participant-edit-1"`, `name="id" value="1"`, `Nota permanente`, `Nota da conversa`, `Registrar QSO`, `Cidade / UF`} {
 		if w.Code != 200 || !strings.Contains(body, want) {
 			t.Fatalf("round missing %q: %d %s", want, w.Code, body)
 		}
@@ -122,12 +125,12 @@ func TestRoundInlineEditAndValidation(t *testing.T) {
 	if strings.Count(body, `id="lookup-status"`) != 1 || strings.Count(body, `id="modes"`) != 1 || strings.Count(body, `name="notes"`) != 2 {
 		t.Fatalf("field counts: status=%d modes=%d notes=%d", strings.Count(body, `id="lookup-status"`), strings.Count(body, `id="modes"`), strings.Count(body, `name="notes"`))
 	}
-	form := url.Values{"csrf": {a.token}, "callsign": {"bad space"}, "name": {"Digitado"}, "mode": {"DMR"}, "notes": {"Rascunho"}}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"bad space"}, "name": {"Digitado"}, "mode": {"DMR"}, "notes": {"Rascunho"}}
 	w = request(a, "POST", "/participant", form)
 	if w.Code != 400 || !strings.Contains(w.Body.String(), "Rodada atual") || !strings.Contains(w.Body.String(), `value="Digitado"`) || !strings.Contains(w.Body.String(), "Rascunho") {
 		t.Fatalf("validation lost round or draft: %d %s", w.Code, w.Body)
 	}
-	form.Set("id", strconv.FormatInt(st.ID, 10))
+	form.Set("id", "1")
 	form.Set("callsign", st.Callsign)
 	form.Set("name", "Nome corrigido")
 	form.Set("notes", "")
@@ -148,7 +151,7 @@ func TestRoundInlineEditAndValidation(t *testing.T) {
 func TestStaleParticipantEditDoesNotRecreateParticipation(t *testing.T) {
 	a := testApp(t)
 	ctx := context.Background()
-	if err := a.store.saveParticipant(ctx, Station{Callsign: "ZZ0REMOVED", Name: "Original"}, "FM", ""); err != nil {
+	if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0REMOVED", Name: "Original"}, "FM", ""); err != nil {
 		t.Fatal(err)
 	}
 	list, err := a.store.participants(ctx)
@@ -159,7 +162,7 @@ func TestStaleParticipantEditDoesNotRecreateParticipation(t *testing.T) {
 	if w := request(a, "POST", "/participant/remove", form); w.Code != 303 {
 		t.Fatalf("remove: %d %s", w.Code, w.Body)
 	}
-	form.Set("id", strconv.FormatInt(list[0].StationID, 10))
+	form.Set("round_id", "1")
 	form.Set("callsign", "ZZ0REMOVED")
 	form.Set("name", "Alteração de formulário antigo")
 	form.Set("mode", "DMR")
@@ -181,7 +184,7 @@ func TestOldParticipantActionsDoNotReachNewParticipation(t *testing.T) {
 		t.Run(callsign, func(t *testing.T) {
 			a := testApp(t)
 			ctx := context.Background()
-			if err := a.store.saveParticipant(ctx, Station{Callsign: "ZZ0OLD"}, "FM", "Old round"); err != nil {
+			if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0OLD"}, "FM", "Old round"); err != nil {
 				t.Fatal(err)
 			}
 			old, err := a.store.participants(ctx)
@@ -192,7 +195,7 @@ func TestOldParticipantActionsDoNotReachNewParticipation(t *testing.T) {
 			if w := request(a, "POST", "/participant/remove", form); w.Code != 303 {
 				t.Fatalf("remove: %d %s", w.Code, w.Body)
 			}
-			if err := a.store.saveParticipant(ctx, Station{Callsign: callsign}, "DMR", "New round"); err != nil {
+			if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: callsign}, "DMR", "New round"); err != nil {
 				t.Fatal(err)
 			}
 			current, err := a.store.participants(ctx)
@@ -237,7 +240,7 @@ func TestHTTPWorkflow(t *testing.T) {
 			t.Fatalf("GET %s: %d %s", path, w.Code, w.Body.String())
 		}
 	}
-	form := url.Values{"csrf": {a.token}, "callsign": {"zz0test"}, "name": {"Operador fictício"}, "city": {"Cidade exemplo"}, "country": {"Brasil"}, "mode": {"FM"}, "notes": {"<script>alert(1)</script>"}}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"zz0test"}, "name": {"Operador fictício"}, "city": {"Cidade exemplo"}, "country": {"Brasil"}, "mode": {"FM"}, "notes": {"<script>alert(1)</script>"}}
 	w := request(a, "POST", "/station", form)
 	if w.Code != 303 {
 		t.Fatalf("station: %d %s", w.Code, w.Body.String())
@@ -246,7 +249,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if w.Code != 303 {
 		t.Fatalf("participant: %d %s", w.Code, w.Body.String())
 	}
-	w = request(a, "GET", "/", nil)
+	w = request(a, "GET", "/round", nil)
 	if strings.Contains(w.Body.String(), "<script>alert") || !strings.Contains(w.Body.String(), "&lt;script&gt;") {
 		t.Fatal("unsafe or missing escaped notes")
 	}
@@ -262,7 +265,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "Editar participante") {
 		t.Fatalf("edit: %d %s", w.Code, w.Body)
 	}
-	edit := url.Values{"csrf": {a.token}, "id": {"1"}, "callsign": {"ZZ0TEST"}, "name": {"Nome alterado"}, "mode": {"SSB"}, "notes": {"Observação de rodada"}}
+	edit := url.Values{"round_id": {"1"}, "csrf": {a.token}, "id": {"1"}, "callsign": {"ZZ0TEST"}, "name": {"Nome alterado"}, "mode": {"SSB"}, "notes": {"Observação de rodada"}}
 	if w = request(a, "POST", "/participant", edit); w.Code != 303 {
 		t.Fatalf("edit: %d %s", w.Code, w.Body)
 	}
@@ -316,9 +319,9 @@ func TestHTTPSecurityAndErrors(t *testing.T) {
 		want         int
 	}{
 		{"POST", "/station", url.Values{"callsign": {"ZZ0TEST"}}, 403},
-		{"POST", "/station", url.Values{"csrf": {a.token}, "callsign": {"bad space"}}, 400},
-		{"POST", "/participant", url.Values{"csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
-		{"POST", "/contact", url.Values{"csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
+		{"POST", "/station", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"bad space"}}, 400},
+		{"POST", "/participant", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
+		{"POST", "/contact", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
 		{"GET", "/contact?id=999", nil, 404}, {"GET", "/station?id=bad", nil, 400},
 		{"GET", "/participant?id=999", nil, 404}, {"GET", "/lookup?callsign=ZZ9TEST", nil, 404},
 		{"GET", "/participant/remove", nil, 405}, {"GET", "/data/test.db", nil, 404},
@@ -348,7 +351,7 @@ func TestHTTPSecurityAndErrors(t *testing.T) {
 			t.Errorf("origin %q: %d", origin, w.Code)
 		}
 	}
-	w := request(a, "GET", "/", nil)
+	w := request(a, "GET", "/round", nil)
 	if !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
 		t.Fatal("missing security header")
 	}

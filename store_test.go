@@ -37,7 +37,7 @@ func TestNewFormsPreserveCurrentRegistration(t *testing.T) {
 			case "station":
 				_, err = s.saveStation(ctx, stale)
 			case "participant":
-				err = s.saveParticipant(ctx, stale, "DMR", "Conversa")
+				err = saveTestParticipant(t, s, ctx, stale, "DMR", "Conversa")
 			case "contact":
 				_, err = s.createContact(ctx, stale, "DMR", "Conversa")
 			}
@@ -54,7 +54,7 @@ func TestNewFormsPreserveCurrentRegistration(t *testing.T) {
 			if _, err := s.saveStation(ctx, original); err != nil {
 				t.Fatal(err)
 			}
-			if err := s.saveParticipant(ctx, stale, "FM", "Reenvio antigo"); err != nil {
+			if err := saveTestParticipant(t, s, ctx, stale, "FM", "Reenvio antigo"); err != nil {
 				t.Fatal(err)
 			}
 			got, err = s.station(ctx, id)
@@ -94,7 +94,7 @@ func TestParticipantConfirmationAndIndependentNotes(t *testing.T) {
 		t.Fatal(err)
 	}
 	for i := 0; i < 2; i++ {
-		if err := s.saveParticipant(ctx, Station{Callsign: " zz0round "}, "DMR", "Conversa atual"); err != nil {
+		if err := saveTestParticipant(t, s, ctx, Station{Callsign: " zz0round "}, "DMR", "Conversa atual"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -111,7 +111,7 @@ func TestParticipantConfirmationAndIndependentNotes(t *testing.T) {
 		t.Fatalf("addition recorded a QSO: %+v %v", all, err)
 	}
 	// Another addition must not erase the current conversation or reset its mode.
-	if err := s.saveParticipant(ctx, Station{Callsign: original.Callsign}, "FM", ""); err != nil {
+	if err := saveTestParticipant(t, s, ctx, Station{Callsign: original.Callsign}, "FM", ""); err != nil {
 		t.Fatal(err)
 	}
 	list, err = s.participants(ctx)
@@ -120,7 +120,7 @@ func TestParticipantConfirmationAndIndependentNotes(t *testing.T) {
 	}
 	// Explicit editing can clear conversation notes, while empty registration
 	// fields still preserve the operator's current data.
-	if err := s.saveParticipant(ctx, Station{ID: id, Callsign: original.Callsign, Name: "Nome corrigido"}, "SSB", ""); err != nil {
+	if err := saveTestParticipant(t, s, ctx, Station{ID: id, Callsign: original.Callsign, Name: "Nome corrigido"}, "SSB", ""); err != nil {
 		t.Fatal(err)
 	}
 	got, err = s.station(ctx, id)
@@ -155,7 +155,7 @@ func TestParticipantConfirmationAndIndependentNotes(t *testing.T) {
 	if err != nil || old.Name != original.Name || old.Notes != "Contato anterior" {
 		t.Fatalf("history changed: %+v %v", old, err)
 	}
-	if err := s.saveParticipant(ctx, Station{Callsign: original.Callsign}, "FM", "Reenvio"); err != nil {
+	if err := saveTestParticipant(t, s, ctx, Station{Callsign: original.Callsign}, "FM", "Reenvio"); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.recordParticipant(ctx, list[0].ID); err != nil {
@@ -186,7 +186,7 @@ func TestConversationTransactionsRollback(t *testing.T) {
 			for _, callsign := range []string{"ZZ0KEEP", "ZZ0NEW"} {
 				st := Station{Callsign: callsign, Name: "Changed", City: "Preenchida nesta transação"}
 				if operation == "participant" {
-					err = s.saveParticipant(ctx, st, "FM", "Conversa")
+					err = saveTestParticipant(t, s, ctx, st, "FM", "Conversa")
 				} else {
 					_, err = s.createContact(ctx, st, "FM", "Conversa")
 				}
@@ -225,7 +225,7 @@ func TestManualContactPreservesRegistration(t *testing.T) {
 		t.Fatalf("contact: %+v %v", c, err)
 	}
 	for _, notes := range []string{strings.Repeat("á", 4001), "invalid\x00notes", string([]byte{0xff})} {
-		if err := s.saveParticipant(ctx, Station{Callsign: "ZZ0INVALID"}, "FM", notes); err == nil {
+		if err := saveTestParticipant(t, s, ctx, Station{Callsign: "ZZ0INVALID"}, "FM", notes); err == nil {
 			t.Error("accepted invalid notes")
 		}
 	}
@@ -248,7 +248,7 @@ func TestPersistence(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err = s.addParticipant(ctx, id, "CW", "Rodada"); err != nil {
+	if err = addTestParticipant(t, s, ctx, id, "CW", "Rodada"); err != nil {
 		t.Fatal(err)
 	}
 	if err = s.db.Close(); err != nil {
@@ -320,7 +320,7 @@ func TestValidationAndIntegrity(t *testing.T) {
 	if _, err = s.record(ctx, 9999, "FM", ""); !errors.Is(err, sql.ErrNoRows) {
 		t.Errorf("missing station: %v", err)
 	}
-	if err = s.addParticipant(ctx, 9999, "FM", ""); err == nil {
+	if err = addTestParticipant(t, s, ctx, 9999, "FM", ""); err == nil {
 		t.Error("foreign key not enforced")
 	}
 	if _, err = s.saveStation(ctx, Station{ID: 9999, Callsign: "ZZ0TEST"}); !errors.Is(err, sql.ErrNoRows) {
@@ -359,4 +359,45 @@ func TestMigrationVersionAndMissingRecords(t *testing.T) {
 	if err := s.updateContact(ctx, Contact{ID: 999, Station: Station{Callsign: "ZZ0TEST"}, Mode: "FM"}); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("missing contact: %v", err)
 	}
+}
+
+// Existing storage scenarios run inside an explicitly started round. Production
+// requests must provide their own round and participation IDs.
+func saveTestParticipant(t *testing.T, s *Store, ctx context.Context, st Station, mode, notes string) error {
+	t.Helper()
+	round, err := s.currentRound(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		rounds, e := s.rounds(ctx)
+		if e != nil {
+			return e
+		}
+		var previous int64
+		if len(rounds) > 0 {
+			previous = rounds[0].ID
+		}
+		id, e := s.startRound(ctx, "", previous)
+		if e != nil {
+			return e
+		}
+		round.ID = id
+	} else if err != nil {
+		return err
+	}
+	var participantID int64
+	if st.ID > 0 {
+		err = s.db.QueryRowContext(ctx, "SELECT id FROM participants WHERE station_id=? AND round_id=? AND removed_at IS NULL", st.ID, round.ID).Scan(&participantID)
+		if err != nil {
+			return err
+		}
+	}
+	return s.saveParticipant(ctx, round.ID, participantID, st, mode, notes)
+}
+func addTestParticipant(t *testing.T, s *Store, ctx context.Context, id int64, mode, notes string) error {
+	t.Helper()
+	st, err := s.station(ctx, id)
+	if err != nil {
+		return err
+	}
+	st.ID = 0
+	return saveTestParticipant(t, s, ctx, st, mode, notes)
 }

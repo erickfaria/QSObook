@@ -15,7 +15,8 @@
 <a class="brand" href="/">QSObook <span>caderno de rádio</span>
 </a>
 <nav aria-label="Principal">
-<a href="/" {{if eq .View "round"}}aria-current="page"{{end}}>Modo QSO</a>
+<a href="/" {{if eq .View "dashboard"}}aria-current="page"{{end}}>Início</a>
+<a href="/round" {{if eq .View "round"}}aria-current="page"{{end}}>Modo QSO</a>
 <a href="/history" {{if eq .View "history"}}aria-current="page"{{end}}>Caderno</a>
 <a href="/stations" {{if eq .View "stations"}}aria-current="page"{{end}}>Estações</a>
 </nav>
@@ -25,7 +26,7 @@
 </header>
 <main id="main">
 <h1>{{.Title}}</h1>{{if .Message}}<p class="notice" role="status">{{.Message}}</p>{{end}}
-{{if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else}}{{template "form" .}}{{end}}
+{{if eq .View "dashboard"}}{{template "dashboard" .}}{{else if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else}}{{template "form" .}}{{end}}
 </main>
 <datalist id="modes">
 <option value="AM">
@@ -62,6 +63,7 @@
 <p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{if or .Station.ID .Contact.ID}}O indicativo identifica a estação.{{else}}Indicativos conhecidos recuperam dados locais; revise antes de salvar.{{end}}</p>
 {{end}}
 {{define "participant-fields"}}
+<input type="hidden" name="round_id" value="{{.RoundID}}">
 <div class="fields qso-fields">
 <label>Indicativo <input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" {{if .Station.ID}}readonly{{else}}data-lookup aria-describedby="lookup-status" autofocus{{end}}></label>
 <label>Nome <input name="name" maxlength="120" value="{{.Station.Name}}" autocomplete="off"></label>
@@ -82,7 +84,7 @@
 {{if .Contact.ID}}<p>Registrado em <time datetime="{{.Contact.OccurredAt.Format "2006-01-02T15:04:05Z07:00"}}">{{localTime .Contact.OccurredAt}}</time>. Alterações afetam somente este QSO.</p>{{else if .Station.ID}}<p>Alterações no cadastro não modificam os QSOs já registrados.</p>{{end}}
 <form method="post" action="{{.Action}}">
 <input type="hidden" name="csrf" value="{{.Token}}">
-{{if .Contact.ID}}<input type="hidden" name="id" value="{{.Contact.ID}}">{{else if .Station.ID}}<input type="hidden" name="id" value="{{.Station.ID}}">{{end}}
+{{if .ParticipantID}}<input type="hidden" name="id" value="{{.ParticipantID}}">{{else if .Contact.ID}}<input type="hidden" name="id" value="{{.Contact.ID}}">{{else if .Station.ID}}<input type="hidden" name="id" value="{{.Station.ID}}">{{end}}
 {{if eq .Action "/participant"}}{{template "participant-fields" .}}{{else}}{{template "fields" .}}{{end}}<div class="actions">
 <button type="submit">{{if .IsContact}}{{if .Contact.ID}}Salvar alterações{{else}}Registrar QSO{{end}}{{else}}Salvar{{end}}</button>
 <a href="{{.Back}}">Voltar</a>
@@ -163,7 +165,16 @@
 </tr>{{end}}</tbody>
 </table>
 </div>{{end}}
-{{define "round"}}<p class="intro">Acompanhe os participantes. Confirme apenas os contatos que você realizou.</p>
+{{define "round"}}
+{{if not .Round.ID}}
+<p class="intro">Comece uma rodada para acompanhar quem está no rádio. Confirme apenas os contatos que você realizou.</p>
+{{template "start-round" .}}
+{{else}}
+<div class="toolbar round-heading">
+<div><h2>{{if .Round.Name}}{{.Round.Name}}{{else}}Rodada{{end}}</h2><p class="hint">Iniciada em {{localTime .Round.StartedAt}}{{if .Round.EndedAt.Valid}} · Encerrada{{end}}</p></div>
+{{if not .Round.EndedAt.Valid}}<form method="post" action="/round/end"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="id" value="{{.Round.ID}}"><button class="secondary">Encerrar QSO</button></form>{{end}}
+</div>
+{{if not .Round.EndedAt.Valid}}
 <section class="quick-add" aria-labelledby="add-title">
 <h2 id="add-title" class="sr-only">Adicionar participante</h2>
 <form method="post" action="/participant">
@@ -172,60 +183,51 @@
 <button type="submit">Adicionar à rodada</button>
 </form>
 </section>
+{{end}}
 <div class="table-scroll" tabindex="0" role="region" aria-label="Participantes da rodada">
 <table class="qso-table">
-<caption>Rodada atual</caption>
-<thead>
-<tr>
-<th>Indicativo</th>
-<th>Nome</th>
-<th>Cidade / UF</th>
-<th>Observações</th>
-<th>Ações</th>
-</tr>
-</thead>
-<tbody>{{range .Participants}}<tr>
-<th scope="row">
-<a href="/history?q={{.Callsign}}" title="Consultar contatos anteriores">{{.Callsign}}</a>
-<span class="cell-detail">{{.Mode}}</span>
-</th>
+<caption>{{if .Round.EndedAt.Valid}}Participantes da rodada encerrada{{else}}Rodada atual{{end}}</caption>
+<thead><tr><th>Indicativo</th><th>Nome</th><th>Cidade / UF</th><th>Observações</th><th>Contato / presença</th></tr></thead>
+<tbody>{{range .Participants}}<tr {{if not .Active}}class="qrt-row"{{end}}>
+<th scope="row"><a href="/history?q={{.Callsign}}" title="Consultar contatos anteriores">{{.Callsign}}</a><span class="cell-detail">{{.Mode}}</span>
+<span class="presence {{if not .Active}}is-qrt{{end}}">{{if .Active}}{{if $.Round.EndedAt.Valid}}Presente ao encerrar{{else}}Ativo{{end}}{{else}}QRT{{end}}</span></th>
 <td>{{.Name}}</td>
 <td>{{.City}}{{if and .City .State}} / {{end}}{{.State}}{{if .Country}}<span class="cell-detail">{{.Country}}</span>{{end}}</td>
 <td class="round-notes">
 {{if .Station.Notes}}<p><span class="note-kind">Operador</span><span class="note-text">{{.Station.Notes}}</span></p>{{end}}
-{{if .Notes}}<p><span class="note-kind">Conversa</span><span class="note-text">{{.Notes}}</span></p>{{end}}
-</td>
-<td>
-<div class="row-actions">
-{{if .QSOID.Valid}}<a class="recorded" href="/contact?id={{.QSOID.Int64}}">QSO registrado<span class="sr-only"> com {{.Callsign}}</span></a>{{else}}<form method="post" action="/participant/record">
-<input type="hidden" name="csrf" value="{{$.Token}}">
-<input type="hidden" name="id" value="{{.ID}}">
-<button type="submit">Registrar QSO<span class="sr-only"> com {{.Callsign}}</span>
-</button>
-</form>{{end}}
-<a href="/participant?id={{.ID}}" data-edit-participant aria-controls="participant-edit-{{.ID}}" aria-expanded="false">Editar<span class="sr-only"> {{.Callsign}}</span></a>
-<form method="post" action="/participant/remove">
-<input type="hidden" name="csrf" value="{{$.Token}}">
-<input type="hidden" name="id" value="{{.ID}}">
-<button type="submit" class="text-button">Remover<span class="sr-only"> {{.Callsign}} da rodada</span>
-</button>
-</form>
-</div>
-</td>
-</tr>
-<tr id="participant-edit-{{.ID}}" class="participant-editor" hidden>
-<td colspan="5">
+{{if .Notes}}<p><span class="note-kind">Conversa</span><span class="note-text">{{.Notes}}</span></p>{{end}}</td>
+<td><div class="row-actions">
+{{if .QSOID.Valid}}<a class="recorded" href="/contact?id={{.QSOID.Int64}}">QSO registrado<span class="sr-only"> com {{.Callsign}}</span></a>
+{{else if not $.Round.EndedAt.Valid}}<form method="post" action="/participant/record"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><button type="submit">Registrar QSO<span class="sr-only"> com {{.Callsign}}</span></button></form>
+{{else}}<span class="hint">Sem QSO confirmado</span>{{end}}
+{{if not $.Round.EndedAt.Valid}}
+<form method="post" action="/participant/status"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="active" value="{{if .Active}}0{{else}}1{{end}}"><button class="secondary">{{if .Active}}QRT{{else}}Voltou{{end}}<span class="sr-only"> · {{.Callsign}}</span></button></form>
+<details class="participant-options"><summary>Mais<span class="sr-only"> opções para {{.Callsign}}</span></summary>
+<div class="row-actions"><a href="/participant?id={{.ID}}" data-edit-participant aria-controls="participant-edit-{{.ID}}" aria-expanded="false">Editar<span class="sr-only"> {{.Callsign}}</span></a>
+<form method="post" action="/participant/remove"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><button type="submit" class="text-button">Remover<span class="sr-only"> {{.Callsign}} da lista</span></button></form></div>
+</details>{{end}}
+</div></td></tr>
+{{if not $.Round.EndedAt.Valid}}<tr id="participant-edit-{{.ID}}" class="participant-editor" hidden><td colspan="5">
 <form method="post" action="/participant" aria-label="Editar {{.Callsign}}">
-<input type="hidden" name="csrf" value="{{$.Token}}">
-<input type="hidden" name="id" value="{{.StationID}}">
+<input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}">
 {{template "participant-fields" .}}
-<div class="actions"><button type="submit">Salvar alterações</button><a href="/">Cancelar</a></div>
+<div class="actions"><button type="submit">Salvar alterações</button><a href="/round">Cancelar</a></div>
 <p class="hint">QSOs já registrados permanecem como estavam. <a href="/station?id={{.StationID}}">Editar cadastro e observações permanentes do operador</a>.</p>
-</form>
-</td>
-</tr>{{else}}<tr>
-<td colspan="5">A rodada está vazia. Digite um indicativo acima para começar.</td>
-</tr>{{end}}</tbody>
-</table>
-</div>
-<p class="hint">Adicionar à rodada não registra um QSO. A lista persiste após reiniciar; remover alguém mantém seu cadastro e os contatos confirmados. Para outro QSO com a mesma estação, remova e adicione novamente.</p>{{end}}
+</form></td></tr>{{end}}
+{{else}}<tr><td colspan="5">A rodada está vazia. Digite um indicativo acima para começar.</td></tr>{{end}}</tbody>
+</table></div>
+<p class="hint">QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato.</p>
+{{end}}{{end}}
+
+{{define "start-round"}}<form class="start-round" method="post" action="/round/start">
+<input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="previous_round" value="{{.PreviousRound}}">
+<label>Nome da rodada <span class="hint">Opcional, por exemplo TG Brasil · DMR</span><input name="name" maxlength="120" autocomplete="off"></label>
+<button>Iniciar QSO</button>
+</form>{{end}}
+
+{{define "dashboard"}}
+<div class="dashboard-intro"><div><p class="contact-total">{{.ContactCount}}</p><p>contatos confirmados no seu caderno</p></div>
+{{if .Round.ID}}<div><p class="hint">Uma rodada está em andamento{{if .Round.Name}} · {{.Round.Name}}{{end}}.</p><a class="button" href="/round">Continuar QSO</a></div>{{else}}{{template "start-round" .}}{{end}}</div>
+<section class="map-section" aria-labelledby="map-title"><h2 id="map-title">Cidades no seu caderno</h2><p class="hint">O mapa de contatos será exibido aqui.</p></section>
+{{if .Rounds}}<section aria-labelledby="rounds-title"><h2 id="rounds-title">Suas rodadas</h2><ul class="round-list">{{range .Rounds}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Name}}{{else}}Rodada{{end}}</a><span class="hint">{{localTime .StartedAt}} · {{if .EndedAt.Valid}}Encerrada{{else}}Em andamento{{end}}</span></li>{{end}}</ul><p class="hint">Últimas 50 rodadas. Os contatos continuam disponíveis no Caderno.</p></section>{{end}}
+{{end}}
