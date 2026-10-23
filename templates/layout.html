@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · QSObook</title>
+<script src="/static/theme.js"></script>
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer>
 </script>
@@ -18,6 +19,9 @@
 <a href="/history" {{if eq .View "history"}}aria-current="page"{{end}}>Caderno</a>
 <a href="/stations" {{if eq .View "stations"}}aria-current="page"{{end}}>Estações</a>
 </nav>
+<label class="theme-picker" hidden>Tema
+<select id="theme"><option value="system">Automático</option><option value="light">Claro</option><option value="dark">Escuro</option></select>
+</label>
 </header>
 <main id="main">
 <h1>{{.Title}}</h1>{{if .Message}}<p class="notice" role="status">{{.Message}}</p>{{end}}

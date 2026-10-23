@@ -1,11 +1,18 @@
 :root {
   color-scheme:light;
-  --ink:#23332f;
-  --muted:#52645e;
-  --line:#d6dfda;
-  --accent:#235d4c;
-  --paper:#fff;
-  --back:#f6f8f5;
+  --ink:#293b33;
+  --muted:#57695f;
+  --line:#d8dfd7;
+  --accent:#3d6551;
+  --paper:#fdfcf9;
+  --back:#f4f3ee;
+  --soft:#e8eee6;
+  --button:#d3e4d8;
+  --button-ink:#294938;
+  --field:#fbfcf8;
+  --field-line:#98ab9c;
+  --focus:#85642e;
+  --quiet:#eee7d9;
   font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif
 }
 * {
@@ -54,7 +61,7 @@ nav a[aria-current] {
   font-weight:650
 }
 main {
-  max-width:1500px;
+  max-width:1280px;
   margin:auto;
   padding:1.4rem 3% 3rem;
   min-height:80vh
@@ -102,7 +109,7 @@ th,td {
   vertical-align:top
 }
 thead {
-  background:#edf2ee
+  background:var(--soft)
 }
 thead th {
   font-size:.8rem;
@@ -143,12 +150,12 @@ input,textarea,button,.button {
 input,textarea {
   width:100%;
   padding:.55rem .65rem;
-  border:1px solid #97aaa0;
-  background:white;
+  border:1px solid var(--field-line);
+  background:var(--field);
   color:var(--ink)
 }
 input[readonly] {
-  background:#edf2ee
+  background:var(--soft)
 }
 textarea {
   resize:vertical
@@ -157,9 +164,9 @@ button,.button {
   display:inline-block;
   cursor:pointer;
   padding:.5rem .85rem;
-  background:var(--accent);
-  color:white;
-  border:1px solid var(--accent);
+  background:var(--button);
+  color:var(--button-ink);
+  border:1px solid var(--field-line);
   text-decoration:none;
   white-space:nowrap
 }
@@ -171,7 +178,7 @@ button:hover,.button:hover {
   filter:brightness(.9)
 }
 :focus-visible {
-  outline:3px solid #a4660b;
+  outline:3px solid var(--focus);
   outline-offset:3px
 }
 .toolbar,.actions {
@@ -279,7 +286,7 @@ summary {
 .notice {
   padding:.7rem 1rem;
   border-left:3px solid var(--accent);
-  background:#eaf1eb
+  background:var(--soft)
 }
 section {
   margin-top:1.8rem
@@ -346,4 +353,29 @@ footer {
   .qso-fields {
     grid-template-columns:repeat(2,minmax(0,1fr))
   }
+}
+
+:root[data-theme="dark"] {
+  color-scheme:dark;
+  --ink:#e2e8e1;
+  --muted:#b1bfb4;
+  --line:#435249;
+  --accent:#c1d8c9;
+  --paper:#262f2a;
+  --back:#1d2420;
+  --soft:#303d33;
+  --button:#bed6c5;
+  --button-ink:#213d2c;
+  --field:#202a24;
+  --field-line:#718675;
+  --focus:#e5c58c;
+  --quiet:#403c30
+}
+header { flex-wrap:wrap }
+.theme-picker { flex-direction:row; align-items:center; color:var(--muted); font-size:.8rem }
+.theme-picker[hidden] { display:none }
+select { font:inherit; padding:.35rem; border:1px solid var(--line); border-radius:4px; color:var(--ink); background:var(--paper) }
+button:disabled { cursor:wait; opacity:.65 }
+@media(prefers-reduced-motion:no-preference) {
+  button,.button { transition:background-color .12s ease }
 }
