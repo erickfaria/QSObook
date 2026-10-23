@@ -109,6 +109,13 @@ jobs:
         id: manifest
         run: |
           printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          if existing="$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}' 2>/dev/null)"; then
+            EXISTING_MANIFEST="$existing" python3 - <<'PYCODE'
+          import json, os
+          manifest = json.loads(os.environ['EXISTING_MANIFEST'])
+          assert manifest.get('annotations', {}).get('org.opencontainers.image.revision') == os.environ['GITHUB_SHA'], 'This image version already belongs to another commit'
+          PYCODE
+          fi
           docker buildx imagetools create \
             --annotation "index:org.opencontainers.image.revision=$GITHUB_SHA" \
             --annotation "index:org.opencontainers.image.version=$VERSION" \
@@ -119,11 +126,12 @@ jobs:
           printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
 
       - name: Attest the image provenance
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        uses: actions/attest@508db95dd578ae2727ebd6217d5ba78e4fbda05d # v4.2.1
         with:
           subject-name: ghcr.io/erickfaria/qsobook
           subject-digest: ${{ steps.manifest.outputs.digest }}
           push-to-registry: true
+          create-storage-record: false
 
       - name: Verify anonymous pulls and both supported architectures
         run: |
