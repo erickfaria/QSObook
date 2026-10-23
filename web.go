@@ -23,10 +23,12 @@ import (
 var assets embed.FS
 
 type App struct {
-	store     *Store
-	templates *template.Template
-	token     string
-	mux       *http.ServeMux
+	store                    *Store
+	templates                *template.Template
+	token                    string
+	mux                      *http.ServeMux
+	mapTilesURL, geocoderURL string
+	geoClient                *http.Client
 }
 type Page struct {
 	Title, View, Token, Query, Message, Action, Back string
@@ -36,7 +38,18 @@ type Page struct {
 	Station                                          Station
 	Contact                                          Contact
 	Mode                                             string
+	Notes                                            string
 	IsContact                                        bool
+	Round                                            Round
+	Rounds                                           []Round
+	PreviousRound                                    int64
+	ParticipantID                                    int64
+	RoundID                                          int64
+	ContactCount                                     int64
+	MapEnabled                                       bool
+	MapTilesURL                                      string
+	MapCities                                        []ContactCity
+	CityFilter                                       ContactCity
 }
 
 func newApp(store *Store, loc *time.Location) (*App, error) {
@@ -48,13 +61,20 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &App{store: store, templates: t, token: hex.EncodeToString(secret), mux: http.NewServeMux()}
+	a := &App{store: store, templates: t, token: hex.EncodeToString(secret), mux: http.NewServeMux(), mapTilesURL: defaultMapTiles, geocoderURL: defaultGeocoder,
+		geoClient: &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 	static, err := fs.Sub(assets, "static")
 	if err != nil {
 		return nil, err
 	}
 	a.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
-	a.mux.HandleFunc("GET /{$}", a.round)
+	a.mux.HandleFunc("GET /{$}", a.dashboard)
+	a.mux.HandleFunc("GET /round", a.round)
+	a.mux.HandleFunc("POST /map/preference", a.mapPreference)
+	a.mux.HandleFunc("POST /map/locate", a.locateCity)
+	a.mux.HandleFunc("POST /round/start", a.startRound)
+	a.mux.HandleFunc("POST /round/end", a.endRound)
+	a.mux.HandleFunc("POST /participant/status", a.participantStatus)
 	a.mux.HandleFunc("GET /stations", a.stations)
 	a.mux.HandleFunc("GET /station", a.stationForm)
 	a.mux.HandleFunc("POST /station", a.saveStation)
@@ -127,6 +147,15 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) render(w http.ResponseWriter, p Page) {
 	p.Token = a.token
+	if p.MapEnabled {
+		u, err := url.Parse(a.mapTilesURL)
+		if err != nil {
+			a.fail(w, err)
+			return
+		}
+		p.MapTilesURL = a.mapTilesURL
+		w.Header().Set("Content-Security-Policy", strings.Replace(w.Header().Get("Content-Security-Policy"), "img-src 'self'", "img-src 'self' "+u.Scheme+"://"+u.Host, 1))
+	}
 	var b bytes.Buffer
 	if err := a.templates.ExecuteTemplate(&b, "layout.html", p); err != nil {
 		a.fail(w, err)
@@ -136,6 +165,10 @@ func (a *App) render(w http.ResponseWriter, p Page) {
 	w.Write(b.Bytes())
 }
 func (a *App) fail(w http.ResponseWriter, err error) {
+	if errors.Is(err, errRoundChanged) {
+		http.Error(w, err.Error(), http.StatusConflict)
+		return
+	}
 	if errors.Is(err, sql.ErrNoRows) {
 		http.Error(w, "Registro não encontrado", 404)
 		return
@@ -154,14 +187,6 @@ func readStation(r *http.Request) Station {
 }
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, path, http.StatusSeeOther)
-}
-func (a *App) round(w http.ResponseWriter, r *http.Request) {
-	list, err := a.store.participants(r.Context())
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	a.render(w, Page{Title: "Modo QSO", View: "round", Participants: list, Mode: "FM", Action: "/participant", Message: r.URL.Query().Get("message")})
 }
 func (a *App) stations(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("q")
@@ -221,7 +246,7 @@ func (a *App) saveStation(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/station?id="+strconv.FormatInt(id, 10))
 }
 func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, validationErr error) {
-	p := Page{Title: "Revise os dados", View: "form", Action: r.URL.Path, Station: st, Mode: r.PostForm.Get("mode"), Message: validationErr.Error(), Back: "/", IsContact: r.URL.Path == "/contact"}
+	p := Page{Title: "Revise os dados", View: "form", Action: r.URL.Path, Station: st, Mode: r.PostForm.Get("mode"), Notes: r.PostForm.Get("notes"), Message: validationErr.Error(), Back: "/", IsContact: r.URL.Path == "/contact"}
 	if r.PostForm.Get("id") != "" {
 		id, err := identifier(r, "id")
 		if err != nil {
@@ -230,8 +255,37 @@ func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, va
 		}
 		if p.IsContact {
 			p.Contact.ID = id
+		} else if r.URL.Path == "/participant" {
+			p.ParticipantID = id
 		} else {
 			p.Station.ID = id
+		}
+	}
+	if r.URL.Path == "/participant" {
+		id, err := identifier(r, "round_id")
+		if err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		p.Round, err = a.store.round(r.Context(), id)
+		if err != nil {
+			a.fail(w, err)
+			return
+		}
+		if p.Round.EndedAt.Valid {
+			a.fail(w, errRoundChanged)
+			return
+		}
+		p.Back = "/round"
+		p.RoundID = id
+		if p.ParticipantID == 0 {
+			p.Participants, err = a.store.participantsInRound(r.Context(), id)
+			if err != nil {
+				a.fail(w, err)
+				return
+			}
+			p.Title = "Modo QSO"
+			p.View = "round"
 		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -245,12 +299,24 @@ func (a *App) history(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Busca muito longa", 400)
 		return
 	}
-	list, err := a.store.contacts(r.Context(), q)
+	city := ContactCity{City: r.URL.Query().Get("city"), State: r.URL.Query().Get("state"), Country: r.URL.Query().Get("country")}
+	var list []Contact
+	var err error
+	if city.City != "" {
+		st := Station{Callsign: "MAP", City: city.City, State: city.State, Country: city.Country}
+		if err := st.validate(); err != nil {
+			http.Error(w, "Cidade inválida", 400)
+			return
+		}
+		list, err = a.store.contactsInCity(r.Context(), city, q)
+	} else {
+		list, err = a.store.contacts(r.Context(), q)
+	}
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	a.render(w, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: q})
+	a.render(w, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: q, CityFilter: city})
 }
 func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 	p := Page{Title: "Registrar QSO", View: "form", IsContact: true, Mode: "FM", Action: "/contact", Back: "/history"}
@@ -267,6 +333,7 @@ func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Station = p.Contact.Station
 		p.Mode = p.Contact.Mode
+		p.Notes = p.Contact.Notes
 		p.Title = "Detalhes e edição do QSO"
 	}
 	a.render(w, p)
@@ -303,12 +370,7 @@ func (a *App) saveContact(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/contact?id="+strconv.FormatInt(id, 10))
 		return
 	}
-	id, err := a.store.saveStation(r.Context(), st)
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	qid, err := a.store.record(r.Context(), id, mode, st.Notes)
+	qid, err := a.store.createContact(r.Context(), st, mode, st.Notes)
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -316,22 +378,25 @@ func (a *App) saveContact(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/contact?id="+strconv.FormatInt(qid, 10))
 }
 func (a *App) saveParticipant(w http.ResponseWriter, r *http.Request) {
+	roundID, err := identifier(r, "round_id")
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		return
+	}
 	st := readStation(r)
+	var participantID int64
 	if r.PostForm.Get("id") != "" {
-		id, err := identifier(r, "id")
+		participantID, err = identifier(r, "id")
 		if err != nil {
 			http.Error(w, err.Error(), 400)
 			return
 		}
-		existing, err := a.store.station(r.Context(), id)
+		err = a.store.db.QueryRowContext(r.Context(), `SELECT s.id,s.callsign FROM participants p JOIN stations s ON s.id=p.station_id JOIN rounds r ON r.id=p.round_id WHERE p.id=? AND p.round_id=? AND p.removed_at IS NULL AND r.ended_at IS NULL`, participantID, roundID).Scan(&st.ID, &st.Callsign)
 		if err != nil {
 			a.fail(w, err)
 			return
 		}
-		st.ID = id
-		st.Callsign = existing.Callsign
 	}
-
 	mode := strings.TrimSpace(r.PostForm.Get("mode"))
 	if err := st.validate(); err != nil {
 		a.invalidForm(w, r, st, err)
@@ -341,16 +406,15 @@ func (a *App) saveParticipant(w http.ResponseWriter, r *http.Request) {
 		a.invalidForm(w, r, st, err)
 		return
 	}
-	id, err := a.store.saveStation(r.Context(), st)
-	if err != nil {
+	if err := validateNotes(st.Notes); err != nil {
+		a.invalidForm(w, r, st, err)
+		return
+	}
+	if err := a.store.saveParticipant(r.Context(), roundID, participantID, st, mode, st.Notes); err != nil {
 		a.fail(w, err)
 		return
 	}
-	if err = a.store.addParticipant(r.Context(), id, mode, st.Notes); err != nil {
-		a.fail(w, err)
-		return
-	}
-	redirect(w, r, "/?message=Participante+salvo")
+	redirect(w, r, "/round?message=Participante+salvo")
 }
 func (a *App) removeParticipant(w http.ResponseWriter, r *http.Request) {
 	id, err := identifier(r, "id")
@@ -358,21 +422,11 @@ func (a *App) removeParticipant(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 400)
 		return
 	}
-	result, err := a.store.db.ExecContext(r.Context(), "DELETE FROM participants WHERE id=?", id)
-	if err != nil {
+	if err = a.store.removeParticipant(r.Context(), id); err != nil {
 		a.fail(w, err)
 		return
 	}
-	n, err := result.RowsAffected()
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	if n == 0 {
-		a.fail(w, sql.ErrNoRows)
-		return
-	}
-	redirect(w, r, "/?message=Participante+removido+da+rodada")
+	redirect(w, r, "/round?message=Participante+removido+da+lista")
 }
 func (a *App) recordParticipant(w http.ResponseWriter, r *http.Request) {
 	id, err := identifier(r, "id")
@@ -384,7 +438,7 @@ func (a *App) recordParticipant(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, err)
 		return
 	}
-	redirect(w, r, "/?message=QSO+registrado+no+caderno")
+	redirect(w, r, "/round?message=QSO+registrado+no+caderno")
 }
 func (a *App) lookup(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query().Get("callsign")
@@ -423,8 +477,7 @@ func (a *App) participantForm(w http.ResponseWriter, r *http.Request) {
 	for _, p := range list {
 		if p.ID == id {
 			st := p.Station
-			st.Notes = p.Notes
-			a.render(w, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/", Station: st, Mode: p.Mode})
+			a.render(w, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/round", Station: st, Mode: p.Mode, Notes: p.Notes, ParticipantID: p.ID, RoundID: p.RoundID, Round: Round{ID: p.RoundID}})
 			return
 		}
 	}

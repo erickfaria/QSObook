@@ -1,33 +1,51 @@
-# Roadmap incremental
+# Incremental roadmap
 
-Sem datas prometidas. Funcionalidades planejadas não estão disponíveis até implementação e validação.
+No dates are promised. Planned features are not available until implemented and verified.
 
-## Primeira versão — implementada
+## Implemented foundation
 
-- A — Fundação: Go 1.24.4 preservado, HTTP com recursos incorporados, SQLite sem CGO, configuração local e testes básicos.
-- B — Persistência: estações, QSOs com cópia histórica e participantes separados; migração transacional, integridade referencial, testes com reabertura de banco temporário.
-- C — Caderno: cadastro, listagem, busca por indicativo/nome, detalhes e edição.
-- D — Modo QSO: tabela de participantes, edição/remoção, preenchimento automático local e registro permanente sem duplicação por cliques repetidos.
-- E — Refinamento: CSS responsivo, rótulos e foco, CSRF, limites HTTP, erros seguros, testes HTTP e documentação operacional.
+- Go 1.24.4 module declaration, standard-library HTTP, embedded assets, local configuration and SQLite without CGO.
+- Separate operator registrations, historical QSO copies and current participants, with transactional migrations and relational integrity.
+- Operator registration/editing and a notebook with callsign/name search, contact details and editing.
+- QSO mode with a participant table, local callsign lookup, explicit confirmation, editing and removal.
+- Responsive forms, labels, keyboard focus, CSRF protection, HTTP limits and automated storage/HTTP tests.
 
-Build, testes e vet realizados em Linux ARM64, sem CGO. Validação gráfica em navegadores desktop/celular e revisão de acessibilidade com tecnologia assistiva ainda pendentes. Testes automatizados não validam layout nem executam o JavaScript. Não há scanner de vulnerabilidades configurado.
+## Implemented QSO reliability
 
-## Preservação e portabilidade — planejadas
+- Adding a participant stays separate from confirming a contact.
+- Existing operator fields survive blank, repeated and stale inclusion forms; replacements require explicit editing.
+- Permanent notes remain separate from conversation notes and historical contacts.
+- Registration and participation/manual-contact writes are transactional.
+- Repeated or simultaneous confirmation does not duplicate a QSO for the same participation.
+- Schema version 2 preserves existing records and prevents reuse of removed participation IDs.
+- Compact entry, inline editing and working alternatives without JavaScript.
+- Lookup request ordering and isolated drafts are covered by JavaScript tests without external packages.
+- English documentation describing the workflows, setup and data guarantees, with real application screenshots using fictitious data.
 
-- Exportação/importação com formatos documentados e tratamento explícito de duplicidades.
-- Backup consistente e restauração testada em banco separado.
-- Paginação do histórico e melhoria da busca Unicode.
-- Revisão periódica das versões do driver e dependências.
+Current checks run on Linux AMD64 with Go 1.27.3 and CGO disabled, including an ARM64 cross-build. The initial implementation was validated natively on ARM64. This revision still needs execution on Raspberry Pi, physical-phone testing and assistive-technology review. Explicit concurrent edits retain last-write-wins behavior. No vulnerability scanner is configured.
 
-## Interoperabilidade — planejada
+## Implemented conversation workspace and home
 
-- Avaliar ADIF e conversão dos campos sem perda silenciosa.
+- Muted pastel light/dark palettes with a browser-local selector and system mode.
+- An essential home screen with confirmed-contact count and recent saved rounds.
+- Explicit round start/end, optional names, QRT/return state and read-only closed rounds.
+- Legacy participant preservation, non-reusable IDs and rejection of stale cross-round edits/actions.
+- Optional Leaflet/OpenStreetMap city points from confirmed historical contacts, grouped by location with links to city history.
+- Map opt-in, locally vendored assets, geographic-only manual geocoding, coordinate/negative caches, bounded requests and provider switching.
+- Tests for lifecycle, migration rollback, QRT, map privacy, caching, rate limits and provider failures; screenshots for the current UI.
+- GitHub Actions for pull requests and `main`: formatting, module verification, Go/JavaScript tests, vet and native Linux AMD64/ARM64 builds.
 
-## Integrações opcionais — planejadas
+## Data preservation and portability — planned
 
-- Mapas e geocodificação OpenStreetMap somente com ativação consciente, desativados por padrão, informando provedor, atribuição e dados enviados.
-- Falhas ou ausência de internet nunca devem bloquear o caderno local.
+- Export/import with documented formats and explicit duplicate handling.
+- Consistent SQLite backup and validated restoration into a separate database.
+- History pagination and improved Unicode search.
+- Periodic review of driver and transitive dependency versions.
 
-## Possibilidades sem compromisso
+## Interoperability — planned
 
-Aplicativo Android e facilidades de atualização poderão ser avaliados após estabilizar os dados. Contas em nuvem, telemetria e serviços externos obrigatórios não fazem parte do escopo.
+- Evaluate ADIF with explicit field conversion and no silent loss.
+
+## Possible future work
+
+Android support and easier updates may be evaluated after data handling is stable. Required cloud accounts, telemetry and mandatory external services are outside the product scope.

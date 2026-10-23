@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,205 @@ func testApp(t *testing.T) *App {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := a.store.startRound(context.Background(), "", 0); err != nil {
+		t.Fatal(err)
+	}
 	return a
+}
+
+func TestHTTPParticipantPreservesRegistrationWithoutLookup(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	id, err := a.store.saveStation(ctx, Station{Callsign: "ZZ0LOCAL", Name: "Nome salvo", City: "Cidade salva", State: "UF", Country: "Brasil", Notes: "Nota permanente"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {" zz0local "}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
+	for i := 0; i < 2; i++ {
+		if w := request(a, "POST", "/participant", form); w.Code != 303 {
+			t.Fatalf("addition: %d %s", w.Code, w.Body)
+		}
+	}
+	st, err := a.store.station(ctx, id)
+	if err != nil || st.Name != "Nome salvo" || st.City != "Cidade salva" || st.State != "UF" || st.Country != "Brasil" || st.Notes != "Nota permanente" {
+		t.Fatalf("registration overwritten: %+v %v", st, err)
+	}
+	participants, err := a.store.participants(ctx)
+	if err != nil || len(participants) != 1 || participants[0].Notes != "Nota da conversa" {
+		t.Fatalf("participants: %+v %v", participants, err)
+	}
+	contacts, err := a.store.contacts(ctx, "")
+	if err != nil || len(contacts) != 0 {
+		t.Fatalf("unconfirmed QSO: %+v %v", contacts, err)
+	}
+	record := url.Values{"csrf": {a.token}, "id": {strconv.FormatInt(participants[0].ID, 10)}}
+	for i := 0; i < 2; i++ {
+		if w := request(a, "POST", "/participant/record", record); w.Code != 303 {
+			t.Fatalf("confirmation: %d %s", w.Code, w.Body)
+		}
+	}
+	contacts, err = a.store.contacts(ctx, "")
+	if err != nil || len(contacts) != 1 || contacts[0].Notes != "Nota da conversa" || contacts[0].City != "Cidade salva" {
+		t.Fatalf("confirmed QSO: %+v %v", contacts, err)
+	}
+	// The manual QSO form follows the same separation of notes.
+	form.Set("notes", "Outra conversa")
+	if w := request(a, "POST", "/contact", form); w.Code != 303 {
+		t.Fatalf("manual QSO: %d %s", w.Code, w.Body)
+	}
+	st, err = a.store.station(ctx, id)
+	if err != nil || st.Notes != "Nota permanente" {
+		t.Fatalf("manual QSO changed permanent notes: %+v %v", st, err)
+	}
+}
+
+func TestStaleLookupFormDoesNotOverwriteOperator(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	st := Station{Callsign: "ZZ0SAFE", Name: "Nome anterior", City: "Cidade anterior", Notes: "Nota permanente"}
+	id, err := a.store.saveStation(ctx, st)
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {" zz0safe "}, "name": {st.Name}, "city": {st.City}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
+	st.ID = id
+	st.Name = "Nome atual"
+	st.City = "Cidade atual"
+	if _, err := a.store.saveStation(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	if w := request(a, "POST", "/participant", form); w.Code != 303 {
+		t.Fatalf("addition: %d %s", w.Code, w.Body)
+	}
+	w := request(a, "GET", "/lookup?callsign="+url.QueryEscape(" zz0safe "), nil)
+	var data struct {
+		Station
+		Contacts int `json:"contacts"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &data); err != nil || w.Code != 200 || data.Station != st || data.Contacts != 0 {
+		t.Fatalf("lookup returned overwritten or duplicate registration: %+v, status %d, error %v", data, w.Code, err)
+	}
+}
+
+func TestRoundInlineEditAndValidation(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	if _, err := a.store.saveStation(ctx, Station{Callsign: "ZZ0OTHER"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0EDIT", Name: "Nome atual", Notes: "Não copiar"}, "DMR", "Nota da conversa"); err != nil {
+		t.Fatal(err)
+	}
+	st, err := a.store.lookup(ctx, "ZZ0EDIT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Notes = "Nota permanente"
+	if _, err := a.store.saveStation(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	w := request(a, "GET", "/round", nil)
+	body := w.Body.String()
+	for _, want := range []string{`data-edit-participant`, `id="participant-edit-1"`, `name="id" value="1"`, `Nota permanente`, `Nota da conversa`, `Registrar QSO`, `Cidade / UF`} {
+		if w.Code != 200 || !strings.Contains(body, want) {
+			t.Fatalf("round missing %q: %d %s", want, w.Code, body)
+		}
+	}
+	if strings.Count(body, `id="lookup-status"`) != 1 || strings.Count(body, `id="modes"`) != 1 || strings.Count(body, `name="notes"`) != 2 {
+		t.Fatalf("field counts: status=%d modes=%d notes=%d", strings.Count(body, `id="lookup-status"`), strings.Count(body, `id="modes"`), strings.Count(body, `name="notes"`))
+	}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"bad space"}, "name": {"Digitado"}, "mode": {"DMR"}, "notes": {"Rascunho"}}
+	w = request(a, "POST", "/participant", form)
+	if w.Code != 400 || !strings.Contains(w.Body.String(), "Rodada atual") || !strings.Contains(w.Body.String(), `value="Digitado"`) || !strings.Contains(w.Body.String(), "Rascunho") {
+		t.Fatalf("validation lost round or draft: %d %s", w.Code, w.Body)
+	}
+	form.Set("id", "1")
+	form.Set("callsign", st.Callsign)
+	form.Set("name", "Nome corrigido")
+	form.Set("notes", "")
+	w = request(a, "POST", "/participant", form)
+	if w.Code != 303 {
+		t.Fatalf("inline edit: %d %s", w.Code, w.Body)
+	}
+	got, err := a.store.station(ctx, st.ID)
+	if err != nil || got.Name != "Nome corrigido" || got.Notes != "Nota permanente" {
+		t.Fatalf("wrong registration changed: %+v %v", got, err)
+	}
+	list, err := a.store.participants(ctx)
+	if err != nil || len(list) != 1 || list[0].Notes != "" {
+		t.Fatalf("conversation notes not cleared: %+v %v", list, err)
+	}
+}
+
+func TestStaleParticipantEditDoesNotRecreateParticipation(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0REMOVED", Name: "Original"}, "FM", ""); err != nil {
+		t.Fatal(err)
+	}
+	list, err := a.store.participants(ctx)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("participants: %+v %v", list, err)
+	}
+	form := url.Values{"csrf": {a.token}, "id": {strconv.FormatInt(list[0].ID, 10)}}
+	if w := request(a, "POST", "/participant/remove", form); w.Code != 303 {
+		t.Fatalf("remove: %d %s", w.Code, w.Body)
+	}
+	form.Set("round_id", "1")
+	form.Set("callsign", "ZZ0REMOVED")
+	form.Set("name", "Alteração de formulário antigo")
+	form.Set("mode", "DMR")
+	if w := request(a, "POST", "/participant", form); w.Code != 404 {
+		t.Fatalf("stale edit: %d %s", w.Code, w.Body)
+	}
+	st, err := a.store.lookup(ctx, "ZZ0REMOVED")
+	if err != nil || st.Name != "Original" {
+		t.Fatalf("stale edit changed registration: %+v %v", st, err)
+	}
+	list, err = a.store.participants(ctx)
+	if err != nil || len(list) != 0 {
+		t.Fatalf("stale edit recreated participation: %+v %v", list, err)
+	}
+}
+
+func TestOldParticipantActionsDoNotReachNewParticipation(t *testing.T) {
+	for _, callsign := range []string{"ZZ0OTHER", "ZZ0OLD"} {
+		t.Run(callsign, func(t *testing.T) {
+			a := testApp(t)
+			ctx := context.Background()
+			if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0OLD"}, "FM", "Old round"); err != nil {
+				t.Fatal(err)
+			}
+			old, err := a.store.participants(ctx)
+			if err != nil || len(old) != 1 {
+				t.Fatalf("old participation: %+v %v", old, err)
+			}
+			form := url.Values{"csrf": {a.token}, "id": {strconv.FormatInt(old[0].ID, 10)}}
+			if w := request(a, "POST", "/participant/remove", form); w.Code != 303 {
+				t.Fatalf("remove: %d %s", w.Code, w.Body)
+			}
+			if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: callsign}, "DMR", "New round"); err != nil {
+				t.Fatal(err)
+			}
+			current, err := a.store.participants(ctx)
+			if err != nil || len(current) != 1 || current[0].ID == old[0].ID {
+				t.Fatalf("participant ID reused: old=%+v current=%+v err=%v", old, current, err)
+			}
+			for _, path := range []string{"/participant/record", "/participant/remove"} {
+				if w := request(a, "POST", path, form); w.Code != 404 {
+					t.Fatalf("old action %s: %d %s", path, w.Code, w.Body)
+				}
+			}
+			current, err = a.store.participants(ctx)
+			if err != nil || len(current) != 1 || current[0].Callsign != callsign || current[0].QSOID.Valid {
+				t.Fatalf("old form affected new participation: %+v %v", current, err)
+			}
+			contacts, err := a.store.contacts(ctx, "")
+			if err != nil || len(contacts) != 0 {
+				t.Fatalf("old form created a QSO: %+v %v", contacts, err)
+			}
+		})
+	}
 }
 func request(a *App, method, path string, form url.Values) *httptest.ResponseRecorder {
 	var body io.Reader
@@ -41,7 +240,7 @@ func TestHTTPWorkflow(t *testing.T) {
 			t.Fatalf("GET %s: %d %s", path, w.Code, w.Body.String())
 		}
 	}
-	form := url.Values{"csrf": {a.token}, "callsign": {"zz0test"}, "name": {"Operador fictício"}, "city": {"Cidade exemplo"}, "country": {"Brasil"}, "mode": {"FM"}, "notes": {"<script>alert(1)</script>"}}
+	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"zz0test"}, "name": {"Operador fictício"}, "city": {"Cidade exemplo"}, "country": {"Brasil"}, "mode": {"FM"}, "notes": {"<script>alert(1)</script>"}}
 	w := request(a, "POST", "/station", form)
 	if w.Code != 303 {
 		t.Fatalf("station: %d %s", w.Code, w.Body.String())
@@ -50,7 +249,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if w.Code != 303 {
 		t.Fatalf("participant: %d %s", w.Code, w.Body.String())
 	}
-	w = request(a, "GET", "/", nil)
+	w = request(a, "GET", "/round", nil)
 	if strings.Contains(w.Body.String(), "<script>alert") || !strings.Contains(w.Body.String(), "&lt;script&gt;") {
 		t.Fatal("unsafe or missing escaped notes")
 	}
@@ -66,7 +265,7 @@ func TestHTTPWorkflow(t *testing.T) {
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "Editar participante") {
 		t.Fatalf("edit: %d %s", w.Code, w.Body)
 	}
-	edit := url.Values{"csrf": {a.token}, "id": {"1"}, "callsign": {"ZZ0TEST"}, "name": {"Nome alterado"}, "mode": {"SSB"}, "notes": {"Observação de rodada"}}
+	edit := url.Values{"round_id": {"1"}, "csrf": {a.token}, "id": {"1"}, "callsign": {"ZZ0TEST"}, "name": {"Nome alterado"}, "mode": {"SSB"}, "notes": {"Observação de rodada"}}
 	if w = request(a, "POST", "/participant", edit); w.Code != 303 {
 		t.Fatalf("edit: %d %s", w.Code, w.Body)
 	}
@@ -120,9 +319,9 @@ func TestHTTPSecurityAndErrors(t *testing.T) {
 		want         int
 	}{
 		{"POST", "/station", url.Values{"callsign": {"ZZ0TEST"}}, 403},
-		{"POST", "/station", url.Values{"csrf": {a.token}, "callsign": {"bad space"}}, 400},
-		{"POST", "/participant", url.Values{"csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
-		{"POST", "/contact", url.Values{"csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
+		{"POST", "/station", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"bad space"}}, 400},
+		{"POST", "/participant", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
+		{"POST", "/contact", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
 		{"GET", "/contact?id=999", nil, 404}, {"GET", "/station?id=bad", nil, 400},
 		{"GET", "/participant?id=999", nil, 404}, {"GET", "/lookup?callsign=ZZ9TEST", nil, 404},
 		{"GET", "/participant/remove", nil, 405}, {"GET", "/data/test.db", nil, 404},
@@ -152,7 +351,7 @@ func TestHTTPSecurityAndErrors(t *testing.T) {
 			t.Errorf("origin %q: %d", origin, w.Code)
 		}
 	}
-	w := request(a, "GET", "/", nil)
+	w := request(a, "GET", "/round", nil)
 	if !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
 		t.Fatal("missing security header")
 	}
