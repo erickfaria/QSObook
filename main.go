@@ -61,6 +61,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	defer app.closeTransfers()
 	if err := app.configureAccess(*passwordFile, *allowedHosts); err != nil {
 		return err
 	}

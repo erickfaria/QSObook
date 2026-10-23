@@ -65,7 +65,10 @@ type Participant struct {
 	RoundID   int64
 	Active    bool
 }
-type Store struct{ db *sql.DB }
+type Store struct {
+	db   *sql.DB
+	path string
+}
 
 func openStore(ctx context.Context, path string) (*Store, error) {
 	path, err := filepath.Abs(path)
@@ -100,7 +103,7 @@ func openStore(ctx context.Context, path string) (*Store, error) {
 		return nil, err
 	}
 	db.SetMaxOpenConns(1)
-	s := &Store{db: db}
+	s := &Store{db: db, path: path}
 	if err := s.migrate(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("preparar banco: %w", err)
@@ -179,6 +182,9 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 		}
 		return st.ID, nil
 	}
+	if err := stationAvailable(ctx, s.db, st.Callsign); err != nil {
+		return 0, err
+	}
 	var id int64
 	err := s.db.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country,notes) VALUES(?,?,?,?,?,?) ON CONFLICT(callsign) DO UPDATE SET
 		name=coalesce(nullif(stations.name,''),excluded.name), city=coalesce(nullif(stations.city,''),excluded.city),
@@ -190,6 +196,9 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 // New conversations only complete missing registration fields. Replacing an
 // existing value requires an explicit edit by ID; permanent notes stay separate.
 func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int64, error) {
+	if err := stationAvailable(ctx, tx, st.Callsign); err != nil {
+		return 0, err
+	}
 	var id int64
 	if st.ID > 0 {
 		err := tx.QueryRowContext(ctx, `UPDATE stations SET

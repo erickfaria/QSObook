@@ -30,7 +30,7 @@
 <a href="/location">{{t "Meu local"}}</a>
 <a href="/round">{{t "Rodadas"}}</a>
 <a href="/stations">{{t "Estações"}}</a>
-<a href="/trash">{{t "Lixeira"}}</a>
+<a href="/trash">{{t "Lixeira"}}</a><a href="/data">{{t "Dados"}}</a>
 <form method="post" action="/language" class="language-picker">
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="return_to" value="{{.ReturnTo}}">
 <label for="language">{{t "Idioma"}}</label>
@@ -49,7 +49,7 @@
 </header>
 <main id="main">
 <h1>{{.Title}}</h1>{{if .Message}}<p class="notice" role="status">{{.Message}}</p>{{end}}
-{{if eq .View "dashboard"}}{{template "dashboard" .}}{{else if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else if eq .View "records"}}{{template "records" .}}{{else if eq .View "location"}}{{template "location" .}}{{else if eq .View "trash"}}{{template "trash" .}}{{else if eq .View "trash-confirm"}}{{template "trash-confirm" .}}{{else}}{{template "form" .}}{{end}}
+{{if eq .View "dashboard"}}{{template "dashboard" .}}{{else if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else if eq .View "records"}}{{template "records" .}}{{else if eq .View "location"}}{{template "location" .}}{{else if eq .View "data"}}{{template "data" .}}{{else if eq .View "transfer"}}{{template "transfer" .}}{{else if eq .View "trash"}}{{template "trash" .}}{{else if eq .View "trash-confirm"}}{{template "trash-confirm" .}}{{else}}{{template "form" .}}{{end}}
 </main>
 <datalist id="modes">
 <option value="AM">

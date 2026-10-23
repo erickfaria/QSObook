@@ -109,3 +109,20 @@ func (a *App) trashAction(w http.ResponseWriter, r *http.Request) {
 	}
 	redirect(w, r, "/trash")
 }
+
+var errStationInTrash = errors.New("Estação na lixeira. Restaure o cadastro antes de registrar novos contatos.")
+
+func stationAvailable(ctx context.Context, q sqlQuerier, callsign string) error {
+	var archived bool
+	err := q.QueryRowContext(ctx, "SELECT deleted_at IS NOT NULL FROM stations WHERE callsign=?", callsign).Scan(&archived)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if archived {
+		return errStationInTrash
+	}
+	return nil
+}

@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,8 @@ import (
 var assets embed.FS
 
 type App struct {
+	requests                 sync.RWMutex
+	transfers                transferState
 	allowedHosts             map[string]bool
 	passwordHash             *[32]byte
 	location                 *time.Location
@@ -35,6 +38,8 @@ type App struct {
 	geoClient                *http.Client
 }
 type Page struct {
+	Version, Revision                                string
+	Schema                                           int
 	Language, ReturnTo, JSMessages                   string
 	Title, View, Token, Query, Message, Action, Back string
 	Stations                                         []Station
@@ -62,6 +67,9 @@ type Page struct {
 	Filter                                           ListFilter
 	Pagination                                       Pagination
 	Trash                                            []TrashItem
+	Summary                                          NotebookSummary
+	RecoveryFiles                                    []string
+	Transfer                                         *transferPreview
 }
 
 func newApp(store *Store, loc *time.Location) (*App, error) {
@@ -95,6 +103,14 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.HandleFunc("POST /language", a.languagePreference)
 	a.mux.HandleFunc("GET /records", a.records)
 	a.mux.HandleFunc("POST /records", a.saveRecord)
+	a.mux.HandleFunc("GET /data", a.dataPage)
+	a.mux.HandleFunc("POST /data/export", a.downloadADIF)
+	a.mux.HandleFunc("POST /data/backup", a.downloadBackup)
+	a.mux.HandleFunc("POST /data/recovery", a.downloadRecovery)
+	a.mux.HandleFunc("POST /data/restore", a.previewRestore)
+	a.mux.HandleFunc("POST /data/import", a.previewImport)
+	a.mux.HandleFunc("POST /data/confirm", a.confirmTransfer)
+	a.mux.HandleFunc("POST /data/cancel", a.cancelTransfer)
 	a.mux.HandleFunc("GET /trash", a.trash)
 	a.mux.HandleFunc("GET /trash/confirm", a.trashConfirm)
 	a.mux.HandleFunc("POST /trash", a.trashAction)
@@ -138,6 +154,14 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	return a, nil
 }
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Serialize replacement against all in-flight HTTP operations and token reads.
+	if r.Method == "POST" && (r.URL.Path == "/data/confirm" || r.URL.Path == "/data/restore" || r.URL.Path == "/data/import") {
+		a.requests.Lock()
+		defer a.requests.Unlock()
+	} else {
+		a.requests.RLock()
+		defer a.requests.RUnlock()
+	}
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	// Keep browser form Origins intact; cross-origin requests still omit Referer.
@@ -152,7 +176,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodPost {
-		r.Body = http.MaxBytesReader(w, r.Body, 32<<10)
+		limit := int64(32 << 10)
+		upload := r.URL.Path == "/data/restore" || r.URL.Path == "/data/import"
+		if upload {
+			limit = maxUpload + (1 << 20)
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		if origin := r.Header.Get("Origin"); origin != "" {
 			u, err := url.Parse(origin)
 			if err != nil || u.Host != r.Host || u.Scheme != "http" {
@@ -164,7 +193,16 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			a.httpError(w, r, "Origem não permitida", 403)
 			return
 		}
-		if err := r.ParseForm(); err != nil {
+		var parseErr error
+		if upload {
+			parseErr = r.ParseMultipartForm(128 << 10)
+			if r.MultipartForm != nil {
+				defer r.MultipartForm.RemoveAll()
+			}
+		} else {
+			parseErr = r.ParseForm()
+		}
+		if parseErr != nil {
 			a.httpError(w, r, "Formulário inválido ou muito grande", 400)
 			return
 		}
@@ -222,6 +260,10 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p Page) {
 	w.Write(b.Bytes())
 }
 func (a *App) fail(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, errStationInTrash) {
+		a.httpError(w, r, err.Error(), 409)
+		return
+	}
 	if errors.Is(err, errRoundChanged) {
 		a.httpError(w, r, err.Error(), http.StatusConflict)
 		return

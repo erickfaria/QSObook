@@ -64,12 +64,12 @@ func (a *App) saveRecord(w http.ResponseWriter, r *http.Request) {
 		err = validationErr
 	}
 	if err != nil {
-		if validationErr == nil && !errors.Is(err, errSubmissionConflict) {
+		if validationErr == nil && !errors.Is(err, errSubmissionConflict) && !errors.Is(err, errStationInTrash) {
 			a.fail(w, r, err)
 			return
 		}
 		status := http.StatusBadRequest
-		if errors.Is(err, errSubmissionConflict) {
+		if errors.Is(err, errSubmissionConflict) || errors.Is(err, errStationInTrash) {
 			status = http.StatusConflict
 		}
 		// Preserve drafts on validation errors, including the original replay key.
