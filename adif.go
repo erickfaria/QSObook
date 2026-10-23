@@ -39,6 +39,9 @@ type ADIFPreview struct {
 	Unsupported         []string
 }
 
+// Maximum-size application fields may expand through JSON escaping and base64.
+const maxADIField = 64 << 10
+
 var errADIFInvalid = errors.New("ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.")
 
 func writeADIField(w io.Writer, name, value string) error {
@@ -201,7 +204,7 @@ func parseADI(data []byte) ([]map[string]string, error) {
 			}
 		}
 		n, err := strconv.Atoi(parts[1])
-		if err != nil || n < 0 || n > 32768 || n > len(text) {
+		if err != nil || n < 0 || n > maxADIField || n > len(text) {
 			return nil, errADIFInvalid
 		}
 		if _, exists := current[parts[0]]; exists {

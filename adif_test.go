@@ -178,3 +178,21 @@ func FuzzParseADI(f *testing.F) {
 		}
 	})
 }
+
+func TestADIFRoundTripMaximumEscapedNotes(t *testing.T) {
+	ctx := context.Background()
+	source := testStore(t)
+	notes := strings.Repeat("&", 4000)
+	if _, err := source.saveRecord(ctx, Station{Callsign: "ZZ0LONG", Name: strings.Repeat("&", 120), City: strings.Repeat("&", 120), State: strings.Repeat("&", 120), Country: strings.Repeat("&", 120)}, strings.Repeat("&", 40), strings.Repeat("&", 40), strings.Repeat("&", 120), notes, strings.Repeat("d", 32), true); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := exportADI(ctx, source, &output); err != nil {
+		t.Fatal(err)
+	}
+	target := testStore(t)
+	preview, err := target.previewADIF(ctx, adifFile(t, output.String()))
+	if err != nil || len(preview.Contacts) != 1 || preview.Contacts[0].Notes != notes {
+		t.Fatal("maximum allowed notes do not round-trip", err)
+	}
+}
