@@ -20,7 +20,7 @@ No dates are promised. Planned features are not available until implemented and 
 - Schema version 2 preserves existing records and prevents reuse of removed participation IDs.
 - Compact entry, inline editing and working alternatives without JavaScript.
 - Lookup request ordering and isolated drafts are covered by JavaScript tests without external packages.
-- English documentation describing the workflows, setup and data guarantees.
+- English documentation describing the workflows, setup and data guarantees, with real application screenshots using fictitious data.
 
 Current checks run on Linux AMD64 with Go 1.27.3 and CGO disabled, including an ARM64 cross-build. The initial implementation was validated natively on ARM64. This revision still needs execution on Raspberry Pi, physical-phone testing and assistive-technology review. Explicit concurrent edits retain last-write-wins behavior. No vulnerability scanner is configured.
 

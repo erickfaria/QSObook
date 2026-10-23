@@ -8,6 +8,10 @@ Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICE
 
 Add a callsign, name and city without leaving the current roundtable. Known callsigns recover their operator details from the local database. The table puts callsign, name, city/state and notes first; mode and country stay secondary.
 
+![QSO mode showing participants, separate operator and conversation notes, and explicit QSO confirmation](docs/screenshots/qso-mode.png)
+
+All screenshots use fictitious operators, callsigns and locations. The example roundtable includes two confirmed contacts and one participant still waiting for confirmation. No personal database is included.
+
 **Adding a participant does not record a QSO.** Click **Registrar QSO** (Record QSO) once you have actually made contact. Repeated or simultaneous confirmations create at most one QSO for that participation. Adding someone already in the list preserves their mode, conversation notes and confirmation status.
 
 Use **Editar** (Edit) to open an editor in the table. Country and conversation notes are available in an expandable section. Without JavaScript, the same edit link opens a separate page and the forms remain usable.
@@ -30,11 +34,15 @@ Explicit edits in different tabs still use the last saved values; there is no ed
 
 The **Caderno** (Notebook) lists confirmed contacts with their automatic date/time, mode and conversation notes. Search by callsign or name, open contact details or register a contact manually. Clicking a callsign in QSO mode opens its history search.
 
+![Notebook containing only the two confirmed contacts and their conversation notes](docs/screenshots/notebook.png)
+
 Timestamps are stored in UTC and displayed in the configured time zone. Searches return up to 200 records, with the newest contacts first. Name searches ignore ASCII letter case but distinguish accented characters; refine the term to find older records.
 
 ## Operators: reusable local records
 
 The **Estações** (Stations) page keeps operator details separate from contact history. Callsigns are unique and normalized to uppercase. Edit names, locations and permanent notes here without rewriting past contacts.
+
+![Local operator registry with the three fictitious callsigns and their locations](docs/screenshots/operators.png)
 
 ## Build
 
