@@ -1,5 +1,7 @@
 A testing beta of QSObook, a free local amateur radio notebook.
 
+This release fixes native browser form submissions being rejected with “Origem não permitida” when starting a round, saving a contact or changing map/language preferences. The previous `no-referrer` policy caused browsers to send `Origin: null`; `same-origin` preserves legitimate form Origins while keeping external referrers private. Null/external Origins, invalid CSRF tokens and cross-site requests remain rejected. No database or dependency changes. Reload open pages after updating.
+
 - QSO rounds with independent participation, QRT status and explicit contact confirmation.
 - Safe local callsign lookup, reusable operators, independent notes and preserved contact snapshots.
 - Portuguese, English, Spanish and French, light/dark themes and a responsive phone layout.

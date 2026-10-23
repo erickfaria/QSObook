@@ -17,7 +17,7 @@ Run these commands on Tortuga. Replace the version below when installing a later
 ```sh
 mkdir qsobook-beta
 cd qsobook-beta
-version=v0.1.0-beta.2
+version=v0.1.0-beta.3
 for file in compose.yaml compose.lan.yaml compose.auth.yaml image-digest.txt image-manifest.json SHA256SUMS; do
   curl --fail --location --output "$file" \
     "https://github.com/erickfaria/QSObook/releases/download/$version/$file" || break
@@ -85,7 +85,7 @@ The app refuses passwords shorter than 16 bytes or missing password files. Passw
 
 Use `docker compose -f compose.auth.yaml pull` and `docker compose -f compose.auth.yaml up -d` after creating `.env` as above. This profile requires a valid password file; missing or invalid files cause startup to fail. Username: `qsobook`.
 
-To switch an existing installation to no password, replace the LAN Compose file with the beta.2 release file and recreate the service using that file. Keep your `.env` and data volume. Existing `secrets/` files may remain unused; no database records or password files are deleted. To keep authentication when upgrading from beta.1, use the new `compose.auth.yaml` file instead.
+To switch an existing installation to no password, replace the LAN Compose file with a beta.2 or later release file and recreate the service using that file. Keep your `.env` and data volume. Existing `secrets/` files may remain unused; no database records or password files are deleted. To keep authentication when upgrading from beta.1, use the new `compose.auth.yaml` file instead.
 
 ## Stop and resume
 
