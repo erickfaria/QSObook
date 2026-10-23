@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func upload(a *App, path string, data []byte, token string) *httptest.ResponseRecorder {
@@ -98,7 +99,7 @@ func TestRestoreRejectsForeignSchemaAndInvalidRows(t *testing.T) {
 	ctx := context.Background()
 	s := testStore(t)
 	s.saveStation(ctx, Station{Callsign: "ZZ0KEEP"})
-	for _, mutation := range []string{"CREATE TRIGGER malicious AFTER INSERT ON stations BEGIN DELETE FROM qsos;END", "CREATE VIEW malicious AS SELECT * FROM stations", "PRAGMA user_version=999", "UPDATE qsos SET occurred_at='invalid'", "INSERT INTO participants(round_id,station_id,mode,notes) VALUES(999,999,'FM','')"} {
+	for _, mutation := range []string{"CREATE TRIGGER malicious AFTER INSERT ON stations BEGIN DELETE FROM qsos;END", "CREATE VIEW malicious AS SELECT * FROM stations", "CREATE VIEW sqliteXmalicious AS SELECT * FROM stations", "INSERT INTO rounds(name,started_at) VALUES('Example','invalid')", "PRAGMA user_version=999", "UPDATE qsos SET occurred_at='invalid'", "INSERT INTO participants(round_id,station_id,mode,notes) VALUES(999,999,'FM','')"} {
 		t.Run(mutation, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "invalid.db")
 			if err := s.backup(ctx, path); err != nil {
@@ -182,5 +183,110 @@ func TestRestorePreviewGuardRecoveryAndOldForms(t *testing.T) {
 	}
 	if w := request(a, "POST", "/data/recovery", url.Values{"csrf": {a.token}, "name": {backups[0]}}); w.Code != 200 || !strings.Contains(w.Header().Get("Content-Disposition"), "attachment") {
 		t.Fatal("recovery download", w.Code, w.Body)
+	}
+}
+
+func TestRestoreFailureRollsBackAndVersionFiveUpgrade(t *testing.T) {
+	ctx := context.Background()
+	s := testStore(t)
+	s.saveStation(ctx, Station{Callsign: "ZZ0KEEP", Notes: "Keep"})
+	source := testStore(t)
+	source.saveStation(ctx, Station{Callsign: "ZZ0OTHER"})
+	path := filepath.Join(t.TempDir(), "snapshot.db")
+	if err := source.backup(ctx, path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec("CREATE TRIGGER simulated_write_error BEFORE INSERT ON stations BEGIN SELECT RAISE(ABORT,'simulated write error'); END"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.restore(ctx, path); err == nil {
+		t.Fatal("failed write was ignored")
+	}
+	st, err := s.lookup(ctx, "ZZ0KEEP")
+	if err != nil || st.Notes != "Keep" {
+		t.Fatal("partial restore committed", st, err)
+	}
+	s.db.Exec("DROP TRIGGER simulated_write_error")
+	old := recordsVersionFour(t)
+	db, err := sql.Open("sqlite", old)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(recordsSchema); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if err = validateBackup(ctx, old); err != nil {
+		t.Fatal("schema 5 rejected", err)
+	}
+	if err = s.restore(ctx, old); err != nil {
+		t.Fatal("schema 5 upgrade failed", err)
+	}
+	c, err := s.contact(ctx, 11)
+	if err != nil || c.StationID != 7 || c.Notes != "Contact note" {
+		t.Fatal("old history changed", c, err)
+	}
+}
+func TestTransferCancelAndExpiry(t *testing.T) {
+	a := testApp(t)
+	defer a.closeTransfers()
+	data := []byte("<CALL:6>ZZ0ADI<QSO_DATE:8>20261023<TIME_ON:4>1230<MODE:2>FM<EOR>")
+	if w := upload(a, "/data/import", data, a.token); w.Code != 200 {
+		t.Fatal(w.Code, w.Body)
+	}
+	p := a.transfers.Pending
+	dir := filepath.Dir(p.Path)
+	if w := request(a, "POST", "/data/cancel", url.Values{"csrf": {a.token}, "key": {p.Key}}); w.Code != 303 {
+		t.Fatal(w.Code)
+	}
+	if a.transfers.Pending != nil {
+		t.Fatal("cancelled preview retained")
+	}
+	if _, err := os.Stat(dir); !os.IsNotExist(err) {
+		t.Fatal("private upload not removed", err)
+	}
+	upload(a, "/data/import", data, a.token)
+	p = a.transfers.Pending
+	p.Expires = p.Expires.Add(-time.Hour)
+	if w := request(a, "POST", "/data/confirm", url.Values{"csrf": {a.token}, "key": {p.Key}, "confirm": {"yes"}}); w.Code != 409 {
+		t.Fatal("expired preview accepted", w.Code)
+	}
+	request(a, "GET", "/data", nil)
+	if a.transfers.Pending != nil {
+		t.Fatal("expired upload not cleaned")
+	}
+}
+
+func TestStreamingUploadLimitsAndUnexpectedFields(t *testing.T) {
+	a := testApp(t)
+	defer a.closeTransfers()
+	// Oversize ADIF is refused before parsing and leaves no pending upload.
+	if w := upload(a, "/data/import", bytes.Repeat([]byte(" "), (16<<20)+1), a.token); w.Code != 400 {
+		t.Fatal("oversize ADIF", w.Code)
+	}
+	if a.transfers.Pending != nil {
+		t.Fatal("oversize preview retained")
+	}
+	var body bytes.Buffer
+	m := multipart.NewWriter(&body)
+	part, _ := m.CreateFormFile("file", "untrusted.db")
+	part.Write([]byte("notebook"))
+	m.WriteField("csrf", a.token)
+	m.Close()
+	r := httptest.NewRequest("POST", "http://127.0.0.1:8080/data/restore", &body)
+	r.Header.Set("Content-Type", m.FormDataContentType())
+	w := httptest.NewRecorder()
+	a.ServeHTTP(w, r)
+	if w.Code != 400 {
+		t.Fatal("file accepted before CSRF", w.Code)
+	}
+	entries, err := os.ReadDir(a.store.dataDirectory())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if strings.HasPrefix(entry.Name(), ".qsobook-transfer-") {
+			t.Fatal("rejected upload left staging data")
+		}
 	}
 }

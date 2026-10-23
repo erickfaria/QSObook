@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 var notebookTables = []string{"stations", "rounds", "qsos", "participants", "app_settings", "city_coordinates", "sqlite_sequence"}
@@ -38,7 +39,10 @@ func (s *Store) backup(ctx context.Context, destination string) error {
 		return err
 	}
 	defer f.Close()
-	return f.Sync()
+	if err := f.Sync(); err != nil {
+		return err
+	}
+	return syncDirectory(filepath.Dir(destination))
 }
 func schemaSignature(ctx context.Context, db *sql.DB) (string, error) {
 	rows, err := db.QueryContext(ctx, `SELECT type,name,tbl_name,sql FROM sqlite_schema WHERE substr(name,1,7)<>'sqlite_' ORDER BY type,name`)
@@ -81,6 +85,14 @@ func validateBackup(ctx context.Context, path string) error {
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
+	info, e := os.Stat(path)
+	if e != nil || !info.Mode().IsRegular() {
+		return errBackupInvalid
+	}
+	var pages, pageSize int64
+	if db.QueryRowContext(ctx, "PRAGMA page_count").Scan(&pages) != nil || db.QueryRowContext(ctx, "PRAGMA page_size").Scan(&pageSize) != nil || pages <= 0 || pageSize <= 0 || pages*pageSize != info.Size() {
+		return errBackupInvalid
+	}
 	var version int
 	if err = db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version < 5 || version > schemaVersion {
 		return errBackupInvalid
@@ -144,7 +156,7 @@ func validateBackup(ctx context.Context, path string) error {
 	if err = db.QueryRowContext(ctx, "SELECT count(*) FROM app_settings WHERE id=1").Scan(&settings); err != nil || settings != 1 {
 		return errBackupInvalid
 	}
-	return nil
+	return validateBackupMetadata(ctx, db)
 }
 
 // Replace rows in the existing database, never swap an open database file.
@@ -210,4 +222,71 @@ func (s *Store) dataDirectory() string {
 		return filepath.Dir(s.path)
 	}
 	return os.TempDir()
+}
+
+func validateBackupMetadata(ctx context.Context, db *sql.DB) error {
+	rows, err := db.QueryContext(ctx, "SELECT id,name,started_at,ended_at FROM rounds")
+	if err != nil {
+		return errBackupInvalid
+	}
+	for rows.Next() {
+		r, e := scanRound(rows)
+		if e != nil || r.ID <= 0 || validateRoundName(r.Name) != nil {
+			rows.Close()
+			return errBackupInvalid
+		}
+		if r.EndedAt.Valid {
+			end, e := time.Parse(time.RFC3339Nano, r.EndedAt.String)
+			if e != nil || end.Before(r.StartedAt) {
+				rows.Close()
+				return errBackupInvalid
+			}
+		}
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return errBackupInvalid
+	}
+	rows, err = db.QueryContext(ctx, "SELECT mode,notes,band FROM participants")
+	if err != nil {
+		return errBackupInvalid
+	}
+	for rows.Next() {
+		var mode, notes, band string
+		if rows.Scan(&mode, &notes, &band) != nil || validateMode(mode) != nil || validateNotes(notes) != nil || validateRecordDetails(band, "") != nil {
+			rows.Close()
+			return errBackupInvalid
+		}
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return errBackupInvalid
+	}
+	var invalid int
+	if err = db.QueryRowContext(ctx, `SELECT count(*) FROM participants p JOIN qsos q ON q.id=p.qso_id WHERE p.station_id<>q.station_id`).Scan(&invalid); err != nil || invalid > 0 {
+		return errBackupInvalid
+	}
+	if err = db.QueryRowContext(ctx, `SELECT count(*) FROM sqlite_sequence WHERE name IS NULL OR name NOT IN ('participants','rounds') OR typeof(seq)<>'integer' OR seq<0`).Scan(&invalid); err != nil || invalid > 0 {
+		return errBackupInvalid
+	}
+	if err = db.QueryRowContext(ctx, `SELECT count(*) FROM (SELECT name FROM sqlite_sequence GROUP BY name HAVING count(*)>1)`).Scan(&invalid); err != nil || invalid > 0 {
+		return errBackupInvalid
+	}
+	var st Station
+	st.Callsign = "HOME"
+	if err = db.QueryRowContext(ctx, "SELECT home_city,home_state,home_country FROM app_settings WHERE id=1").Scan(&st.City, &st.State, &st.Country); err != nil || st.validate() != nil {
+		return errBackupInvalid
+	}
+	return nil
+}
+
+func syncDirectory(path string) error {
+	dir, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer dir.Close()
+	return dir.Sync()
 }

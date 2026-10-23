@@ -60,6 +60,14 @@ func TestADIFRoundTripPreservesUnicodeAndSnapshots(t *testing.T) {
 	if n, err := target.importADIF(ctx, preview); err != nil || n != 0 {
 		t.Fatal("replay duplicated", n, err)
 	}
+	edited := contacts[0]
+	edited.Mode = "AM"
+	if err := target.updateContact(ctx, edited); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := target.importADIF(ctx, preview); err != nil || n != 0 {
+		t.Fatal("reimport after editing", n, err)
+	}
 	target.moveTrash(ctx, "contact", contacts[0].ID, false)
 	preview, err = target.previewADIF(ctx, adifFile(t, output.String()))
 	if err != nil || preview.Duplicates != 1 || len(preview.Contacts) != 0 {
@@ -133,4 +141,40 @@ func TestADIFHTTPPreviewDoesNotImportUntilConfirmed(t *testing.T) {
 	if w := request(a, "POST", "/data/export", url.Values{"csrf": {a.token}}); w.Code != 200 || !strings.Contains(w.Body.String(), fmt.Sprintf("<CALL:%d>ZZ0ADI", 6)) {
 		t.Fatal("download", w.Code, w.Body)
 	}
+}
+
+func TestADIFDedupDoesNotRoundIntoNextSecond(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	id, err := s.createContact(ctx, Station{Callsign: "ZZ0ROUND"}, "FM", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.db.Exec("UPDATE qsos SET occurred_at='2026-10-23T12:30:59.999999999Z' WHERE id=?", id)
+	p := PortableContact{Callsign: "ZZ0ROUND", Mode: "FM", OccurredAt: time.Date(2026, 10, 23, 12, 30, 59, 0, time.UTC)}
+	if duplicate, err := adifDuplicate(ctx, s.db, p); err != nil || !duplicate {
+		t.Fatal("rounded a duplicate into the next second", duplicate, err)
+	}
+	s.db.Exec("UPDATE qsos SET occurred_at='2026-10-23T09:30:59.999999999-03:00' WHERE id=?", id)
+	if duplicate, err := adifDuplicate(ctx, s.db, p); err != nil || !duplicate {
+		t.Fatal("offset timestamp mismatch", duplicate, err)
+	}
+}
+
+func FuzzParseADI(f *testing.F) {
+	f.Add([]byte("<CALL:6>ZZ0ADI<QSO_DATE:8>20261023<TIME_ON:4>1230<MODE:2>FM<EOR>"))
+	f.Add([]byte("<EOH><CALL:999>short<EOR>"))
+	f.Add([]byte("<CALL:-1>"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		if len(data) > 1<<20 {
+			return
+		}
+		records, err := parseADI(data)
+		if err != nil {
+			return
+		}
+		for _, record := range records {
+			fromADIF(record)
+		}
+	})
 }

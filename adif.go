@@ -275,9 +275,12 @@ type sqlQuerier interface {
 	QueryRowContext(context.Context, string, ...any) *sql.Row
 }
 
+func adifKey(p PortableContact) string {
+	return fmt.Sprintf("adif:%x", sha256.Sum256([]byte(duplicateIdentity(p))))
+}
 func adifDuplicate(ctx context.Context, q sqlQuerier, p PortableContact) (bool, error) {
 	var count int
-	err := q.QueryRowContext(ctx, `SELECT count(*) FROM qsos WHERE callsign=? AND strftime('%Y-%m-%dT%H:%M:%S',occurred_at)=? AND upper(mode)=upper(?) AND replace(lower(band),' ','')=?`, p.Callsign, p.OccurredAt.UTC().Format("2006-01-02T15:04:05"), p.Mode, strings.ReplaceAll(strings.ToLower(p.Band), " ", "")).Scan(&count)
+	err := q.QueryRowContext(ctx, `SELECT count(*) FROM qsos WHERE (callsign=? AND strftime('%Y-%m-%dT%H:%M:%S',substr(occurred_at,1,19)||CASE WHEN substr(occurred_at,-1)='Z' THEN 'Z' ELSE substr(occurred_at,-6) END)=? AND upper(mode)=upper(?) AND replace(lower(band),' ','')=?) OR submission_key=?`, p.Callsign, p.OccurredAt.UTC().Format("2006-01-02T15:04:05"), p.Mode, strings.ReplaceAll(strings.ToLower(p.Band), " ", ""), adifKey(p)).Scan(&count)
 	return count > 0, err
 }
 func (s *Store) previewADIF(ctx context.Context, path string) (*ADIFPreview, error) {
@@ -365,7 +368,7 @@ func (s *Store) importADIF(ctx context.Context, p *ADIFPreview) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		key := fmt.Sprintf("adif:%x", sha256.Sum256([]byte(duplicateIdentity(p))))
+		key := adifKey(p)
 		if _, err = tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,band,round_name,notes,occurred_at,submission_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, id, p.Callsign, p.Name, p.City, p.State, p.Country, p.Mode, p.Band, p.RoundName, p.Notes, p.OccurredAt.Format("2006-01-02T15:04:05.000000000Z"), key); err != nil {
 			return 0, err
 		}

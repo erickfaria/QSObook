@@ -63,12 +63,29 @@ def ready():
     raise RuntimeError("Container did not become ready")
 
 
-def post(path, **fields):
+def post_bytes(path, **fields):
     page = get("/")
     fields["csrf"] = re.search(r'name="csrf" value="([^"]+)"', page)[1]
     request = urllib.request.Request(base + path, data=urllib.parse.urlencode(fields).encode(),
                                      headers={**auth_headers, "Origin": base})
-    with opener.open(request, timeout=5) as response:
+    with opener.open(request, timeout=30) as response:
+        assert response.status == 200, response.status
+        return response.read()
+
+
+def post(path, **fields):
+    return post_bytes(path, **fields).decode()
+
+
+def upload_file(path, content):
+    token = re.search(r'name="csrf" value="([a-f0-9]+)"', get("/"))[1]
+    boundary = "qsobook-" + uuid.uuid4().hex
+    body = (f'--{boundary}\r\nContent-Disposition: form-data; name="csrf"\r\n\r\n{token}\r\n'
+            f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="notebook.db"\r\n'
+            'Content-Type: application/octet-stream\r\n\r\n').encode() + content + f"\r\n--{boundary}--\r\n".encode()
+    request = urllib.request.Request(base + path, data=body, headers={**auth_headers, "Origin": base,
+                                     "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    with opener.open(request, timeout=30) as response:
         assert response.status == 200, response.status
         return response.read().decode()
 
@@ -115,6 +132,38 @@ try:
     post("/participant/status", id="1", active="0")
     post("/language", language="fr", return_to="/round")
     assert '<html lang="fr"' in get("/round")
+    # Exercise the transfer UI with the real image and a read-only root filesystem.
+    expected_version = os.environ.get("VERSION", "dev")
+    assert f"<strong>{expected_version}</strong>" in get("/about")
+    snapshot = post_bytes("/data/backup")
+    snapshot_file = Path(private_files.name) / "live-backup.db"
+    snapshot_file.write_bytes(snapshot)
+    with sqlite3.connect(snapshot_file) as connection:
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert connection.execute("SELECT count(*) FROM qsos").fetchone() == (2,)
+    post("/trash", id="2", kind="contact", action="delete")
+    assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 0
+    post("/trash", id="2", kind="contact", action="restore")
+    post("/trash", id="2", kind="station", action="delete")
+    assert "ZZ1DOCKER" in get("/history")
+    post("/trash", id="2", kind="station", action="restore")
+    post("/station", callsign="zz2recovery", name="Recovery example")
+    preview = upload_file("/data/restore", snapshot)
+    key = re.search(r'name="key" value="([a-f0-9]+)"', preview)[1]
+    post("/data/confirm", key=key, confirm="yes")
+    try:
+        get("/lookup?callsign=zz2recovery")
+        raise AssertionError("Restore did not replace the registration set")
+    except urllib.error.HTTPError as error:
+        assert error.code == 404
+    assert "pre-restore-" in get("/data")
+    adi = post_bytes("/data/export")
+    preview = upload_file("/data/import", adi)
+    key = re.search(r'name="key" value="([a-f0-9]+)"', preview)[1]
+    post("/data/confirm", key=key, confirm="yes")
+    assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 1
+    post("/map/edit", city="Example city", state="", country="Example country",
+         action="save", latitude="1", longitude="2")
     # Recreate the container, not the named volume: records must survive.
     run("stop", "--timeout", "10")
     backup = Path(private_files.name) / "backup"
@@ -145,7 +194,7 @@ try:
         raise AssertionError("External Origin accepted")
     except urllib.error.HTTPError as error:
         assert error.code == 403
-    print("Container smoke passed: non-root, local port, writes, idempotency, language, cold backup integrity, persistence and HTTP security.")
+    print("Container smoke passed: non-root, local port, writes, idempotency, language, live/cold backups, restoration, trash, ADIF deduplication, offline map correction, version, persistence and HTTP security.")
 finally:
     # This unique project contains only the disposable data created above.
     subprocess.run([*compose, "logs", "--tail", "30"], env=env, check=False)

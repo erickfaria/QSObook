@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -108,39 +107,12 @@ func (a *App) previewUpload(w http.ResponseWriter, r *http.Request, kind string)
 	defer a.transfers.Unlock()
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
-	file, _, err := r.FormFile("file")
-	if err != nil {
+	uploaded, ok := r.Context().Value(uploadContextKey{}).(*uploadedFile)
+	if !ok {
 		a.httpError(w, r, "Selecione um arquivo válido.", 400)
 		return
 	}
-	defer file.Close()
-	dir, err := os.MkdirTemp(a.store.dataDirectory(), ".qsobook-transfer-")
-	if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	keep := false
-	defer func() {
-		if !keep {
-			os.RemoveAll(dir)
-		}
-	}()
-	path := filepath.Join(dir, "notebook.db")
-	if kind == "import" {
-		path = filepath.Join(dir, "contacts.adi")
-	}
-	out, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
-	if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	size, copyErr := io.Copy(out, io.LimitReader(file, maxUpload+1))
-	err = copyErr
-	closeErr := out.Close()
-	if err != nil || closeErr != nil || size > maxUpload {
-		a.fail(w, r, fmt.Errorf("upload failed"))
-		return
-	}
+	path := uploaded.Path
 	key, err := newSubmissionKey()
 	if err != nil {
 		a.fail(w, r, err)
@@ -177,7 +149,7 @@ func (a *App) previewUpload(w http.ResponseWriter, r *http.Request, kind string)
 	}
 	a.clearTransfer()
 	a.transfers.Pending = p
-	keep = true
+	uploaded.Keep = true
 	a.render(w, r, Page{Title: "Revise antes de confirmar", View: "transfer", Action: "/data", Transfer: p})
 }
 func (a *App) confirmTransfer(w http.ResponseWriter, r *http.Request) {
@@ -222,8 +194,16 @@ func (a *App) confirmTransfer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		recovery := filepath.Join(dir, "pre-restore-"+time.Now().UTC().Format("20060102T150405Z")+"-"+recoveryKey+".db")
-		if err = a.store.backup(ctx, recovery); err == nil {
-			err = validateBackup(ctx, recovery)
+		partial := recovery + ".partial"
+		defer os.Remove(partial)
+		if err = a.store.backup(ctx, partial); err == nil {
+			err = validateBackup(ctx, partial)
+		}
+		if err == nil {
+			err = os.Rename(partial, recovery)
+		}
+		if err == nil {
+			err = syncDirectory(dir)
 		}
 		if err == nil {
 			err = a.store.restore(ctx, p.Path)
@@ -285,4 +265,68 @@ func (a *App) cancelTransfer(w http.ResponseWriter, r *http.Request) {
 		a.clearTransfer()
 	}
 	redirect(w, r, "/data")
+}
+
+type uploadContextKey struct{}
+type uploadedFile struct {
+	Path string
+	Keep bool
+}
+
+func (a *App) readUpload(r *http.Request) (*uploadedFile, int, error) {
+	invalid := errors.New("Selecione um arquivo válido.")
+	reader, err := r.MultipartReader()
+	if err != nil {
+		return nil, 400, invalid
+	}
+	part, err := reader.NextPart()
+	if err != nil || part.FormName() != "csrf" || part.FileName() != "" {
+		return nil, 400, invalid
+	}
+	token, err := io.ReadAll(io.LimitReader(part, 129))
+	part.Close()
+	if err != nil || len(token) > 128 {
+		return nil, 400, invalid
+	}
+	if subtle.ConstantTimeCompare(token, []byte(a.token)) != 1 {
+		return nil, 403, errors.New("Formulário expirado. Recarregue a página.")
+	}
+	r.PostForm = url.Values{"csrf": {string(token)}}
+	part, err = reader.NextPart()
+	if err != nil || part.FormName() != "file" || part.FileName() == "" {
+		return nil, 400, invalid
+	}
+	defer part.Close()
+	dir, err := os.MkdirTemp(a.store.dataDirectory(), ".qsobook-transfer-")
+	if err != nil {
+		return nil, 500, errors.New("Não foi possível concluir a operação. Tente novamente.")
+	}
+	keep := false
+	defer func() {
+		if !keep {
+			os.RemoveAll(dir)
+		}
+	}()
+	path := filepath.Join(dir, "notebook.upload")
+	out, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err != nil {
+		return nil, 500, errors.New("Não foi possível concluir a operação. Tente novamente.")
+	}
+	limit := int64(maxUpload)
+	if r.URL.Path == "/data/import" {
+		limit = 16 << 20
+	}
+	size, copyErr := io.Copy(out, io.LimitReader(part, limit+1))
+	closeErr := out.Close()
+	if copyErr != nil || closeErr != nil {
+		return nil, 500, errors.New("Não foi possível concluir a operação. Tente novamente.")
+	}
+	if size > limit {
+		return nil, 400, errors.New("Arquivo inválido ou muito grande.")
+	}
+	if _, err = reader.NextPart(); err != io.EOF {
+		return nil, 400, invalid
+	}
+	keep = true
+	return &uploadedFile{Path: path}, 200, nil
 }

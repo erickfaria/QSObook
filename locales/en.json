@@ -289,5 +289,6 @@
   "Filtro inválido": "Invalid filter",
   "Não foi possível localizar a cidade. A posição anterior foi preservada.": "Could not locate the city. The previous position was preserved.",
   "Coordenadas inválidas. Use latitude de -90 a 90 e longitude de -180 a 180.": "Invalid coordinates. Use latitude from -90 to 90 and longitude from -180 to 180.",
-  "Estação na lixeira. Restaure o cadastro antes de registrar novos contatos.": "Station is in the trash. Restore its registration before recording new contacts."
+  "Estação na lixeira. Restaure o cadastro antes de registrar novos contatos.": "Station is in the trash. Restore its registration before recording new contacts.",
+  "Arquivo inválido ou muito grande.": "Invalid or oversized file."
 }

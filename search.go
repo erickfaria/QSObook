@@ -23,36 +23,17 @@ func init() {
 
 // Latin accents used by the four UI languages, plus decomposed combining marks.
 // Values in the database are never normalized or rewritten.
+// Immutable after initialization; reused by SQLite queries without per-rune tables.
+var searchReplacer = strings.NewReplacer("à", "a", "á", "a", "â", "a", "ã", "a", "ä", "a", "å", "a", "ā", "a", "ă", "a", "ą", "a", "ç", "c", "ć", "c", "ĉ", "c", "ċ", "c", "č", "c", "ď", "d", "đ", "d", "è", "e", "é", "e", "ê", "e", "ë", "e", "ē", "e", "ĕ", "e", "ė", "e", "ę", "e", "ě", "e", "ĝ", "g", "ğ", "g", "ġ", "g", "ģ", "g", "ĥ", "h", "ħ", "h", "ì", "i", "í", "i", "î", "i", "ï", "i", "ĩ", "i", "ī", "i", "ĭ", "i", "į", "i", "ı", "i", "ĵ", "j", "ķ", "k", "ĺ", "l", "ļ", "l", "ľ", "l", "ŀ", "l", "ł", "l", "ñ", "n", "ń", "n", "ņ", "n", "ň", "n", "ò", "o", "ó", "o", "ô", "o", "õ", "o", "ö", "o", "ø", "o", "ō", "o", "ŏ", "o", "ő", "o", "ŕ", "r", "ŗ", "r", "ř", "r", "ś", "s", "ŝ", "s", "ş", "s", "š", "s", "ţ", "t", "ť", "t", "ŧ", "t", "ù", "u", "ú", "u", "û", "u", "ü", "u", "ũ", "u", "ū", "u", "ŭ", "u", "ů", "u", "ű", "u", "ų", "u", "ŵ", "w", "ý", "y", "ÿ", "y", "ŷ", "y", "ź", "z", "ż", "z", "ž", "z", "œ", "oe", "æ", "ae", "ß", "ss")
+
 func foldSearch(value string) string {
-	const groups = "àáâãäåāăą:a;çćĉċč:c;ďđ:d;èéêëēĕėęě:e;ĝğġģ:g;ĥħ:h;ìíîïĩīĭįı:i;ĵ:j;ķ:k;ĺļľŀł:l;ñńņň:n;òóôõöøōŏő:o;ŕŗř:r;śŝşš:s;ţťŧ:t;ùúûüũūŭůűų:u;ŵ:w;ýÿŷ:y;źżž:z"
-	value = strings.ToLower(value)
-	var out strings.Builder
-	for _, r := range value {
+	value = searchReplacer.Replace(strings.ToLower(value))
+	return strings.Map(func(r rune) rune {
 		if unicode.Is(unicode.Mn, r) {
-			continue
+			return -1
 		}
-		if r == 'œ' {
-			out.WriteString("oe")
-			continue
-		}
-		if r == 'æ' {
-			out.WriteString("ae")
-			continue
-		}
-		if r == 'ß' {
-			out.WriteString("ss")
-			continue
-		}
-		for _, group := range strings.Split(groups, ";") {
-			parts := strings.Split(group, ":")
-			if strings.ContainsRune(parts[0], r) {
-				r = rune(parts[1][0])
-				break
-			}
-		}
-		out.WriteRune(r)
-	}
-	return out.String()
+		return r
+	}, value)
 }
 
 type ListFilter struct {

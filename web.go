@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"database/sql"
@@ -13,6 +14,8 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -198,10 +201,17 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		var parseErr error
 		if upload {
-			parseErr = r.ParseMultipartForm(128 << 10)
-			if r.MultipartForm != nil {
-				defer r.MultipartForm.RemoveAll()
+			uploaded, status, err := a.readUpload(r)
+			if err != nil {
+				a.httpError(w, r, err.Error(), status)
+				return
 			}
+			defer func() {
+				if !uploaded.Keep {
+					os.RemoveAll(filepath.Dir(uploaded.Path))
+				}
+			}()
+			r = r.WithContext(context.WithValue(r.Context(), uploadContextKey{}, uploaded))
 		} else {
 			parseErr = r.ParseForm()
 		}
