@@ -175,6 +175,46 @@ func TestStaleParticipantEditDoesNotRecreateParticipation(t *testing.T) {
 		t.Fatalf("stale edit recreated participation: %+v %v", list, err)
 	}
 }
+
+func TestOldParticipantActionsDoNotReachNewParticipation(t *testing.T) {
+	for _, callsign := range []string{"ZZ0OTHER", "ZZ0OLD"} {
+		t.Run(callsign, func(t *testing.T) {
+			a := testApp(t)
+			ctx := context.Background()
+			if err := a.store.saveParticipant(ctx, Station{Callsign: "ZZ0OLD"}, "FM", "Old round"); err != nil {
+				t.Fatal(err)
+			}
+			old, err := a.store.participants(ctx)
+			if err != nil || len(old) != 1 {
+				t.Fatalf("old participation: %+v %v", old, err)
+			}
+			form := url.Values{"csrf": {a.token}, "id": {strconv.FormatInt(old[0].ID, 10)}}
+			if w := request(a, "POST", "/participant/remove", form); w.Code != 303 {
+				t.Fatalf("remove: %d %s", w.Code, w.Body)
+			}
+			if err := a.store.saveParticipant(ctx, Station{Callsign: callsign}, "DMR", "New round"); err != nil {
+				t.Fatal(err)
+			}
+			current, err := a.store.participants(ctx)
+			if err != nil || len(current) != 1 || current[0].ID == old[0].ID {
+				t.Fatalf("participant ID reused: old=%+v current=%+v err=%v", old, current, err)
+			}
+			for _, path := range []string{"/participant/record", "/participant/remove"} {
+				if w := request(a, "POST", path, form); w.Code != 404 {
+					t.Fatalf("old action %s: %d %s", path, w.Code, w.Body)
+				}
+			}
+			current, err = a.store.participants(ctx)
+			if err != nil || len(current) != 1 || current[0].Callsign != callsign || current[0].QSOID.Valid {
+				t.Fatalf("old form affected new participation: %+v %v", current, err)
+			}
+			contacts, err := a.store.contacts(ctx, "")
+			if err != nil || len(contacts) != 0 {
+				t.Fatalf("old form created a QSO: %+v %v", contacts, err)
+			}
+		})
+	}
+}
 func request(a *App, method, path string, form url.Values) *httptest.ResponseRecorder {
 	var body io.Reader
 	if form != nil {
