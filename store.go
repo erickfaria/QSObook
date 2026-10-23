@@ -32,6 +32,11 @@ var mapSchema string
 //go:embed migrations/005_records.sql
 var recordsSchema string
 
+//go:embed migrations/006_data_tools.sql
+var dataToolsSchema string
+
+const schemaVersion = 6
+
 type Station struct {
 	ID       int64  `json:"id"`
 	Callsign string `json:"callsign"`
@@ -112,7 +117,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema}
 	if version < 0 || version > len(schemas) {
 		return errors.New("banco criado por versão mais recente")
 	}
@@ -161,7 +166,7 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 		return 0, err
 	}
 	if st.ID > 0 {
-		result, err := s.db.ExecContext(ctx, `UPDATE stations SET name=?,city=?,state=?,country=?,notes=? WHERE id=?`, st.Name, st.City, st.State, st.Country, st.Notes, st.ID)
+		result, err := s.db.ExecContext(ctx, `UPDATE stations SET name=?,city=?,state=?,country=?,notes=? WHERE id=? AND deleted_at IS NULL`, st.Name, st.City, st.State, st.Country, st.Notes, st.ID)
 		if err != nil {
 			return 0, err
 		}
@@ -178,7 +183,7 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 	err := s.db.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country,notes) VALUES(?,?,?,?,?,?) ON CONFLICT(callsign) DO UPDATE SET
 		name=coalesce(nullif(stations.name,''),excluded.name), city=coalesce(nullif(stations.city,''),excluded.city),
 		state=coalesce(nullif(stations.state,''),excluded.state), country=coalesce(nullif(stations.country,''),excluded.country),
-		notes=coalesce(nullif(stations.notes,''),excluded.notes) RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country, st.Notes).Scan(&id)
+		notes=coalesce(nullif(stations.notes,''),excluded.notes) WHERE stations.deleted_at IS NULL RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country, st.Notes).Scan(&id)
 	return id, err
 }
 
@@ -190,14 +195,14 @@ func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int6
 		err := tx.QueryRowContext(ctx, `UPDATE stations SET
 			name=coalesce(nullif(?,''),name), city=coalesce(nullif(?,''),city),
 			state=coalesce(nullif(?,''),state), country=coalesce(nullif(?,''),country)
-			WHERE id=? RETURNING id`, st.Name, st.City, st.State, st.Country, st.ID).Scan(&id)
+			WHERE id=? AND deleted_at IS NULL RETURNING id`, st.Name, st.City, st.State, st.Country, st.ID).Scan(&id)
 		return id, err
 	}
 	err := tx.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country) VALUES(?,?,?,?,?)
 		ON CONFLICT(callsign) DO UPDATE SET
 		name=coalesce(nullif(stations.name,''),excluded.name), city=coalesce(nullif(stations.city,''),excluded.city),
 		state=coalesce(nullif(stations.state,''),excluded.state), country=coalesce(nullif(stations.country,''),excluded.country)
-		RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country).Scan(&id)
+		WHERE stations.deleted_at IS NULL RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country).Scan(&id)
 	return id, err
 }
 
@@ -298,13 +303,13 @@ func scanStation(row interface{ Scan(...any) error }) (Station, error) {
 	return st, err
 }
 func (s *Store) station(ctx context.Context, id int64) (Station, error) {
-	return scanStation(s.db.QueryRowContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE id=?", id))
+	return scanStation(s.db.QueryRowContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE id=? AND deleted_at IS NULL", id))
 }
 func (s *Store) lookup(ctx context.Context, callsign string) (Station, error) {
-	return scanStation(s.db.QueryRowContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE callsign=?", strings.ToUpper(strings.TrimSpace(callsign))))
+	return scanStation(s.db.QueryRowContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE callsign=? AND deleted_at IS NULL", strings.ToUpper(strings.TrimSpace(callsign))))
 }
 func (s *Store) stations(ctx context.Context, query string) ([]Station, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0 ORDER BY callsign LIMIT 200", query, query)
+	rows, err := s.db.QueryContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE deleted_at IS NULL AND (instr(qsobook_fold(callsign),?)>0 OR instr(qsobook_fold(name),?)>0 OR instr(qsobook_fold(city),?)>0) ORDER BY callsign LIMIT 200", foldSearch(query), foldSearch(query), foldSearch(query))
 	if err != nil {
 		return nil, err
 	}
@@ -320,7 +325,7 @@ func (s *Store) stations(ctx context.Context, query string) ([]Station, error) {
 	return list, rows.Err()
 }
 
-const insertContactSQL = `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at) SELECT id,callsign,name,city,state,country,?,?,? FROM stations WHERE id=? RETURNING id`
+const insertContactSQL = `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at) SELECT id,callsign,name,city,state,country,?,?,? FROM stations WHERE id=? AND deleted_at IS NULL RETURNING id`
 
 func (s *Store) record(ctx context.Context, stationID int64, mode, notes string) (int64, error) {
 	if err := validateMode(mode); err != nil {
@@ -347,7 +352,7 @@ func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 const contactColumns = `id,station_id,callsign,name,city,state,country,mode,notes,occurred_at,band,round_name`
 
 func (s *Store) contacts(ctx context.Context, q string) ([]Contact, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0 ORDER BY occurred_at DESC,id DESC LIMIT 200", q, q)
+	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE deleted_at IS NULL AND (instr(qsobook_fold(callsign),?)>0 OR instr(qsobook_fold(name),?)>0 OR instr(qsobook_fold(city),?)>0) ORDER BY occurred_at DESC,id DESC LIMIT 200", foldSearch(q), foldSearch(q), foldSearch(q))
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +368,7 @@ func (s *Store) contacts(ctx context.Context, q string) ([]Contact, error) {
 	return list, rows.Err()
 }
 func (s *Store) contact(ctx context.Context, id int64) (Contact, error) {
-	return scanContact(s.db.QueryRowContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE id=?", id))
+	return scanContact(s.db.QueryRowContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE id=? AND deleted_at IS NULL", id))
 }
 func (s *Store) updateContact(ctx context.Context, c Contact) error {
 	if err := c.Station.validate(); err != nil {
@@ -375,7 +380,7 @@ func (s *Store) updateContact(ctx context.Context, c Contact) error {
 	if err := validateMode(c.Mode); err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE qsos SET name=?,city=?,state=?,country=?,mode=?,notes=?,band=?,round_name=? WHERE id=?`, c.Name, c.City, c.State, c.Country, c.Mode, c.Notes, c.Band, c.RoundName, c.ID)
+	result, err := s.db.ExecContext(ctx, `UPDATE qsos SET name=?,city=?,state=?,country=?,mode=?,notes=?,band=?,round_name=? WHERE id=? AND deleted_at IS NULL`, c.Name, c.City, c.State, c.Country, c.Mode, c.Notes, c.Band, c.RoundName, c.ID)
 	if err != nil {
 		return err
 	}
@@ -425,13 +430,13 @@ func (s *Store) recordParticipant(ctx context.Context, id int64) error {
 	}
 	defer tx.Rollback()
 	var existing sql.NullInt64
-	if err = tx.QueryRowContext(ctx, `SELECT p.qso_id FROM participants p JOIN rounds r ON r.id=p.round_id WHERE p.id=? AND p.removed_at IS NULL AND r.ended_at IS NULL`, id).Scan(&existing); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT p.qso_id FROM participants p JOIN rounds r ON r.id=p.round_id JOIN stations s ON s.id=p.station_id WHERE s.deleted_at IS NULL AND p.id=? AND p.removed_at IS NULL AND r.ended_at IS NULL`, id).Scan(&existing); err != nil {
 		return err
 	}
 	if existing.Valid {
 		return tx.Commit()
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at,round_id,band,round_name) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,?,p.round_id,p.band,r.name FROM participants p JOIN stations s ON s.id=p.station_id JOIN rounds r ON r.id=p.round_id WHERE p.id=?`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
+	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at,round_id,band,round_name) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,?,p.round_id,p.band,r.name FROM participants p JOIN stations s ON s.id=p.station_id JOIN rounds r ON r.id=p.round_id WHERE p.id=? AND s.deleted_at IS NULL`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
 	if err != nil {
 		return err
 	}

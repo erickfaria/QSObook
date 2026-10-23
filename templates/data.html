@@ -1,0 +1,10 @@
+{{define "pagination"}}{{if .Pagination.Page}}<nav class="pagination" aria-label="{{t "Paginação"}}">{{if .Pagination.Previous}}<a href="{{.Pagination.Previous}}">{{t "Anterior"}}</a>{{end}}<span>{{t "Página"}} {{.Pagination.Page}} · {{.Pagination.Total}} {{t "resultado(s)"}}</span>{{if .Pagination.Next}}<a href="{{.Pagination.Next}}">{{t "Próxima"}}</a>{{end}}</nav>{{end}}{{end}}
+{{define "trash-confirm"}}
+{{range .Trash}}<p><strong>{{.Callsign}}</strong> · {{.Name}}</p>
+<p>{{if eq .Kind "station"}}{{t "A estação sai do cadastro e do preenchimento automático. Seus QSOs e participações são preservados."}}{{else}}{{t "O QSO sai do caderno, dos totais e do mapa. O cadastro da estação é preservado."}}{{end}} {{t "Você pode restaurar pela lixeira. Nada será apagado permanentemente."}}</p>
+<form method="post" action="/trash"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="kind" value="{{.Kind}}"><input type="hidden" name="action" value="delete"><div class="actions"><button>{{t "Mover para a lixeira"}}</button><a href="{{if eq .Kind "station"}}/station{{else}}/contact{{end}}?id={{.ID}}">{{t "Cancelar"}}</a></div></form>{{end}}
+{{end}}
+{{define "trash"}}
+<p>{{t "Itens na lixeira continuam no backup. Restaurar uma estação não altera seus QSOs; restaurar um QSO não reativa o cadastro."}}</p>
+<div class="table-scroll"><table><thead><tr><th>{{t "Tipo"}}</th><th>{{t "Indicativo"}}</th><th>{{t "Nome"}}</th><th>{{t "Ação"}}</th></tr></thead><tbody>{{range .Trash}}<tr><td>{{if eq .Kind "station"}}{{t "Estação"}}{{else}}QSO{{end}}</td><td>{{.Callsign}}</td><td>{{.Name}}</td><td><form method="post" action="/trash"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="kind" value="{{.Kind}}"><input type="hidden" name="action" value="restore"><button class="secondary">{{t "Restaurar"}}</button></form></td></tr>{{else}}<tr><td colspan="4">{{t "Lixeira vazia."}}</td></tr>{{end}}</tbody></table></div>
+{{end}}

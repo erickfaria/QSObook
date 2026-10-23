@@ -35,7 +35,7 @@ type ModeGroup struct {
 
 func (c ContactCity) GroupsJSON() string { data, _ := json.Marshal(c.Groups); return string(data) }
 func (s *Store) contactCities(ctx context.Context) ([]ContactCity, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT q.city,q.state,q.country,count(*),c.latitude,c.longitude,c.checked_at,q.mode,q.band FROM qsos q LEFT JOIN city_coordinates c ON c.city=q.city AND c.state=q.state AND c.country=q.country WHERE q.city<>'' GROUP BY q.city,q.state,q.country,q.mode,q.band ORDER BY q.city,q.state,q.country,q.mode,q.band`)
+	rows, err := s.db.QueryContext(ctx, `SELECT q.city,q.state,q.country,count(*),c.latitude,c.longitude,c.checked_at,q.mode,q.band FROM qsos q LEFT JOIN city_coordinates c ON c.city=q.city AND c.state=q.state AND c.country=q.country WHERE q.deleted_at IS NULL AND q.city<>'' GROUP BY q.city,q.state,q.country,q.mode,q.band ORDER BY q.city,q.state,q.country,q.mode,q.band`)
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +129,7 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var count int
-	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE city=? AND state=? AND country=?", c.City, c.State, c.Country).Scan(&count); err != nil {
+	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE deleted_at IS NULL AND city=? AND state=? AND country=?", c.City, c.State, c.Country).Scan(&count); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -241,7 +241,7 @@ func (s *Store) contactsInCity(ctx context.Context, c ContactCity, query string,
 	if len(filters) > 1 {
 		band = filters[1]
 	}
-	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+` FROM qsos WHERE city=? AND state=? AND country=? AND (instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0)
+	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+` FROM qsos WHERE deleted_at IS NULL AND city=? AND state=? AND country=? AND (instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0)
  AND (?='' OR upper(mode)=upper(?) OR (?='digital' AND upper(mode) IN ('DIGITAL','DMR','ECHOLINK','D-STAR','C4FM')) OR (?='other' AND upper(mode) NOT IN ('FM','AM','SSB','CW','DIGITAL','DMR','ECHOLINK','D-STAR','C4FM')))
  AND (?='' OR band=?) ORDER BY occurred_at DESC,id DESC LIMIT 200`, c.City, c.State, c.Country, query, query, mode, mode, mode, mode, band, band)
 	if err != nil {

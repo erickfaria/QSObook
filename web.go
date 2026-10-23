@@ -59,6 +59,9 @@ type Page struct {
 	MapTilesURL                                      string
 	MapCities                                        []ContactCity
 	CityFilter                                       ContactCity
+	Filter                                           ListFilter
+	Pagination                                       Pagination
+	Trash                                            []TrashItem
 }
 
 func newApp(store *Store, loc *time.Location) (*App, error) {
@@ -92,6 +95,9 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.HandleFunc("POST /language", a.languagePreference)
 	a.mux.HandleFunc("GET /records", a.records)
 	a.mux.HandleFunc("POST /records", a.saveRecord)
+	a.mux.HandleFunc("GET /trash", a.trash)
+	a.mux.HandleFunc("GET /trash/confirm", a.trashConfirm)
+	a.mux.HandleFunc("POST /trash", a.trashAction)
 	a.mux.HandleFunc("GET /location", a.locationForm)
 	a.mux.HandleFunc("POST /location", a.saveLocation)
 	a.mux.HandleFunc("GET /round", a.round)
@@ -240,17 +246,17 @@ func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, path, http.StatusSeeOther)
 }
 func (a *App) stations(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query().Get("q")
-	if len(q) > 200 {
-		a.httpError(w, r, "Busca muito longa", 400)
+	f, err := a.listFilter(r)
+	if err != nil {
+		a.httpError(w, r, err.Error(), 400)
 		return
 	}
-	list, err := a.store.stations(r.Context(), q)
+	list, total, err := a.store.stationPage(r.Context(), f)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	a.render(w, r, Page{Title: "Estações", View: "stations", Stations: list, Query: q})
+	a.render(w, r, Page{Title: "Estações", View: "stations", Stations: list, Query: f.Query, Filter: f, Pagination: pagination(r, f.Page, total)})
 }
 func (a *App) stationForm(w http.ResponseWriter, r *http.Request) {
 	p := Page{Title: "Cadastrar estação", View: "form", Action: "/station", Back: "/stations"}
@@ -346,29 +352,17 @@ func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, va
 }
 
 func (a *App) history(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query().Get("q")
-	if len(q) > 200 {
-		a.httpError(w, r, "Busca muito longa", 400)
+	f, err := a.listFilter(r)
+	if err != nil {
+		a.httpError(w, r, err.Error(), 400)
 		return
 	}
-	city := ContactCity{City: r.URL.Query().Get("city"), State: r.URL.Query().Get("state"), Country: r.URL.Query().Get("country")}
-	var list []Contact
-	var err error
-	if city.City != "" {
-		st := Station{Callsign: "MAP", City: city.City, State: city.State, Country: city.Country}
-		if err := st.validate(); err != nil {
-			a.httpError(w, r, "Cidade inválida", 400)
-			return
-		}
-		list, err = a.store.contactsInCity(r.Context(), city, q, r.URL.Query().Get("mode"), r.URL.Query().Get("band"))
-	} else {
-		list, err = a.store.contacts(r.Context(), q)
-	}
+	list, total, err := a.store.contactPage(r.Context(), f)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	a.render(w, r, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: q, CityFilter: city})
+	a.render(w, r, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: f.Query, Filter: f, CityFilter: ContactCity{City: f.City, State: f.State, Country: f.Country}, Pagination: pagination(r, f.Page, total)})
 }
 func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("id") == "" {
@@ -516,7 +510,7 @@ func (a *App) lookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var count int
-	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE station_id=?", st.ID).Scan(&count); err != nil {
+	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE deleted_at IS NULL AND station_id=?", st.ID).Scan(&count); err != nil {
 		a.fail(w, r, err)
 		return
 	}

@@ -125,7 +125,7 @@ try:
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("SELECT count(*) FROM qsos").fetchone() == (2,)
         assert connection.execute("SELECT band,round_name FROM qsos WHERE callsign='ZZ1DOCKER'").fetchone() == ("70 cm", "Example net")
-        assert connection.execute("PRAGMA user_version").fetchone() == (5,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (6,)
     run("up", "--detach", "--force-recreate", "--no-build")
     ready()
     assert json.loads(get("/lookup?callsign=zz0docker")) == data
