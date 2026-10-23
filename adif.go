@@ -283,7 +283,7 @@ func adifKey(p PortableContact) string {
 }
 func adifDuplicate(ctx context.Context, q sqlQuerier, p PortableContact) (bool, error) {
 	var count int
-	err := q.QueryRowContext(ctx, `SELECT count(*) FROM qsos WHERE (callsign=? AND strftime('%Y-%m-%dT%H:%M:%S',substr(occurred_at,1,19)||CASE WHEN substr(occurred_at,-1)='Z' THEN 'Z' ELSE substr(occurred_at,-6) END)=? AND upper(mode)=upper(?) AND replace(lower(band),' ','')=?) OR submission_key=?`, p.Callsign, p.OccurredAt.UTC().Format("2006-01-02T15:04:05"), p.Mode, strings.ReplaceAll(strings.ToLower(p.Band), " ", ""), adifKey(p)).Scan(&count)
+	err := q.QueryRowContext(ctx, `SELECT count(*) FROM qsos WHERE (callsign=? AND `+utcContactSecond+`=? AND upper(mode)=upper(?) AND replace(lower(band),' ','')=?) OR submission_key=?`, p.Callsign, p.OccurredAt.UTC().Format("2006-01-02T15:04:05"), p.Mode, strings.ReplaceAll(strings.ToLower(p.Band), " ", ""), adifKey(p)).Scan(&count)
 	return count > 0, err
 }
 func (s *Store) previewADIF(ctx context.Context, path string) (*ADIFPreview, error) {
