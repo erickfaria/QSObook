@@ -177,8 +177,11 @@ func TestHTTPRoundLifecycle(t *testing.T) {
 		t.Fatal(err)
 	}
 	get := request(a, "GET", "/", nil)
-	if get.Code != 200 || !strings.Contains(get.Body.String(), "Iniciar QSO") {
+	if get.Code != 200 || !strings.Contains(get.Body.String(), "Novo registro") {
 		t.Fatalf("dashboard: %d", get.Code)
+	}
+	if w := request(a, "GET", "/round", nil); w.Code != 200 || !strings.Contains(w.Body.String(), "Iniciar QSO") {
+		t.Fatal("optional round workflow missing")
 	}
 	csrf := url.Values{"csrf": {a.token}, "previous_round": {"0"}, "name": {"Example round"}}
 	if w := request(a, "POST", "/round/start", csrf); w.Code != 303 {

@@ -24,9 +24,11 @@ var assets embed.FS
 type App struct {
 	allowedHosts             map[string]bool
 	passwordHash             *[32]byte
+	location                 *time.Location
 	store                    *Store
 	templates                map[string]*template.Template
 	translations             map[string]map[string]string
+	countries                map[string]map[string]string
 	token                    string
 	mux                      *http.ServeMux
 	mapTilesURL, geocoderURL string
@@ -41,6 +43,10 @@ type Page struct {
 	Station                                          Station
 	Contact                                          Contact
 	Mode                                             string
+	Band, RoundName, SubmissionKey                   string
+	Confirmed                                        bool
+	Home                                             HomeLocation
+	MonthCount                                       int64
 	Notes                                            string
 	IsContact                                        bool
 	Round                                            Round
@@ -64,8 +70,15 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &App{store: store, translations: translations, token: hex.EncodeToString(secret), mux: http.NewServeMux(), mapTilesURL: defaultMapTiles, geocoderURL: defaultGeocoder,
+	a := &App{store: store, location: loc, translations: translations, token: hex.EncodeToString(secret), mux: http.NewServeMux(), mapTilesURL: defaultMapTiles, geocoderURL: defaultGeocoder,
 		geoClient: &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	countryData, err := assets.ReadFile("locales/countries.json")
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal(countryData, &a.countries); err != nil {
+		return nil, err
+	}
 	a.templates, err = a.localizedTemplates(loc)
 	if err != nil {
 		return nil, err
@@ -77,6 +90,10 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	a.mux.HandleFunc("GET /{$}", a.dashboard)
 	a.mux.HandleFunc("POST /language", a.languagePreference)
+	a.mux.HandleFunc("GET /records", a.records)
+	a.mux.HandleFunc("POST /records", a.saveRecord)
+	a.mux.HandleFunc("GET /location", a.locationForm)
+	a.mux.HandleFunc("POST /location", a.saveLocation)
 	a.mux.HandleFunc("GET /round", a.round)
 	a.mux.HandleFunc("POST /map/preference", a.mapPreference)
 	a.mux.HandleFunc("POST /map/locate", a.locateCity)
@@ -343,7 +360,7 @@ func (a *App) history(w http.ResponseWriter, r *http.Request) {
 			a.httpError(w, r, "Cidade inválida", 400)
 			return
 		}
-		list, err = a.store.contactsInCity(r.Context(), city, q)
+		list, err = a.store.contactsInCity(r.Context(), city, q, r.URL.Query().Get("mode"), r.URL.Query().Get("band"))
 	} else {
 		list, err = a.store.contacts(r.Context(), q)
 	}
@@ -354,6 +371,10 @@ func (a *App) history(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: q, CityFilter: city})
 }
 func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
+	if r.FormValue("id") == "" {
+		a.records(w, r)
+		return
+	}
 	p := Page{Title: "Registrar QSO", View: "form", IsContact: true, Mode: "FM", Action: "/contact", Back: "/history"}
 	if r.FormValue("id") != "" {
 		id, err := identifier(r, "id")
@@ -368,6 +389,8 @@ func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Station = p.Contact.Station
 		p.Mode = p.Contact.Mode
+		p.Band = p.Contact.Band
+		p.RoundName = p.Contact.RoundName
 		p.Notes = p.Contact.Notes
 		p.Title = "Detalhes e edição do QSO"
 	}
@@ -398,6 +421,12 @@ func (a *App) saveContact(w http.ResponseWriter, r *http.Request) {
 		st.Callsign = old.Callsign
 		old.Station = st
 		old.Mode = mode
+		if r.PostForm.Has("band") {
+			old.Band = recordChoice(r, "band")
+		}
+		if r.PostForm.Has("round_name") {
+			old.RoundName = r.PostForm.Get("round_name")
+		}
 		if err = a.store.updateContact(r.Context(), old); err != nil {
 			a.fail(w, r, err)
 			return
@@ -445,7 +474,7 @@ func (a *App) saveParticipant(w http.ResponseWriter, r *http.Request) {
 		a.invalidForm(w, r, st, err)
 		return
 	}
-	if err := a.store.saveParticipant(r.Context(), roundID, participantID, st, mode, st.Notes); err != nil {
+	if err := a.store.saveParticipant(r.Context(), roundID, participantID, st, mode, st.Notes, recordChoice(r, "band")); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -512,7 +541,7 @@ func (a *App) participantForm(w http.ResponseWriter, r *http.Request) {
 	for _, p := range list {
 		if p.ID == id {
 			st := p.Station
-			a.render(w, r, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/round", Station: st, Mode: p.Mode, Notes: p.Notes, ParticipantID: p.ID, RoundID: p.RoundID, Round: Round{ID: p.RoundID}})
+			a.render(w, r, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/round", Station: st, Mode: p.Mode, Band: p.Band, Notes: p.Notes, ParticipantID: p.ID, RoundID: p.RoundID, Round: Round{ID: p.RoundID}})
 			return
 		}
 	}

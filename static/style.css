@@ -522,3 +522,4 @@ th,td { padding:.6rem .7rem }
  .records-table td,.records-table th { padding:.5rem; min-width:7rem }
  input,textarea,select,button,.button { min-height:44px }
 }
+.leaflet-container .leaflet-control-zoom-in,.leaflet-container .leaflet-control-zoom-out,.leaflet-container a.leaflet-popup-close-button { font-family:"Atkinson Hyperlegible",sans-serif }

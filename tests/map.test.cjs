@@ -11,7 +11,10 @@ function setup(language, available = true) {
   const status = {textContent: ''};
   const container = {dataset: {tiles: 'https://tiles.example.org/{z}/{x}/{y}.png'}};
   const cityLink = {textContent: '<Example city>', getAttribute: () => '/history?city=Example'};
-  const city = {dataset: {lat: '1', lon: '2', count: '3'}, querySelector: () => cityLink};
+  const city = {dataset: {lat: '1', lon: '2', count: '3', groups: JSON.stringify([{mode: 'DMR',band: '70 cm',count: 2},{mode: 'FM',band: '2 m',count: 1}])}, querySelector: () => cityLink};
+  const modeFilter = {value: "", addEventListener(event, fn) {this.change=fn;}};
+  const bandFilter = {value: "", addEventListener(event, fn) {this.change=fn;}};
+  const markers=[];
   const close = {setAttribute(name, value) { this[name] = value; }};
   let zoomOptions, popup, popupOpen, tileError, tileOptions;
   const map = {setView() { return this; }, fitBounds() {}};
@@ -19,7 +22,7 @@ function setup(language, available = true) {
     window: {},
     document: {
       documentElement: {dataset: {messages: JSON.stringify(messages)}},
-      getElementById: id => id === 'contact-map' ? container : status,
+      getElementById: id => id === 'contact-map' ? container : id === 'map-mode' ? modeFilter : id === 'map-band' ? bandFilter : status,
       querySelectorAll: () => [city],
       createElement: () => ({append(...children) { this.children = children; }})
     }
@@ -31,12 +34,12 @@ function setup(language, available = true) {
       tileOptions = options;
       return {on(event, callback) { tileError = callback; }, addTo() {}};
     },
-    circleMarker() {
-      return {addTo() { return this; }, bindPopup(element) { popup = element; return this; }, on(event, callback) { popupOpen = callback; }};
+    circleMarker(coords, options) {
+      const marker={options,removed:false,remove() {this.removed=true;},addTo() { return this; }, bindPopup(element) { popup = element; return this; }, on(event, callback) { popupOpen = callback; }}; markers.push(marker); return marker;
     }
   };
   vm.runInNewContext(locale + source, context);
-  return {status, close, popup, zoomOptions, tileOptions, messages,
+  return {status, close, get popup() {return popup;}, zoomOptions, tileOptions, messages, modeFilter, bandFilter, markers,
     openPopup() { popupOpen({popup: {getElement: () => ({querySelector: () => close})}}); },
     tileError() { tileError(); }};
 }
@@ -58,4 +61,19 @@ test('map controls, popup counts and offline feedback follow the page language',
     const failed = setup(language, false);
     assert.equal(failed.status.textContent, text('Não foi possível abrir o mapa. Seus contatos estão na lista de cidades.'));
   }
+});
+
+test('map filters modes and bands locally and preserves matching counts and colors', () => {
+ const h=setup('en');
+ assert.equal(h.markers.at(-1).options.color, '#847b91');
+ h.modeFilter.value='digital';h.modeFilter.change();
+ assert.equal(h.markers[0].removed,true);
+ assert.equal(h.markers.at(-1).options.color,'#bd646c');
+ assert.match(h.popup.children[1].textContent,/2/);
+ assert.match(h.popup.children[1].href,/mode=digital/);
+ h.bandFilter.value='2 m';h.bandFilter.change();
+ assert.equal(h.status.textContent,'No contacts match these filters.');
+ h.modeFilter.value='FM';h.modeFilter.change();
+ assert.equal(h.markers.at(-1).options.color,'#487ca8');
+ assert.match(h.popup.children[1].href,/band=2%20m/);
 });

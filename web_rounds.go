@@ -5,12 +5,15 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"time"
 )
 
 func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	p := Page{Title: "Seu caderno", View: "dashboard", Message: r.URL.Query().Get("message")}
 	var err error
-	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos").Scan(&p.ContactCount); err != nil {
+	now := time.Now().In(a.location)
+	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, a.location)
+	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*),coalesce(sum(occurred_at>=? AND occurred_at<?),0) FROM qsos", month.UTC().Format("2006-01-02T15:04:05.000000000Z"), month.AddDate(0, 1, 0).UTC().Format("2006-01-02T15:04:05.000000000Z")).Scan(&p.ContactCount, &p.MonthCount); err != nil {
 		a.fail(w, r, err)
 		return
 	}
@@ -33,6 +36,11 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.MapCities, err = a.store.contactCities(r.Context())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	p.Home, err = a.store.homeLocation(r.Context())
 	if err != nil {
 		a.fail(w, r, err)
 		return

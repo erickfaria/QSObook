@@ -12,7 +12,7 @@ func TestRecordsSeparateRegistrationConfirmationAndReplay(t *testing.T) {
 	ctx := context.Background()
 	st := Station{Callsign: "ZZ0ENTRY", Name: "Example", City: "Exampletown", Notes: "Permanent"}
 	key, _ := newSubmissionKey()
-	qid, err := s.saveRecord(ctx, st, "", "", "", "Draft notes", key, false)
+	qid, err := s.saveRecord(ctx, st, "", "", "", "", key, false)
 	if err != nil || qid != 0 {
 		t.Fatalf("registration: %d %v", qid, err)
 	}

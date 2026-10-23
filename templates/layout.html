@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · QSObook</title>
+<link rel="icon" href="/static/logo.svg" type="image/svg+xml">
 <script src="/static/theme.js"></script>
 <script src="/static/locale.js" defer></script>
 {{if .MapEnabled}}<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
@@ -16,17 +17,19 @@
 <body>
 <a class="skip" href="#main">{{t "Ir para o conteúdo"}}</a>
 <header>
-<a class="brand" href="/">QSObook <span>{{t "caderno de rádio"}}</span>
+<a class="brand" href="/"><img src="/static/logo.svg" width="30" height="30" alt="">QSObook <span>{{t "caderno de rádio"}}</span>
 </a>
 <nav aria-label="{{t "Principal"}}">
 <a href="/" {{if eq .View "dashboard"}}aria-current="page"{{end}}>{{t "Início"}}</a>
-<a href="/round" {{if eq .View "round"}}aria-current="page"{{end}}>{{t "Modo QSO"}}</a>
+<a href="/records" {{if eq .View "records"}}aria-current="page"{{end}}>{{t "Registros"}}</a>
 <a href="/history" {{if eq .View "history"}}aria-current="page"{{end}}>{{t "Caderno"}}</a>
-<a href="/stations" {{if eq .View "stations"}}aria-current="page"{{end}}>{{t "Estações"}}</a>
 </nav>
 <details class="preferences">
 <summary>{{t "Preferências"}}</summary>
 <div class="preference-controls">
+<a href="/location">{{t "Meu local"}}</a>
+<a href="/round">{{t "Rodadas"}}</a>
+<a href="/stations">{{t "Estações"}}</a>
 <form method="post" action="/language" class="language-picker">
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="return_to" value="{{.ReturnTo}}">
 <label for="language">{{t "Idioma"}}</label>
@@ -45,7 +48,7 @@
 </header>
 <main id="main">
 <h1>{{.Title}}</h1>{{if .Message}}<p class="notice" role="status">{{.Message}}</p>{{end}}
-{{if eq .View "dashboard"}}{{template "dashboard" .}}{{else if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else}}{{template "form" .}}{{end}}
+{{if eq .View "dashboard"}}{{template "dashboard" .}}{{else if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else if eq .View "records"}}{{template "records" .}}{{else if eq .View "location"}}{{template "location" .}}{{else}}{{template "form" .}}{{end}}
 </main>
 <datalist id="modes">
 <option value="AM">
@@ -72,10 +75,9 @@
 </label>
 <label>{{t "Estado"}} <input name="state" maxlength="120" value="{{.Station.State}}">
 </label>
-<label>{{t "País"}} <input name="country" maxlength="120" value="{{.Station.Country}}">
+<label>{{t "País"}} {{template "country" .Station.Country}}
 </label>
-{{if or .IsContact (eq .Action "/participant")}}<label>{{t "Modo"}} <input name="mode" required maxlength="40" value="{{.Mode}}" list="modes">
-</label>{{end}}
+{{if or .IsContact (eq .Action "/participant")}}{{template "radio-fields" .}}{{end}}
 <label class="wide">{{if or .IsContact (eq .Action "/participant")}}{{t "Observações da conversa"}}{{else}}{{t "Observações do operador"}}{{end}} <textarea name="notes" maxlength="4000" rows="2">{{if or .IsContact (eq .Action "/participant")}}{{.Notes}}{{else}}{{.Station.Notes}}{{end}}</textarea>
 </label>
 </div>
@@ -89,6 +91,7 @@
 <label>{{t "Cidade"}} <input name="city" maxlength="120" value="{{.Station.City}}"></label>
 <label>{{t "UF / Estado"}} <input name="state" maxlength="120" value="{{.Station.State}}"></label>
 <label>{{t "Modo"}} <input name="mode" required maxlength="40" value="{{.Mode}}" list="modes"></label>
+<label>{{t "Faixa"}}<select name="band"><option value="">{{t "Não informada"}}</option>{{range bands .Band}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}</select></label>
 </div>
 {{if not .Station.ID}}<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{t "Digite um indicativo para consultar seu cadastro local."}}</p>{{end}}
 <details class="extra-fields" {{if .Notes}}open{{end}}>
@@ -151,7 +154,7 @@
 </div>{{end}}
 {{define "history"}}<div class="toolbar">
 <p>{{t "Contatos permanentes, com data e hora no fuso configurado."}}{{if .CityFilter.City}} {{t "Cidade:"}} {{.CityFilter.City}} / {{.CityFilter.State}} · {{.CityFilter.Country}}. <a href="/history">{{t "Ver todos"}}</a>{{end}}</p>
-<a class="button" href="/contact">{{t "Registrar QSO"}}</a>
+<a class="button" href="/records">{{t "Registrar QSO"}}</a>
 </div>{{template "search" .}}
 <div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Histórico de contatos"}}">
 <table>
@@ -174,7 +177,7 @@
 <td>{{.Name}}</td>
 <td>{{.City}} {{.State}}</td>
 <td>{{.Country}}</td>
-<td>{{.Mode}}</td>
+<td>{{.Mode}}{{if .Band}}<span class="cell-detail">{{.Band}}</span>{{end}}{{if .RoundName}}<span class="cell-detail">{{.RoundName}}</span>{{end}}</td>
 <td class="notes">{{.Notes}}</td>
 <td>
 <a href="/contact?id={{.ID}}">{{t "Detalhes / editar"}}<span class="sr-only"> {{.Callsign}}</span>
@@ -246,10 +249,9 @@
 </form>{{end}}
 
 {{define "dashboard"}}
-<div class="dashboard-intro"><div><p class="contact-total">{{.ContactCount}}</p><p>{{t "contatos confirmados no seu caderno"}}</p></div>
-{{if .Round.ID}}<div><p class="hint">{{t "Uma rodada está em andamento"}}{{if .Round.Name}} · {{.Round.Name}}{{end}}.</p><a class="button" href="/round">{{t "Continuar QSO"}}</a></div>{{else}}{{template "start-round" .}}{{end}}</div>
+<div class="summary-strip"><div><strong>{{.MonthCount}}</strong><span>{{t "Contatos neste mês"}}</span></div><div><strong>{{.ContactCount}}</strong><span>{{t "No caderno"}}</span></div><div><strong>{{len .MapCities}}</strong><span>{{t "Cidades"}}</span></div><a class="button" href="/records">{{t "Novo registro"}}</a></div>
 {{template "contact-map" .}}
-{{if .Rounds}}<section aria-labelledby="rounds-title"><h2 id="rounds-title">{{t "Suas rodadas"}}</h2><ul class="round-list">{{range .Rounds}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Name}}{{else}}{{t "Rodada"}}{{end}}</a><span class="hint">{{localTime .StartedAt}} · {{if .EndedAt.Valid}}{{t "Encerrada"}}{{else}}{{t "Em andamento"}}{{end}}</span></li>{{end}}</ul><p class="hint">{{t "Últimas 50 rodadas. Os contatos continuam disponíveis no Caderno."}}</p></section>{{end}}
+{{if .Rounds}}<details class="legacy-rounds"><summary id="rounds-title">{{t "Suas rodadas"}}</summary><ul class="round-list">{{range .Rounds}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Name}}{{else}}{{t "Rodada"}}{{end}}</a><span class="hint">{{localTime .StartedAt}} · {{if .EndedAt.Valid}}{{t "Encerrada"}}{{else}}{{t "Em andamento"}}{{end}}</span></li>{{end}}</ul><p class="hint">{{t "Últimas 50 rodadas. Os contatos continuam disponíveis no Caderno."}}</p></details>{{end}}
 {{end}}
 
 {{define "contact-map"}}<section class="map-section" aria-labelledby="map-title">
@@ -257,16 +259,17 @@
 {{if .MapEnabled}}<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="0"><button class="text-button">{{t "Desativar mapa"}}</button></form>{{end}}</div>
 {{if .MapEnabled}}
 <p class="hint">{{t "Pontos aproximados por cidade, somente de contatos confirmados. Selecione um ponto para consultar os contatos."}}</p>
-<div id="contact-map" data-tiles="{{.MapTilesURL}}" role="region" aria-label="{{t "Mapa das cidades dos contatos"}}"></div>
+<div class="map-filters"><label>{{t "Modo"}}<select id="map-mode"><option value="">{{t "Todos"}}</option><option>FM</option><option>AM</option><option>SSB</option><option>CW</option><option value="digital">{{t "Digital"}}</option><option>DMR</option><option>EchoLink</option><option>D-Star</option><option>C4FM</option><option value="other">{{t "Outros"}}</option></select></label><label>{{t "Faixa"}}<select id="map-band"><option value="">{{t "Todas"}}</option>{{range bands ""}}<option>{{.Value}}</option>{{end}}</select></label><span class="map-legend"><i class="dot-fm"></i> FM <i class="dot-am"></i> AM <i class="dot-digital"></i>{{t "Digital"}}</span><a href="/location">{{t "Meu local"}}</a></div>
+<div id="contact-map" {{if .Home.Latitude.Valid}}data-home-lat="{{.Home.Latitude.Float64}}" data-home-lon="{{.Home.Longitude.Float64}}" data-home-city="{{.Home.City}}"{{end}} data-tiles="{{.MapTilesURL}}" role="region" aria-label="{{t "Mapa das cidades dos contatos"}}"></div>
 <p id="map-status" class="hint" role="status" aria-live="polite">{{t "As cidades e seus contatos também estão na lista abaixo. Coordenadas já localizadas ficam salvas neste computador."}}</p>
 <noscript><p class="hint">{{t "Ative o JavaScript para o mapa interativo. A lista de cidades funciona sem JavaScript."}}</p></noscript>
 {{else}}
 <div class="map-placeholder"><p>{{t "Veja por onde suas conversas passaram."}}</p><p class="hint">{{t "Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita."}}</p>
-<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="1"><button>{{t "Ativar mapa"}}</button></form></div>
+<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="1"><button>{{t "Ativar mapa"}}</button> <a href="/location">{{t "Meu local e localização ao salvar"}}</a></form></div>
 {{end}}
 <p class="hint">{{t "Dados ©"}} <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a> · <a href="https://operations.osmfoundation.org/policies/tiles/" rel="noreferrer">{{t "Uso do mapa"}}</a> · <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noreferrer">{{t "Uso da geocodificação"}}</a>{{t ". Buscas de cidades são manuais. Sem internet, o caderno continua funcionando."}}</p>
 <details class="city-details"><summary>{{t "Cidades dos contatos ·"}} {{len .MapCities}}</summary>
-<ul class="city-list">{{range .MapCities}}<li {{if .Latitude.Valid}}data-map-city data-lat="{{.Latitude.Float64}}" data-lon="{{.Longitude.Float64}}" data-count="{{.Count}}"{{end}}>
+<ul class="city-list">{{range .MapCities}}<li {{if .Latitude.Valid}}data-map-city data-lat="{{.Latitude.Float64}}" data-lon="{{.Longitude.Float64}}" data-count="{{.Count}}" data-groups="{{.GroupsJSON}}"{{end}}>
 <div><a data-city-link href="/history?city={{.City}}&state={{.State}}&country={{.Country}}">{{.City}}{{if .State}} / {{.State}}{{end}}{{if .Country}} · {{.Country}}{{end}}</a><span class="cell-detail">{{.Count}} {{t "contato(s) confirmado(s)"}}{{if .Latitude.Valid}} {{t "· Localizada"}}{{else if .CheckedAt.Valid}} {{t "· Não localizada"}}{{end}}</span></div>
 {{if and $.MapEnabled (not .CheckedAt.Valid)}}<form method="post" action="/map/locate"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="city" value="{{.City}}"><input type="hidden" name="state" value="{{.State}}"><input type="hidden" name="country" value="{{.Country}}"><button class="secondary">{{t "Localizar cidade"}}</button></form>{{end}}
 </li>{{else}}<li>{{t "Nenhuma cidade informada em contatos confirmados."}}</li>{{end}}</ul></details>

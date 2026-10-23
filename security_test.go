@@ -18,7 +18,7 @@ func TestWriteRoutesRejectForgeryWithoutChangingData(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := totalChanges(t, a.store)
-	for _, path := range []string{"/station", "/contact", "/participant", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/language"} {
+	for _, path := range []string{"/records", "/location", "/station", "/contact", "/participant", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/language"} {
 		for _, attack := range []struct{ origin, token string }{
 			{"http://external.example", a.token},
 			{"null", a.token},

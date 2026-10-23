@@ -30,23 +30,8 @@ func validateRecordDetails(band, round string) error {
 // Save registration and optional confirmation together. Replays are checked
 // before any registration write, so they cannot overwrite a newer operator.
 func (s *Store) saveRecord(ctx context.Context, st Station, mode, band, round, notes, key string, confirmed bool) (int64, error) {
-	if err := st.validate(); err != nil {
+	if err := validateRecordInput(&st, mode, band, round, notes, key, confirmed); err != nil {
 		return 0, err
-	}
-	if err := validateNotes(notes); err != nil {
-		return 0, err
-	}
-	if err := validateRecordDetails(band, round); err != nil {
-		return 0, err
-	}
-	if confirmed {
-		if err := validateMode(mode); err != nil {
-			return 0, err
-		}
-	}
-	decoded, err := hex.DecodeString(key)
-	if err != nil || len(decoded) != 16 {
-		return 0, errors.New("Formulário inválido. Recarregue a página.")
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -65,6 +50,7 @@ func (s *Store) saveRecord(ctx context.Context, st Station, mode, band, round, n
 	if !errors.Is(err, sql.ErrNoRows) {
 		return 0, err
 	}
+	st.ID = 0 // This screen adds/reuses operators; explicit edits have their own route.
 	id, err := mergeConversationStation(ctx, tx, st)
 	if err != nil {
 		return 0, err
@@ -81,4 +67,29 @@ func (s *Store) saveRecord(ctx context.Context, st Station, mode, band, round, n
 		}
 	}
 	return qid, tx.Commit()
+}
+
+func validateRecordInput(st *Station, mode, band, round, notes, key string, confirmed bool) error {
+	if err := st.validate(); err != nil {
+		return err
+	}
+	if err := validateNotes(notes); err != nil {
+		return err
+	}
+	if err := validateRecordDetails(band, round); err != nil {
+		return err
+	}
+	if !confirmed && strings.TrimSpace(notes) != "" {
+		return errors.New("Marque QSO realizado para salvar observações da conversa.")
+	}
+	if confirmed {
+		if err := validateMode(mode); err != nil {
+			return err
+		}
+	}
+	decoded, err := hex.DecodeString(key)
+	if err != nil || len(decoded) != 16 {
+		return errors.New("Formulário inválido. Recarregue a página.")
+	}
+	return nil
 }

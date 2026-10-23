@@ -54,7 +54,10 @@ func (a *App) localizedTemplates(loc *time.Location) (map[string]*template.Templ
 	templates := make(map[string]*template.Template, len(a.translations))
 	for language := range a.translations {
 		t, err := template.New("layout.html").Funcs(template.FuncMap{
-			"t": func(message string) string { return a.translate(language, message) },
+			"countries": func(current string) []SelectOption { return a.countryChoices(language, current) },
+			"modes":     func(current string) []SelectOption { return choices(modeChoices, current) },
+			"bands":     func(current string) []SelectOption { return choices(bandChoices, current) },
+			"t":         func(message string) string { return a.translate(language, message) },
 			"localTime": func(t time.Time) string {
 				format := "02/01/2006 15:04:05 MST"
 				if language == "en" {
@@ -91,7 +94,7 @@ func (a *App) languagePreference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch destination.Path {
-	case "/", "/round", "/history", "/stations", "/station", "/contact", "/participant":
+	case "/", "/round", "/history", "/stations", "/station", "/contact", "/participant", "/records", "/location":
 	default:
 		a.httpError(w, r, "Destino inválido", http.StatusBadRequest)
 		return
@@ -102,7 +105,7 @@ func (a *App) languagePreference(w http.ResponseWriter, r *http.Request) {
 
 func browserMessages() []string {
 	return []string{
-		"Aproximar", "Afastar", "Fechar",
+		"Aproximar", "Afastar", "Fechar", "Meu local", "Nenhum contato para estes filtros.",
 		"Informe um indicativo.",
 		"Consultando cadastro local…",
 		"Indicativo novo no cadastro local.",
