@@ -151,7 +151,7 @@ There is no in-app backup/restore, import/export or ADIF feature yet. The applic
 
 [GitHub Actions](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml) validates pull requests targeting `main`, pushes to `main` and manual runs. The workflow checks Go formatting, pinned module integrity, Go tests, `go vet`, JavaScript syntax/regressions and native Linux AMD64/ARM64 builds with CGO disabled. It also builds the Docker image and smoke-tests Compose on each architecture, including non-root execution, local port binding, writes, repeated submissions and persistence after container recreation. It also checks that validation does not modify tracked sources.
 
-CI uses the Go version declared in `go.mod` and Node.js 24 solely for the built-in JavaScript test runner, without npm packages. Official setup actions are pinned to full commit IDs; the workflow token has read-only repository contents access and checkout credentials are not persisted. CI uses temporary test databases and fake map providers, never personal data or public geocoding requests. Native ARM64 CI does not replace testing on a Raspberry Pi with Debian.
+CI and Docker use the security-patched Go 1.27.3 compiler, while `go.mod` retains its Go 1.24.4 minimum. CI checks reachable vulnerabilities with pinned `govulncheck` v1.9.0 and uses Node.js 24 solely for the built-in JavaScript test runner, without npm packages. Official setup actions are pinned to full commit IDs; the workflow token has read-only repository contents access and checkout credentials are not persisted. CI uses temporary test databases and fake map providers, never personal data or public geocoding requests. Native ARM64 CI does not replace testing on a Raspberry Pi with Debian.
 
 ## Tests
 

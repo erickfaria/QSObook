@@ -1,5 +1,5 @@
-# Build with the same Go release declared in go.mod and used by CI.
-FROM --platform=$BUILDPLATFORM golang:1.24.4-bookworm@sha256:10f549dc8489597aa7ed2b62008199bb96717f52a8e8434ea035d5b44368f8a6 AS build
+# Use a supported, security-patched compiler; go.mod retains its minimum version.
+FROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5 AS build
 ARG TARGETOS=linux
 ARG TARGETARCH
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GOTELEMETRY=off
