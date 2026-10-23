@@ -55,7 +55,7 @@ func TestMapRequiresOptInAndCachesOnlyGeographicData(t *testing.T) {
 		t.Fatalf("enable: %d", w.Code)
 	}
 	w = request(a, "GET", "/", nil)
-	if !strings.Contains(w.Body.String(), "leaflet.js") || !strings.Contains(w.Header().Get("Content-Security-Policy"), "img-src 'self' https://tile.openstreetmap.org") || !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") || w.Header().Get("X-Frame-Options") != "DENY" || w.Header().Get("Referrer-Policy") != "no-referrer" {
+	if !strings.Contains(w.Body.String(), "leaflet.js") || !strings.Contains(w.Header().Get("Content-Security-Policy"), "img-src 'self' https://tile.openstreetmap.org") || !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") || w.Header().Get("X-Frame-Options") != "DENY" || w.Header().Get("Referrer-Policy") != "same-origin" {
 		t.Fatal("incorrect map/security headers")
 	}
 	if calls.Load() != 0 {

@@ -25,7 +25,7 @@ Keep data local, avoid unnecessary exposure and never introduce telemetry. Fix d
 - Parameterized SQL, server-side validation and automatically escaped templates.
 - Writes restricted to POST, a per-run CSRF token, Origin verification and rejection of external Host values.
 - Form bodies limited to 32 KiB, bounded headers and HTTP timeouts, and errors without internal details.
-- CSP for local resources, frame blocking, `nosniff`, `no-referrer` and no-store responses. An opted-in home page additionally permits images from the configured tile origin; tile images send only the application origin as Referer.
+- CSP for local resources, frame blocking, `nosniff`, `Referrer-Policy: same-origin` and no-store responses. The referrer policy preserves the Origin of native form submissions while omitting Referer on cross-origin requests. An opted-in home page additionally permits images from the configured tile origin; tile images send only the application origin as Referer.
 - A local database file with `0600` permissions and new directories with `0700`; databases, configuration and backups are never static assets.
 - No telemetry or external callsign lookup. Maps are disabled by default and require opt-in. Enabled maps request the viewed tile area; explicit geocoding requests send geographic fields only, with local caching and request limits.
 
