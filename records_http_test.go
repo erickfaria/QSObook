@@ -27,14 +27,15 @@ func TestRecordsHTTPConfirmationDefaultsAndValidation(t *testing.T) {
 	if strings.Contains(w.Body.String(), `name="confirmed" value="1" checked`) || strings.Contains(w.Body.String(), `value="Brasil" selected`) {
 		t.Fatal("country or confirmation defaulted")
 	}
-	form := url.Values{"csrf": {a.token}, "submission_key": {recordKey(t, a)}, "callsign": {"ZZ0FORM"}, "name": {"Example"}, "country": {"Brasil"}, "operator_notes": {"Permanent"}}
+	form := url.Values{"csrf": {a.token}, "submission_key": {recordKey(t, a)}, "callsign": {"ZZ0FORM"}, "name": {"Example"}, "country": {"Brasil"}, "city": {"Exampletown"}, "operator_notes": {"Permanent"}}
 	if w = request(a, "POST", "/records", form); w.Code != 303 {
 		t.Fatalf("registration: %d %s", w.Code, w.Body)
 	}
 	form.Set("submission_key", recordKey(t, a))
 	form.Set("confirmed", "1")
 	form.Set("notes", "Conversation")
-	form.Set("band", "70 cm")
+	form.Set("band", "__other")
+	form.Set("band_other", "Example band")
 	if w = request(a, "POST", "/records", form); w.Code != 400 || !strings.Contains(w.Body.String(), "Conversation") {
 		t.Fatal("missing mode lost draft")
 	}
@@ -48,12 +49,18 @@ func TestRecordsHTTPConfirmationDefaultsAndValidation(t *testing.T) {
 		}
 	}
 	contacts, err := a.store.contacts(context.Background(), "")
-	if err != nil || len(contacts) != 1 || contacts[0].Mode != "Example digital" || contacts[0].Band != "70 cm" || contacts[0].RoundName != "Example net" {
+	if err != nil || len(contacts) != 1 || contacts[0].Mode != "Example digital" || contacts[0].Band != "Example band" || contacts[0].RoundName != "Example net" {
 		t.Fatalf("contacts: %+v %v", contacts, err)
 	}
 	st, _ := a.store.lookup(context.Background(), "ZZ0FORM")
 	if st.Notes != "Permanent" {
 		t.Fatal("operator notes changed")
+	}
+	if _, err = a.store.db.Exec("UPDATE app_settings SET map_enabled=1"); err != nil {
+		t.Fatal(err)
+	}
+	if home := request(a, "GET", "/", nil); home.Code != 200 || !strings.Contains(home.Body.String(), "<option>Example band</option>") {
+		t.Fatal("custom band missing from map filters")
 	}
 	a.store.db.Close()
 	if w = request(a, "POST", "/records", form); w.Code != 500 || strings.Contains(w.Body.String(), "sql:") {
