@@ -23,6 +23,7 @@ func main() {
 	}
 }
 func run() error {
+	showVersion := flag.Bool("version", false, "show version and exit without opening a database")
 	dbPath := flag.String("db", "", "caminho SQLite (padrão: diretório de dados do usuário)")
 	addr := flag.String("addr", "127.0.0.1:8080", "endereço HTTP em loopback")
 	container := flag.Bool("container", false, "allow 0.0.0.0 inside a container; publish its port on host loopback only")
@@ -32,6 +33,10 @@ func run() error {
 	passwordFile := flag.String("password-file", "", "file containing the local access password (username: qsobook)")
 	allowedHosts := flag.String("allowed-hosts", "", "additional private-network host:port entries (password optional)")
 	flag.Parse()
+	if *showVersion {
+		fmt.Printf("QSObook %s (%s)\n", appVersion, sourceRevision())
+		return nil
+	}
 	if err := validateListenAddress(*addr, *container); err != nil {
 		return err
 	}

@@ -34,6 +34,7 @@
 <div class="fields"><label>{{t "Cidade"}}<input name="city" maxlength="120" value="{{.Home.City}}"></label><label>{{t "Estado"}}<input name="state" maxlength="120" value="{{.Home.State}}"></label><label>{{t "País"}}{{template "country" .Home.Country}}</label></div>
 <div class="location-consent"><label class="check"><input type="checkbox" name="map_enabled" value="1" {{if .Home.MapEnabled}}checked{{end}}> {{t "Mostrar mapa"}}</label><label class="check"><input type="checkbox" name="auto_geocode" value="1" {{if .Home.AutoGeocode}}checked{{end}}> {{t "Localizar cidades ao salvar"}}</label>
 <p class="hint">{{t "O mapa recebe seu IP e a área exibida. Ao salvar, só cidade, estado e país vão ao geocodificador; coordenadas ficam no banco local. Sem consultas enquanto você digita ou ao abrir o app."}}</p><a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noreferrer">{{t "Uso da geocodificação"}}</a></div>
+{{if .Home.City}}<p><a href="/map/edit?city={{.Home.City}}&state={{.Home.State}}&country={{.Home.Country}}">{{t "Corrigir localização"}}</a></p>{{end}}
 <div class="actions"><button>{{t "Salvar local"}}</button><a href="/">{{t "Voltar"}}</a></div>
 </form>
 {{end}}

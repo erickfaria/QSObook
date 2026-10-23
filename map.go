@@ -153,7 +153,8 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 var errGeocodingBusy = errors.New("geocoding busy")
 var errGeocodingUnavailable = errors.New("geocoding unavailable")
 
-func (a *App) geocodeCity(ctx context.Context, c ContactCity) error {
+func (a *App) geocodeCity(ctx context.Context, c ContactCity, refresh ...bool) error {
+	force := len(refresh) > 0 && refresh[0]
 	// The user has saved a city or explicitly requested its location. Never run
 	// this during rendering, autocomplete, startup or a background batch.
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
@@ -162,7 +163,7 @@ func (a *App) geocodeCity(ctx context.Context, c ContactCity) error {
 	if err := a.store.db.QueryRowContext(ctx, "SELECT count(*) FROM city_coordinates WHERE city=? AND state=? AND country=?", c.City, c.State, c.Country).Scan(&cached); err != nil {
 		return err
 	}
-	if cached > 0 {
+	if cached > 0 && !force {
 		return nil
 	}
 	claimed, err := a.store.claimGeocoding(ctx)
@@ -227,7 +228,7 @@ func (a *App) geocodeCity(ctx context.Context, c ContactCity) error {
 		c.Latitude = sql.NullFloat64{Float64: lat, Valid: true}
 		c.Longitude = sql.NullFloat64{Float64: lon, Valid: true}
 	}
-	if _, err = a.store.db.ExecContext(ctx, `INSERT INTO city_coordinates(city,state,country,latitude,longitude,checked_at) VALUES(?,?,?,?,?,?) ON CONFLICT(city,state,country) DO NOTHING`, c.City, c.State, c.Country, c.Latitude, c.Longitude, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+	if _, err = a.store.db.ExecContext(ctx, `INSERT INTO city_coordinates(city,state,country,latitude,longitude,checked_at) VALUES(?,?,?,?,?,?) ON CONFLICT(city,state,country) DO UPDATE SET latitude=coalesce(excluded.latitude,city_coordinates.latitude),longitude=coalesce(excluded.longitude,city_coordinates.longitude),checked_at=excluded.checked_at`, c.City, c.State, c.Country, c.Latitude, c.Longitude, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
 		return err
 	}
 	return nil
