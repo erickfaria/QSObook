@@ -103,6 +103,15 @@ try:
         post("/participant/record", id="1")
     data = json.loads(get("/lookup?callsign=zz0docker"))
     assert data["contacts"] == 1 and data["name"] == "Example operator", data
+    # The primary record form does not require a round, and replays do not
+    # duplicate confirmations or registrations.
+    key = re.search(r'name="submission_key" value="([a-f0-9]+)"', get("/records"))[1]
+    post("/records", submission_key=key, callsign="zz1docker", name="Record example", country="Brasil")
+    assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 0
+    key = re.search(r'name="submission_key" value="([a-f0-9]+)"', get("/records"))[1]
+    for _ in range(2):
+        post("/records", submission_key=key, callsign="zz1docker", confirmed="1", mode="DMR", band="70 cm", in_round="1", round_name="Example net", notes="Record conversation")
+    assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 1
     post("/participant/status", id="1", active="0")
     post("/language", language="fr", return_to="/round")
     assert '<html lang="fr"' in get("/round")
@@ -114,10 +123,13 @@ try:
     with sqlite3.connect(f"file:{backup / 'data' / 'qsobook.db'}?mode=ro", uri=True) as connection:
         assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
-        assert connection.execute("SELECT count(*) FROM qsos").fetchone() == (1,)
+        assert connection.execute("SELECT count(*) FROM qsos").fetchone() == (2,)
+        assert connection.execute("SELECT band,round_name FROM qsos WHERE callsign='ZZ1DOCKER'").fetchone() == ("70 cm", "Example net")
+        assert connection.execute("PRAGMA user_version").fetchone() == (5,)
     run("up", "--detach", "--force-recreate", "--no-build")
     ready()
     assert json.loads(get("/lookup?callsign=zz0docker")) == data
+    assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 1
     assert "QRT" in get("/round") and "Example conversation" in get("/round")
     # The bridge listener must not weaken HTTP security.
     request = urllib.request.Request(base + "/", headers={**auth_headers, "Host": "example.com"})

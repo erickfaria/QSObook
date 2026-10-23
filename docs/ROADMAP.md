@@ -49,3 +49,10 @@ CI runs native Linux AMD64 and ARM64 checks using Go 1.27.3 with CGO disabled, i
 ## Possible future work
 
 Android support and easier updates may be evaluated after data handling is stable. Required cloud accounts, telemetry and mandatory external services are outside the product scope.
+
+## Implemented unified records (beta 4)
+
+- One entry screen with explicit confirmation, optional roundtable labels, local country dropdowns, mode/band choices and custom values.
+- Database-backed replay protection for the new form; schema-5 upgrades preserve older notebooks and optional live rounds.
+- Monthly counts in the configured time zone, opt-in city geocoding on save, local coordinate reuse, a home-city marker and local mode/band map filters.
+- Compact rounded mobile controls, original SVG project branding and locally bundled open fonts/country data with license notices.

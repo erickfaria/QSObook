@@ -1,16 +1,15 @@
 A testing beta of QSObook, a free local amateur radio notebook.
 
-This release fixes native browser form submissions being rejected with “Origem não permitida” when starting a round, saving a contact or changing map/language preferences. The previous `no-referrer` policy caused browsers to send `Origin: null`; `same-origin` preserves legitimate form Origins while keeping external referrers private. Null/external Origins, invalid CSRF tokens and cross-site requests remain rejected. No database or dependency changes. Reload open pages after updating.
+- A unified Records screen: register an operator and optionally confirm a QSO without starting a roundtable. Confirmation starts unchecked; country has no default.
+- Local country dropdowns in four UI languages, common modes and wavelength bands, custom values and an optional roundtable name.
+- Transactional form replay protection, automatic timestamps, independent notes and preserved historical snapshots.
+- A smaller monthly/total/city summary; optional cached map, approximate home marker, mode colors and local mode/band filters.
+- Opt-in city geocoding when saving a location or confirmed contact. User-triggered geographic queries only, caching, bounded requests and rate limits; provider failure never discards a saved contact. No startup batches or external autocomplete.
+- More compact rounded mobile forms; original SVG branding; bundled SIL OFL Atkinson Hyperlegible fonts and Unicode-licensed country data. No new runtime dependencies or remote fonts.
+- Existing roundtables, participants, QRT and history remain accessible. Passwords remain optional for private LAN/VPN use; Host/Origin/CSRF/frame protections are unchanged.
 
-- QSO rounds with independent participation, QRT status and explicit contact confirmation.
-- Safe local callsign lookup, reusable operators, independent notes and preserved contact snapshots.
-- Portuguese, English, Spanish and French, light/dark themes and a responsive phone layout.
-- Optional OpenStreetMap city map, disabled until explicitly enabled.
-- Ready-to-run Linux ARM64 and AMD64 images at `ghcr.io/erickfaria/qsobook`.
-- Private-LAN/VPN access with an optional shared password and explicit allowed hostnames.
+**Back up before upgrading:** this release migrates SQLite schema 4 to 5. Existing records, IDs, links and cache are retained. Band starts blank for older contacts; home city is empty and geocoding-on-save is disabled until selected. An older beta cannot open the upgraded notebook. Keep the stopped pre-upgrade backup and earlier release files for rollback; do not delete or recreate the data volume.
 
-Download `compose.lan.yaml` for private LAN/VPN access without a password, `compose.auth.yaml` to require a shared password, or `compose.yaml` for loopback-only use. Published Compose assets pin the image digest. Installation, password setup, cold backups and manual updates are explained in the [beta installation guide](https://github.com/erickfaria/QSObook/blob/main/docs/BETA.md).
+Download `compose.lan.yaml` for LAN/VPN access without a password, `compose.auth.yaml` for optional shared-password access, or `compose.yaml` for loopback-only access. Images support Linux ARM64 and AMD64, and release Compose assets pin their exact digest. Read the [installation, backup and update guide](https://github.com/erickfaria/QSObook/blob/main/docs/BETA.md). Reload open browser pages after updating.
 
-Images are built and tested natively on both architectures after Go tests, vet, vulnerability checks and JavaScript regressions. Container tests cover authentication, HTTP security, duplicate confirmation, stopped-database backup integrity and persistence after recreation. The publication includes GitHub provenance attestations. This is not a security audit or a guarantee of defect-free software.
-
-Known limits: private/trusted networks only; HTTP does not encrypt passwords or contacts. Use HTTPS/VPN for untrusted networks or remote access. No individual user accounts, automatic updates, in-app backup/restore, ADIF export or supported stable release line yet. Keep offline backups before upgrades. Physical Raspberry Pi testing is the next step; hosted ARM64 tests do not replace it. Without a password, anyone who can reach the published port can read/change the notebook. Network/VPN rules must restrict access. Upgrading from beta.1 preserves the data volume and existing password file; use `compose.auth.yaml` to keep authentication. No database schema changes.
+Maps require opt-in and internet for tiles/geocoding; core recording and lookup remain local/offline. Follow the [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) and manage aggregate usage across instances. Unmapped older cities need an explicit location action; no-match results are cached. Independent concurrent edits still use last-write-wins. No individual accounts, automatic deployment, in-app backup/restore or ADIF export yet. Without a password, network/VPN rules must restrict access to the port. This beta is not an external security audit.

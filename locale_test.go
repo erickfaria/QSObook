@@ -29,9 +29,17 @@ func languageRequest(a *App, language, method, path string, form url.Values) *ht
 
 func TestTranslationCatalogsCoverUI(t *testing.T) {
 	a := testApp(t)
-	data, err := assets.ReadFile("templates/layout.html")
+	files, err := assets.ReadDir("templates")
 	if err != nil {
 		t.Fatal(err)
+	}
+	var data []byte
+	for _, file := range files {
+		part, err := assets.ReadFile("templates/" + file.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		data = append(data, part...)
 	}
 	keys := browserMessages()
 	for _, match := range regexp.MustCompile(`{{t "([^"]+)"}}`).FindAllStringSubmatch(string(data), -1) {

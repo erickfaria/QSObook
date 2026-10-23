@@ -31,7 +31,7 @@ class Element {
 function setup(action = '/participant') {
   const form = new Element();
   form.attributes.action = action;
-  form.elements = Object.fromEntries(['callsign', 'name', 'city', 'state', 'country', 'notes'].map(name => [name, new Element()]));
+  form.elements = Object.fromEntries(['callsign', 'name', 'city', 'state', 'country', 'notes', 'operator_notes'].map(name => [name, new Element()]));
   const input = form.elements.callsign;
   input.form = form;
   const status = {textContent: ''};
@@ -236,4 +236,13 @@ test('opens the editor inline while preserving modified-click navigation', () =>
   assert.equal(h.form.elements.name.focused, true);
   h.link.emit('click');
   assert.equal(h.editor.hidden, true);
+});
+
+test('records lookup keeps permanent and conversation notes independent', async () => {
+  const h = setup('/records');
+  h.input('ZZ0RECORD'); await h.tick();
+  h.edit('notes', 'Current conversation');
+  await h.respond(0, {name: 'Example', country: 'Brasil', notes: 'Permanent operator note', contacts: 1});
+  assert.equal(h.form.elements.operator_notes.value, 'Permanent operator note');
+  assert.equal(h.form.elements.notes.value, 'Current conversation');
 });

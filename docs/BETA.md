@@ -17,7 +17,7 @@ Run these commands on Tortuga. Replace the version below when installing a later
 ```sh
 mkdir qsobook-beta
 cd qsobook-beta
-version=v0.1.0-beta.3
+version=v0.1.0-beta.4
 for file in compose.yaml compose.lan.yaml compose.auth.yaml image-digest.txt image-manifest.json SHA256SUMS; do
   curl --fail --location --output "$file" \
     "https://github.com/erickfaria/QSObook/releases/download/$version/$file" || break
@@ -52,7 +52,7 @@ docker compose -f compose.lan.yaml up -d
 docker compose -f compose.lan.yaml logs --tail=30 qsobook
 ```
 
-Open **http://tortuga.local:18088** in your computer/phone browser on the same trusted network. No password prompt is shown. Start a round, add a fictitious callsign, confirm a QSO, reload and check the notebook. Test the flow before entering records you want to keep.
+Open **http://tortuga.local:18088** in your computer/phone browser on the same trusted network. No password prompt is shown. Open Records, save a fictitious operator without confirmation, then enter it again and explicitly confirm a QSO with a mode/band. Reload and check the notebook. Test the flow before entering records you want to keep.
 
 The container runs without root, drops capabilities and uses a read-only root filesystem. SQLite is in the named `qsobook_data` volume. Changing the image or recreating the container keeps that volume. Map requests remain disabled until explicit opt-in.
 
@@ -112,6 +112,12 @@ docker compose -f compose.lan.yaml start
 ```
 
 Continue to updating only after all copies succeed. Keep this backup private and store another offline copy wherever you choose. A named volume is not a backup. CI verifies that this stopped SQLite copy passes integrity/foreign-key checks and contains confirmed contacts. There is no in-app restoration tool yet: validate a separate working copy before relying on a backup, and do not overwrite your only notebook. Keep the original backup untouched. Restoring/moving a notebook into a new volume and UID ownership handling are still manual operations.
+
+## Beta 4 database upgrade
+
+Beta 4 migrates the notebook transactionally from schema 4 to 5, preserving operators, contacts, roundtables, participant IDs/links and coordinate caches. New contacts can store a band and optional roundtable label. Existing bands remain blank because they cannot be inferred safely. The previous map opt-in is preserved; geocoding on save starts disabled and your home city starts empty.
+
+**Make the stopped backup above before installing beta 4.** Beta 3 cannot open a schema-5 notebook. To roll back, keep the schema-5 volume untouched and restore a separate validated copy of the pre-upgrade backup with the earlier image; simply selecting the old image is not a database downgrade. There is no in-app restore wizard.
 
 ## Update when you decide
 

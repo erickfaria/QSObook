@@ -1,0 +1,39 @@
+{{define "country"}}<select name="country" autocomplete="off"><option value="">{{t "Selecione"}}</option>{{range countries .}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}</select>{{end}}
+{{define "radio-fields"}}
+<label>{{t "Modo"}}<select name="mode" data-other="mode_other"><option value="">{{t "Selecione"}}</option>{{range modes .Mode}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}<option value="__other">{{t "Outro"}}</option></select></label>
+<label data-other-field="mode_other">{{t "Outro modo"}}<input name="mode_other" maxlength="40"></label>
+<label>{{t "Faixa"}}<select name="band" data-other="band_other"><option value="">{{t "Não informada"}}</option>{{range bands .Band}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}{{if eq .Value "70 cm"}} · UHF{{else if eq .Value "2 m"}} · VHF{{else if eq .Value "6 m"}} · VHF{{else if eq .Value "23 cm"}} · UHF{{else if eq .Value "160 m"}} · MF{{else}} · HF{{end}}</option>{{end}}<option value="__other">{{t "Outra"}}</option></select></label>
+<label data-other-field="band_other">{{t "Outra faixa"}}<input name="band_other" maxlength="40"></label>
+{{end}}
+{{define "records"}}
+<form method="post" action="/records" class="record-form" autocomplete="off">
+<input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="submission_key" value="{{.SubmissionKey}}">
+<div class="fields record-fields">
+<label>{{t "Indicativo"}}<input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" data-lookup aria-describedby="lookup-status" autofocus></label>
+<label>{{t "Nome"}}<input name="name" maxlength="120" value="{{.Station.Name}}" autocomplete="off"></label>
+<label>{{t "Cidade"}}<input name="city" maxlength="120" value="{{.Station.City}}"></label>
+<label>{{t "Estado"}}<input name="state" maxlength="120" value="{{.Station.State}}"></label>
+<label>{{t "País"}}{{template "country" .Station.Country}}</label>
+{{template "radio-fields" .}}
+</div>
+<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{t "Digite um indicativo para consultar seu cadastro local."}}</p>
+<label>{{t "Observações do operador"}}<textarea name="operator_notes" maxlength="4000" rows="2">{{.Station.Notes}}</textarea></label>
+<div class="record-checks"><label class="check"><input type="checkbox" name="confirmed" value="1" {{if .Confirmed}}checked{{end}}> {{t "QSO realizado"}}</label><label class="check"><input type="checkbox" name="in_round" value="1" data-toggle="round-details" {{if .RoundName}}checked{{end}}> {{t "Contato em rodada"}}</label></div>
+<div id="round-details"><label>{{t "Nome da rodada"}}<input name="round_name" value="{{.RoundName}}" maxlength="120"></label></div>
+<details class="extra-fields" {{if .Notes}}open{{end}}><summary>{{t "Observações da conversa"}}</summary><textarea name="notes" maxlength="4000" rows="2" aria-label="{{t "Observações da conversa"}}">{{.Notes}}</textarea></details>
+<div class="actions"><button type="submit">{{t "Salvar registro"}}</button><span class="hint">{{t "Data e hora automáticas ao confirmar o QSO."}}</span></div>
+</form>
+<div class="toolbar"><h2>{{t "Operadores"}}</h2><a href="/stations">{{t "Editar cadastros"}}</a></div>
+{{template "search" .}}
+<div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Estações cadastradas"}}"><table class="records-table"><thead><tr><th>{{t "Indicativo"}}</th><th>{{t "Nome"}}</th><th>{{t "Cidade / UF"}}</th><th>{{t "Observações"}}</th><th>{{t "Ação"}}</th></tr></thead><tbody>{{range .Stations}}<tr><th><a href="/records?callsign={{.Callsign}}">{{.Callsign}}</a></th><td>{{.Name}}</td><td>{{.City}}{{if .State}} / {{.State}}{{end}}</td><td class="notes">{{.Notes}}</td><td><a href="/history?q={{.Callsign}}">{{t "Histórico"}}</a></td></tr>{{else}}<tr><td colspan="5">{{t "Nenhuma estação encontrada."}}</td></tr>{{end}}</tbody></table></div>
+{{end}}
+{{define "location"}}
+<p class="hint">{{t "Use somente cidade, estado e país. A casa no mapa indica uma posição aproximada, sem endereço residencial."}}</p>
+<form method="post" action="/location">
+<input type="hidden" name="csrf" value="{{.Token}}">
+<div class="fields"><label>{{t "Cidade"}}<input name="city" maxlength="120" value="{{.Home.City}}"></label><label>{{t "Estado"}}<input name="state" maxlength="120" value="{{.Home.State}}"></label><label>{{t "País"}}{{template "country" .Home.Country}}</label></div>
+<div class="location-consent"><label class="check"><input type="checkbox" name="map_enabled" value="1" {{if .Home.MapEnabled}}checked{{end}}> {{t "Mostrar mapa"}}</label><label class="check"><input type="checkbox" name="auto_geocode" value="1" {{if .Home.AutoGeocode}}checked{{end}}> {{t "Localizar cidades ao salvar"}}</label>
+<p class="hint">{{t "O mapa recebe seu IP e a área exibida. Ao salvar, só cidade, estado e país vão ao geocodificador; coordenadas ficam no banco local. Sem consultas enquanto você digita ou ao abrir o app."}}</p><a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noreferrer">{{t "Uso da geocodificação"}}</a></div>
+<div class="actions"><button>{{t "Salvar local"}}</button><a href="/">{{t "Voltar"}}</a></div>
+</form>
+{{end}}

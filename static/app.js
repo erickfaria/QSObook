@@ -4,6 +4,7 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
   const status = form.querySelector('[data-lookup-status]');
   const fields = ['name', 'city', 'state', 'country'];
   if (form.getAttribute('action') === '/station') fields.push('notes');
+  if (form.getAttribute('action') === '/records') fields.push('operator_notes');
   const draftFields = [...new Set([...fields, 'notes'])];
   const drafts = new Map();
   let current = input.value.trim().toUpperCase();
@@ -42,8 +43,13 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
         const station = await response.json();
         if (version !== sequence) return;
         for (const name of fields) {
-          if (!edited.has(name) && typeof station[name] === 'string' && station[name].trim()) {
-            form.elements[name].value = station[name];
+          const value = station[name === 'operator_notes' ? 'notes' : name];
+          if (!edited.has(name) && typeof value === 'string' && value.trim()) {
+            const field = form.elements[name];
+            if (name === 'country' && field.tagName === 'SELECT' && !Array.from(field.options).some(option => option.value === value)) {
+              const option = document.createElement('option'); option.value = value; option.textContent = value; field.append(option);
+            }
+            field.value = value;
           }
         }
         status.textContent = window.qsobookText("Operador conhecido · {count} QSO(s) anteriores. Para corrigir dados salvos, use Editar.", {count: station.contacts});
@@ -88,3 +94,15 @@ window.addEventListener('pageshow', () => {
     delete button.dataset.submitDisabled;
   }
 });
+
+// Progressive enhancement: all fields remain accessible without JavaScript.
+for (const select of document.querySelectorAll('[data-other]')) {
+  const field = select.form.querySelector('[data-other-field="' + select.dataset.other + '"]');
+  const update = () => { field.hidden = select.value !== '__other'; };
+  select.addEventListener('change', update); update();
+}
+for (const toggle of document.querySelectorAll('[data-toggle]')) {
+  const field = document.getElementById(toggle.dataset.toggle);
+  const update = () => { field.hidden = !toggle.checked; };
+  toggle.addEventListener('change', update); update();
+}

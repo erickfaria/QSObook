@@ -24,23 +24,39 @@ type ContactCity struct {
 	Count                int64
 	Latitude, Longitude  sql.NullFloat64
 	CheckedAt            sql.NullString
+	Groups               []ModeGroup
 }
 
+type ModeGroup struct {
+	Mode  string `json:"mode"`
+	Band  string `json:"band"`
+	Count int64  `json:"count"`
+}
+
+func (c ContactCity) GroupsJSON() string { data, _ := json.Marshal(c.Groups); return string(data) }
 func (s *Store) contactCities(ctx context.Context) ([]ContactCity, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT q.city,q.state,q.country,count(*),c.latitude,c.longitude,c.checked_at
-	 FROM qsos q LEFT JOIN city_coordinates c ON c.city=q.city AND c.state=q.state AND c.country=q.country
-	 WHERE q.city<>'' GROUP BY q.city,q.state,q.country ORDER BY q.city,q.state,q.country`)
+	rows, err := s.db.QueryContext(ctx, `SELECT q.city,q.state,q.country,count(*),c.latitude,c.longitude,c.checked_at,q.mode,q.band FROM qsos q LEFT JOIN city_coordinates c ON c.city=q.city AND c.state=q.state AND c.country=q.country WHERE q.city<>'' GROUP BY q.city,q.state,q.country,q.mode,q.band ORDER BY q.city,q.state,q.country,q.mode,q.band`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	list := []ContactCity{}
+	indices := map[[3]string]int{}
 	for rows.Next() {
 		var c ContactCity
-		if err := rows.Scan(&c.City, &c.State, &c.Country, &c.Count, &c.Latitude, &c.Longitude, &c.CheckedAt); err != nil {
+		var g ModeGroup
+		if err := rows.Scan(&c.City, &c.State, &c.Country, &g.Count, &c.Latitude, &c.Longitude, &c.CheckedAt, &g.Mode, &g.Band); err != nil {
 			return nil, err
 		}
-		list = append(list, c)
+		key := [3]string{c.City, c.State, c.Country}
+		index, found := indices[key]
+		if !found {
+			index = len(list)
+			indices[key] = index
+			list = append(list, c)
+		}
+		list[index].Count += g.Count
+		list[index].Groups = append(list[index].Groups, g)
 	}
 	return list, rows.Err()
 }
@@ -121,24 +137,40 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 		a.fail(w, r, sql.ErrNoRows)
 		return
 	}
-	var cached int
-	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM city_coordinates WHERE city=? AND state=? AND country=?", c.City, c.State, c.Country).Scan(&cached); err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	if cached > 0 {
-		redirect(w, r, "/#map-title")
-		return
-	}
-	claimed, err := a.store.claimGeocoding(r.Context())
-	if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	if !claimed {
+	err = a.geocodeCity(r.Context(), c)
+	if errors.Is(err, errGeocodingBusy) {
 		w.Header().Set("Retry-After", "2")
 		a.httpError(w, r, "Uma consulta está em andamento. Aguarde antes de tentar outra cidade.", 429)
 		return
+	}
+	if err != nil {
+		redirect(w, r, "/?message=Não+foi+possível+localizar+a+cidade.#map-title")
+		return
+	}
+	redirect(w, r, "/#map-title")
+}
+
+var errGeocodingBusy = errors.New("geocoding busy")
+var errGeocodingUnavailable = errors.New("geocoding unavailable")
+
+func (a *App) geocodeCity(ctx context.Context, c ContactCity) error {
+	// The user has saved a city or explicitly requested its location. Never run
+	// this during rendering, autocomplete, startup or a background batch.
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	var cached int
+	if err := a.store.db.QueryRowContext(ctx, "SELECT count(*) FROM city_coordinates WHERE city=? AND state=? AND country=?", c.City, c.State, c.Country).Scan(&cached); err != nil {
+		return err
+	}
+	if cached > 0 {
+		return nil
+	}
+	claimed, err := a.store.claimGeocoding(ctx)
+	if err != nil {
+		return err
+	}
+	if !claimed {
+		return errGeocodingBusy
 	}
 	cooldown := 1100 * time.Millisecond
 	defer func() {
@@ -152,8 +184,7 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 	}()
 	u, err := url.Parse(a.geocoderURL)
 	if err != nil {
-		a.fail(w, r, err)
-		return
+		return err
 	}
 	q := u.Query()
 	q.Set("format", "jsonv2")
@@ -162,17 +193,15 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 	q.Set("state", c.State)
 	q.Set("country", c.Country)
 	u.RawQuery = q.Encode()
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		a.fail(w, r, err)
-		return
+		return err
 	}
 	req.Header.Set("User-Agent", "QSObook/1 (+https://github.com/erickfaria/QSObook)")
 	req.Header.Set("Accept", "application/json")
 	response, err := a.geoClient.Do(req)
 	if err != nil {
-		redirect(w, r, "/?message=Não+foi+possível+consultar+o+mapa.+Os+contatos+continuam+salvos.#map-title")
-		return
+		return errGeocodingUnavailable
 	}
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
@@ -183,33 +212,38 @@ func (a *App) locateCity(w http.ResponseWriter, r *http.Request) {
 		if when, e := http.ParseTime(response.Header.Get("Retry-After")); e == nil && time.Until(when) > cooldown {
 			cooldown = min(time.Until(when), 24*time.Hour)
 		}
-		redirect(w, r, "/?message=Serviço+de+mapa+indisponível.+Tente+novamente+mais+tarde.#map-title")
-		return
+		return errGeocodingUnavailable
 	}
 	var places []struct{ Lat, Lon string }
 	if err = json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&places); err != nil {
-		redirect(w, r, "/?message=Não+foi+possível+localizar+a+cidade.#map-title")
-		return
+		return errGeocodingUnavailable
 	}
 	if len(places) > 0 {
 		lat, e1 := strconv.ParseFloat(places[0].Lat, 64)
 		lon, e2 := strconv.ParseFloat(places[0].Lon, 64)
 		if e1 != nil || e2 != nil || math.IsNaN(lat) || math.IsNaN(lon) || math.IsInf(lat, 0) || math.IsInf(lon, 0) || lat < -90 || lat > 90 || lon < -180 || lon > 180 {
-			redirect(w, r, "/?message=Coordenadas+inválidas+recebidas+do+mapa.#map-title")
-			return
+			return errGeocodingUnavailable
 		}
 		c.Latitude = sql.NullFloat64{Float64: lat, Valid: true}
 		c.Longitude = sql.NullFloat64{Float64: lon, Valid: true}
 	}
-	if _, err = a.store.db.ExecContext(r.Context(), `INSERT INTO city_coordinates(city,state,country,latitude,longitude,checked_at) VALUES(?,?,?,?,?,?) ON CONFLICT(city,state,country) DO NOTHING`, c.City, c.State, c.Country, c.Latitude, c.Longitude, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
-		a.fail(w, r, err)
-		return
+	if _, err = a.store.db.ExecContext(ctx, `INSERT INTO city_coordinates(city,state,country,latitude,longitude,checked_at) VALUES(?,?,?,?,?,?) ON CONFLICT(city,state,country) DO NOTHING`, c.City, c.State, c.Country, c.Latitude, c.Longitude, time.Now().UTC().Format(time.RFC3339Nano)); err != nil {
+		return err
 	}
-	redirect(w, r, "/#map-title")
+	return nil
 }
 
-func (s *Store) contactsInCity(ctx context.Context, c ContactCity, query string) ([]Contact, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE city=? AND state=? AND country=? AND (instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0) ORDER BY occurred_at DESC,id DESC LIMIT 200", c.City, c.State, c.Country, query, query)
+func (s *Store) contactsInCity(ctx context.Context, c ContactCity, query string, filters ...string) ([]Contact, error) {
+	mode, band := "", ""
+	if len(filters) > 0 {
+		mode = filters[0]
+	}
+	if len(filters) > 1 {
+		band = filters[1]
+	}
+	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+` FROM qsos WHERE city=? AND state=? AND country=? AND (instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0)
+ AND (?='' OR upper(mode)=upper(?) OR (?='digital' AND upper(mode) IN ('DIGITAL','DMR','ECHOLINK','D-STAR','C4FM')) OR (?='other' AND upper(mode) NOT IN ('FM','AM','SSB','CW','DIGITAL','DMR','ECHOLINK','D-STAR','C4FM')))
+ AND (?='' OR band=?) ORDER BY occurred_at DESC,id DESC LIMIT 200`, c.City, c.State, c.Country, query, query, mode, mode, mode, mode, band, band)
 	if err != nil {
 		return nil, err
 	}
