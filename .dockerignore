@@ -18,3 +18,9 @@
 !migrations/*.sql
 !docs/
 !docs/THIRD_PARTY_NOTICES.txt
+
+!static/*.svg
+!static/vendor/atkinson/
+!static/vendor/atkinson/**
+!static/vendor/countries/
+!static/vendor/countries/**
