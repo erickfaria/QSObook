@@ -126,7 +126,7 @@ func validateBackup(ctx context.Context, path string) error {
 	for rows.Next() {
 		st, e := scanStation(rows)
 		original := st.Callsign
-		if e != nil || st.validate() != nil || st.Callsign != original {
+		if e != nil || st.ID <= 0 || st.validate() != nil || st.Callsign != original {
 			rows.Close()
 			return errBackupInvalid
 		}
@@ -142,7 +142,7 @@ func validateBackup(ctx context.Context, path string) error {
 	}
 	for rows.Next() {
 		c, e := scanContact(rows)
-		if e != nil || c.Station.validate() != nil || validateMode(c.Mode) != nil || validateRecordDetails(c.Band, c.RoundName) != nil {
+		if e != nil || c.ID <= 0 || c.StationID <= 0 || c.Station.validate() != nil || validateMode(c.Mode) != nil || validateRecordDetails(c.Band, c.RoundName) != nil {
 			rows.Close()
 			return errBackupInvalid
 		}
@@ -236,8 +236,8 @@ func validateBackupMetadata(ctx context.Context, db *sql.DB) error {
 			return errBackupInvalid
 		}
 		if r.EndedAt.Valid {
-			end, e := time.Parse(time.RFC3339Nano, r.EndedAt.String)
-			if e != nil || end.Before(r.StartedAt) {
+			_, e := time.Parse(time.RFC3339Nano, r.EndedAt.String)
+			if e != nil {
 				rows.Close()
 				return errBackupInvalid
 			}

@@ -99,7 +99,7 @@ func TestRestoreRejectsForeignSchemaAndInvalidRows(t *testing.T) {
 	ctx := context.Background()
 	s := testStore(t)
 	s.saveStation(ctx, Station{Callsign: "ZZ0KEEP"})
-	for _, mutation := range []string{"CREATE TRIGGER malicious AFTER INSERT ON stations BEGIN DELETE FROM qsos;END", "CREATE VIEW malicious AS SELECT * FROM stations", "CREATE VIEW sqliteXmalicious AS SELECT * FROM stations", "INSERT INTO rounds(name,started_at) VALUES('Example','invalid')", "PRAGMA user_version=999", "UPDATE qsos SET occurred_at='invalid'", "INSERT INTO participants(round_id,station_id,mode,notes) VALUES(999,999,'FM','')"} {
+	for _, mutation := range []string{"CREATE TRIGGER malicious AFTER INSERT ON stations BEGIN DELETE FROM qsos;END", "CREATE VIEW malicious AS SELECT * FROM stations", "CREATE VIEW sqliteXmalicious AS SELECT * FROM stations", "INSERT INTO rounds(name,started_at) VALUES('Example','invalid')", "PRAGMA user_version=999", "UPDATE qsos SET occurred_at='invalid'", "UPDATE qsos SET id=-1", "INSERT INTO participants(round_id,station_id,mode,notes) VALUES(999,999,'FM','')"} {
 		t.Run(mutation, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "invalid.db")
 			if err := s.backup(ctx, path); err != nil {
@@ -288,5 +288,18 @@ func TestStreamingUploadLimitsAndUnexpectedFields(t *testing.T) {
 		if strings.HasPrefix(entry.Name(), ".qsobook-transfer-") {
 			t.Fatal("rejected upload left staging data")
 		}
+	}
+}
+
+func TestBackupPreservesHistoryAcrossHostClockAdjustment(t *testing.T) {
+	s := testStore(t)
+	ctx := context.Background()
+	s.db.Exec("INSERT INTO rounds(name,started_at,ended_at) VALUES('Example','2026-10-23T12:00:00Z','2026-10-23T11:59:00Z')")
+	path := filepath.Join(t.TempDir(), "snapshot.db")
+	if err := s.backup(ctx, path); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateBackup(ctx, path); err != nil {
+		t.Fatal("valid history rejected after clock adjustment", err)
 	}
 }
