@@ -11,7 +11,6 @@ import (
 	"errors"
 	"html/template"
 	"io/fs"
-	"net"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -23,6 +22,8 @@ import (
 var assets embed.FS
 
 type App struct {
+	allowedHosts             map[string]bool
+	passwordHash             *[32]byte
 	store                    *Store
 	templates                map[string]*template.Template
 	translations             map[string]map[string]string
@@ -119,13 +120,11 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	w.Header().Set("X-Frame-Options", "DENY")
 	w.Header().Set("Cache-Control", "no-store")
-	host := r.Host
-	if h, _, err := net.SplitHostPort(host); err == nil {
-		host = h
-	}
-	ip := net.ParseIP(host)
-	if host != "localhost" && (ip == nil || !ip.IsLoopback()) {
+	if !a.acceptsHost(r.Host) {
 		a.httpError(w, r, "Host não permitido", http.StatusForbidden)
+		return
+	}
+	if !a.authenticate(w, r) {
 		return
 	}
 	if r.Method == http.MethodPost {

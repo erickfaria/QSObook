@@ -6,6 +6,7 @@ name: CI
   pull_request:
     branches: [main]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -41,7 +42,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version-file: go.mod
+          go-version: '1.27.3'
           cache-dependency-path: go.sum
 
       - name: Set up Node.js for dependency-free browser regressions
@@ -70,6 +71,10 @@ jobs:
       - name: Run Go vet
         run: go vet -mod=readonly ./...
 
+      - name: Check reachable Go vulnerabilities
+        if: matrix.arch == 'amd64'
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
       - name: Check JavaScript and run regressions
         run: |
           node --check static/app.js
@@ -82,7 +87,12 @@ jobs:
         run: go build -mod=readonly -trimpath -o bin/qsobook-linux-${{ matrix.arch }} .
 
       - name: Build container and verify persistent local deployment
-        run: python3 tests/container_smoke.py
+        run: |
+          docker compose config --quiet
+          image="qsobook-ci:$GITHUB_SHA"
+          docker build --tag "$image" .
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.release.yaml python3 tests/container_smoke.py
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.lan.yaml python3 tests/container_smoke.py
 
       - name: Check source remains unchanged
         run: |

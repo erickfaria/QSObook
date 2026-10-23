@@ -5,12 +5,16 @@ never publishes images, and removes only this test's randomly named containers
 and volume. Do not point it at an existing deployment.
 """
 
+import base64
 import http.cookiejar
 import json
 import os
 import re
 import socket
+import sqlite3
 import subprocess
+import tempfile
+from pathlib import Path
 import time
 import urllib.error
 import urllib.parse
@@ -22,7 +26,18 @@ with socket.socket() as port_socket:
     port_socket.bind(("127.0.0.1", 0))
     port = port_socket.getsockname()[1]
 env = {**os.environ, "QSOBOOK_PORT": str(port)}
-compose = ["docker", "compose", "--project-name", project, "--file", "compose.yaml"]
+compose_file = os.environ.get("QSOBOOK_COMPOSE_FILE", "compose.yaml")
+compose = ["docker", "compose", "--project-name", project, "--file", compose_file]
+private_files = tempfile.TemporaryDirectory(prefix=project + "-")
+auth_headers = {}
+if compose_file == "compose.lan.yaml":
+    password = "synthetic-password-" + uuid.uuid4().hex
+    password_file = Path(private_files.name) / "password"
+    password_file.write_text(password + "\n")
+    password_file.chmod(0o444)  # Private 0700 parent; readable by the non-root container.
+    env.update(QSOBOOK_PASSWORD_FILE=str(password_file), QSOBOOK_BIND_ADDRESS="127.0.0.1",
+               QSOBOOK_ALLOWED_HOSTS=f"tortuga.local:{port}")
+    auth_headers["Authorization"] = "Basic " + base64.b64encode(("qsobook:" + password).encode()).decode()
 base = f"http://127.0.0.1:{port}"
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 
@@ -33,7 +48,7 @@ def run(*args, capture=False):
 
 
 def get(path):
-    with opener.open(base + path, timeout=5) as response:
+    with opener.open(urllib.request.Request(base + path, headers=auth_headers), timeout=5) as response:
         return response.read().decode()
 
 
@@ -50,7 +65,7 @@ def post(path, **fields):
     page = get("/")
     fields["csrf"] = re.search(r'name="csrf" value="([^"]+)"', page)[1]
     request = urllib.request.Request(base + path, data=urllib.parse.urlencode(fields).encode(),
-                                     headers={"Origin": base})
+                                     headers={**auth_headers, "Origin": base})
     with opener.open(request, timeout=5) as response:
         assert response.status == 200, response.status
         return response.read().decode()
@@ -58,8 +73,16 @@ def post(path, **fields):
 
 try:
     run("config", "--quiet")
-    run("up", "--detach", "--build")
+    run("up", "--detach", "--build" if compose_file == "compose.yaml" else "--no-build")
     ready()
+    if auth_headers:
+        try:
+            urllib.request.urlopen(base, timeout=5)
+            raise AssertionError("Unauthenticated LAN request accepted")
+        except urllib.error.HTTPError as error:
+            assert error.code == 401
+        with opener.open(urllib.request.Request(base, headers={**auth_headers, "Host": f"tortuga.local:{port}"}), timeout=5) as response:
+            assert response.status == 200
     container = run("ps", "--quiet", "qsobook", capture=True).strip()
     info = json.loads(subprocess.check_output(["docker", "inspect", container], text=True))[0]
     assert info["Config"]["User"] == "10001:10001"
@@ -81,26 +104,34 @@ try:
     assert '<html lang="fr"' in get("/round")
     # Recreate the container, not the named volume: records must survive.
     run("stop", "--timeout", "10")
+    backup = Path(private_files.name) / "backup"
+    backup.mkdir(mode=0o700)
+    run("cp", "qsobook:/data", str(backup))
+    with sqlite3.connect(f"file:{backup / 'data' / 'qsobook.db'}?mode=ro", uri=True) as connection:
+        assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
+        assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
+        assert connection.execute("SELECT count(*) FROM qsos").fetchone() == (1,)
     run("up", "--detach", "--force-recreate", "--no-build")
     ready()
     assert json.loads(get("/lookup?callsign=zz0docker")) == data
     assert "QRT" in get("/round") and "Example conversation" in get("/round")
     # The bridge listener must not weaken HTTP security.
-    request = urllib.request.Request(base + "/", headers={"Host": "example.com"})
+    request = urllib.request.Request(base + "/", headers={**auth_headers, "Host": "example.com"})
     try:
         opener.open(request, timeout=5)
         raise AssertionError("External Host accepted")
     except urllib.error.HTTPError as error:
         assert error.code == 403
     request = urllib.request.Request(base + "/language", data=b"language=en&return_to=/",
-                                     headers={"Origin": "https://example.com"})
+                                     headers={**auth_headers, "Origin": "https://example.com"})
     try:
         opener.open(request, timeout=5)
         raise AssertionError("External Origin accepted")
     except urllib.error.HTTPError as error:
         assert error.code == 403
-    print("Container smoke passed: non-root, local port, writes, idempotency, language, persistence and HTTP security.")
+    print("Container smoke passed: non-root, local port, writes, idempotency, language, cold backup integrity, persistence and HTTP security.")
 finally:
     # This unique project contains only the disposable data created above.
     subprocess.run([*compose, "logs", "--tail", "30"], env=env, check=False)
     subprocess.run([*compose, "down", "--volumes", "--remove-orphans"], env=env, check=False)
+    private_files.cleanup()

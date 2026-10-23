@@ -1,6 +1,6 @@
 # Install QSObook with Docker Compose
 
-This guide builds the image on your own computer. You do **not** need a Docker Hub account or to publish anything. The first build downloads the official Go build image and the pinned Go modules. Subsequent use works offline, except for maps explicitly enabled by you.
+For a ready-made beta image and private-LAN access on Tortuga, use the [beta installation guide](BETA.md). This guide builds the image on your own computer. You do **not** need a Docker Hub account or to publish anything. The first build downloads the official Go build image and the pinned Go modules. Subsequent use works offline, except for maps explicitly enabled by you.
 
 ## What the pieces mean
 
@@ -71,7 +71,7 @@ For a Pi running elsewhere, keep it local and use an SSH tunnel from a trusted c
 ssh -N -L 8081:127.0.0.1:8080 your-user@your-pi
 ```
 
-Then open `http://127.0.0.1:8081` on that computer. This uses your existing SSH access; QSObook does not configure SSH. Direct phone/LAN access needs a separate authentication and access-model decision. Do not remove the `127.0.0.1` port binding or put an unauthenticated proxy in front of the app.
+Then open `http://127.0.0.1:8081` on that computer. This uses your existing SSH access; QSObook does not configure SSH. For direct access from phones on a trusted home LAN, use the password-protected configuration in [BETA.md](BETA.md). Do not remove the `127.0.0.1` port binding or put an unauthenticated proxy in front of the app.
 
 ## 5. Stop and resume
 
@@ -133,6 +133,6 @@ Schema migrations run transactionally at startup, as in the standalone app. Keep
 
 A normal `docker compose up --build` uses the host's architecture. The Dockerfile supports `linux/amd64` and `linux/arm64`, using a multi-stage build with CGO disabled. CI builds and exercises the container natively on both architectures. A build made on your laptop does not automatically produce or publish a multi-architecture registry image.
 
-Publishing later would involve choosing a registry, configuring an account/token, building tagged images for both architectures, and pushing their manifest. That is optional and separate from installing QSObook locally. No registry credentials, automated publishing workflow or hosted image are introduced here.
+The separate **Publish beta** workflow publishes tested native ARM64/AMD64 images to GHCR with a temporary repository token, versioned tags, digest-pinned Compose assets and provenance attestations. It is manually dispatched on main, rather than deploying every code change. See [BETA.md](BETA.md) for installing a ready-made image and for private-LAN password setup. This source-build path remains available.
 
 See Docker's documentation on [multi-stage builds](https://docs.docker.com/build/building/multi-stage/), [named volumes](https://docs.docker.com/engine/storage/volumes/) and [localhost port publishing](https://docs.docker.com/engine/network/port-publishing/) for the underlying mechanisms.

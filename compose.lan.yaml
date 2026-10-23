@@ -1,0 +1,34 @@
+name: qsobook
+services:
+  qsobook:
+    image: ${QSOBOOK_IMAGE:-ghcr.io/erickfaria/qsobook:beta}
+    ports:
+      - "${QSOBOOK_BIND_ADDRESS:?Set the Tortuga LAN IPv4 address}:${QSOBOOK_PORT:-8088}:8080"
+    command:
+      - -container
+      - -addr
+      - 0.0.0.0:8080
+      - -db
+      - /data/qsobook.db
+      - -password-file
+      - /run/secrets/access_password
+      - -allowed-hosts
+      - ${QSOBOOK_ALLOWED_HOSTS:-tortuga.local:8088}
+    secrets:
+      - access_password
+    volumes:
+      - data:/data
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=16m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    restart: unless-stopped
+    stop_grace_period: 10s
+volumes:
+  data:
+secrets:
+  access_password:
+    file: ${QSOBOOK_PASSWORD_FILE:-./secrets/access-password.txt}

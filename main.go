@@ -29,6 +29,8 @@ func run() error {
 	zone := flag.String("timezone", "America/Sao_Paulo", "fuso IANA para apresentação")
 	tiles := flag.String("map-tiles-url", defaultMapTiles, "URL de tiles com {z}/{x}/{y}; usado apenas com mapa ativado")
 	geocoder := flag.String("geocoder-url", defaultGeocoder, "URL de geocodificação; consultas manuais de cidades com mapa ativado")
+	passwordFile := flag.String("password-file", "", "file containing the local access password (username: qsobook)")
+	allowedHosts := flag.String("allowed-hosts", "", "additional private-network host:port entries; requires -password-file")
 	flag.Parse()
 	if err := validateListenAddress(*addr, *container); err != nil {
 		return err
@@ -57,6 +59,9 @@ func run() error {
 	defer store.db.Close()
 	app, err := newApp(store, loc)
 	if err != nil {
+		return err
+	}
+	if err := app.configureAccess(*passwordFile, *allowedHosts); err != nil {
 		return err
 	}
 	if err := app.configureMap(*tiles, *geocoder); err != nil {

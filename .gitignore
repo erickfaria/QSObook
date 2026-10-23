@@ -52,3 +52,6 @@ Thumbs.db
 
 # Caches locais: manter builds e downloads dentro do projeto
 /.cache/
+
+# Private local access password files
+/secrets/
