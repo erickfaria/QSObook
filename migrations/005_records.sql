@@ -1,0 +1,11 @@
+ALTER TABLE qsos ADD COLUMN band TEXT NOT NULL DEFAULT '';
+ALTER TABLE qsos ADD COLUMN round_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE qsos ADD COLUMN submission_key TEXT NOT NULL DEFAULT '';
+CREATE UNIQUE INDEX qsos_submission ON qsos(submission_key) WHERE submission_key<>'';
+UPDATE qsos SET round_name=coalesce((SELECT name FROM rounds WHERE id=qsos.round_id),'');
+ALTER TABLE participants ADD COLUMN band TEXT NOT NULL DEFAULT '';
+ALTER TABLE app_settings ADD COLUMN home_city TEXT NOT NULL DEFAULT '';
+ALTER TABLE app_settings ADD COLUMN home_state TEXT NOT NULL DEFAULT '';
+ALTER TABLE app_settings ADD COLUMN home_country TEXT NOT NULL DEFAULT '';
+ALTER TABLE app_settings ADD COLUMN auto_geocode INTEGER NOT NULL DEFAULT 0 CHECK(auto_geocode IN (0,1));
+PRAGMA user_version = 5;

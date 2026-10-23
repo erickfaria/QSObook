@@ -29,6 +29,9 @@ var roundsSchema string
 //go:embed migrations/004_map.sql
 var mapSchema string
 
+//go:embed migrations/005_records.sql
+var recordsSchema string
+
 type Station struct {
 	ID       int64  `json:"id"`
 	Callsign string `json:"callsign"`
@@ -40,16 +43,18 @@ type Station struct {
 }
 type Contact struct {
 	Station
-	ID         int64
-	StationID  int64
-	Mode       string
-	OccurredAt time.Time
+	ID              int64
+	StationID       int64
+	Mode            string
+	Band, RoundName string
+	OccurredAt      time.Time
 }
 type Participant struct {
 	Station
 	ID        int64
 	StationID int64
 	Mode      string
+	Band      string
 	Notes     string
 	QSOID     sql.NullInt64
 	RoundID   int64
@@ -107,7 +112,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema}
 	if version < 0 || version > len(schemas) {
 		return errors.New("banco criado por versão mais recente")
 	}
@@ -198,7 +203,14 @@ func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int6
 
 // Saving a participant does not confirm a QSO. Only an explicit edit changes
 // an existing participation; resubmitting an addition preserves it.
-func (s *Store) saveParticipant(ctx context.Context, roundID, participantID int64, st Station, mode, notes string) error {
+func (s *Store) saveParticipant(ctx context.Context, roundID, participantID int64, st Station, mode, notes string, bands ...string) error {
+	band := ""
+	if len(bands) > 0 {
+		band = strings.TrimSpace(bands[0])
+	}
+	if err := validateRecordDetails(band, ""); err != nil {
+		return err
+	}
 	if err := st.validate(); err != nil {
 		return err
 	}
@@ -230,7 +242,7 @@ func (s *Store) saveParticipant(ctx context.Context, roundID, participantID int6
 		return fmt.Errorf("salvar operador da rodada: %w", err)
 	}
 	if st.ID > 0 {
-		result, err := tx.ExecContext(ctx, `UPDATE participants SET mode=?,notes=? WHERE id=? AND round_id=? AND station_id=? AND removed_at IS NULL`, strings.TrimSpace(mode), notes, participantID, roundID, id)
+		result, err := tx.ExecContext(ctx, `UPDATE participants SET mode=?,notes=?,band=? WHERE id=? AND round_id=? AND station_id=? AND removed_at IS NULL`, strings.TrimSpace(mode), notes, band, participantID, roundID, id)
 		if err != nil {
 			return err
 		}
@@ -241,7 +253,7 @@ func (s *Store) saveParticipant(ctx context.Context, roundID, participantID int6
 		if n == 0 {
 			return sql.ErrNoRows
 		}
-	} else if _, err := tx.ExecContext(ctx, `INSERT INTO participants(round_id,station_id,mode,notes) VALUES(?,?,?,?) ON CONFLICT(round_id,station_id) WHERE removed_at IS NULL DO NOTHING`, roundID, id, strings.TrimSpace(mode), notes); err != nil {
+	} else if _, err := tx.ExecContext(ctx, `INSERT INTO participants(round_id,station_id,mode,notes,band) VALUES(?,?,?,?,?) ON CONFLICT(round_id,station_id) WHERE removed_at IS NULL DO NOTHING`, roundID, id, strings.TrimSpace(mode), notes, band); err != nil {
 		return fmt.Errorf("adicionar participante: %w", err)
 	}
 	return tx.Commit()
@@ -324,7 +336,7 @@ func (s *Store) record(ctx context.Context, stationID int64, mode, notes string)
 func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 	var c Contact
 	var stamp string
-	err := row.Scan(&c.ID, &c.StationID, &c.Callsign, &c.Name, &c.City, &c.State, &c.Country, &c.Mode, &c.Notes, &stamp)
+	err := row.Scan(&c.ID, &c.StationID, &c.Callsign, &c.Name, &c.City, &c.State, &c.Country, &c.Mode, &c.Notes, &stamp, &c.Band, &c.RoundName)
 	if err != nil {
 		return c, err
 	}
@@ -332,7 +344,7 @@ func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 	return c, err
 }
 
-const contactColumns = `id,station_id,callsign,name,city,state,country,mode,notes,occurred_at`
+const contactColumns = `id,station_id,callsign,name,city,state,country,mode,notes,occurred_at,band,round_name`
 
 func (s *Store) contacts(ctx context.Context, q string) ([]Contact, error) {
 	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0 ORDER BY occurred_at DESC,id DESC LIMIT 200", q, q)
@@ -357,10 +369,13 @@ func (s *Store) updateContact(ctx context.Context, c Contact) error {
 	if err := c.Station.validate(); err != nil {
 		return err
 	}
+	if err := validateRecordDetails(c.Band, c.RoundName); err != nil {
+		return err
+	}
 	if err := validateMode(c.Mode); err != nil {
 		return err
 	}
-	result, err := s.db.ExecContext(ctx, `UPDATE qsos SET name=?,city=?,state=?,country=?,mode=?,notes=? WHERE id=?`, c.Name, c.City, c.State, c.Country, c.Mode, c.Notes, c.ID)
+	result, err := s.db.ExecContext(ctx, `UPDATE qsos SET name=?,city=?,state=?,country=?,mode=?,notes=?,band=?,round_name=? WHERE id=?`, c.Name, c.City, c.State, c.Country, c.Mode, c.Notes, c.Band, c.RoundName, c.ID)
 	if err != nil {
 		return err
 	}
@@ -384,7 +399,7 @@ func (s *Store) participants(ctx context.Context) ([]Participant, error) {
 	return s.participantsInRound(ctx, round.ID)
 }
 func (s *Store) participantsInRound(ctx context.Context, roundID int64) ([]Participant, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT p.id,s.id,s.callsign,s.name,s.city,s.state,s.country,s.notes,p.mode,p.notes,p.qso_id,p.round_id,p.active FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.round_id=? AND p.removed_at IS NULL ORDER BY p.active DESC,p.id`, roundID)
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id,s.id,s.callsign,s.name,s.city,s.state,s.country,s.notes,p.mode,p.notes,p.qso_id,p.round_id,p.active,p.band FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.round_id=? AND p.removed_at IS NULL ORDER BY p.active DESC,p.id`, roundID)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +407,7 @@ func (s *Store) participantsInRound(ctx context.Context, roundID int64) ([]Parti
 	list := []Participant{}
 	for rows.Next() {
 		var p Participant
-		err := rows.Scan(&p.ID, &p.StationID, &p.Callsign, &p.Name, &p.City, &p.State, &p.Country, &p.Station.Notes, &p.Mode, &p.Notes, &p.QSOID, &p.RoundID, &p.Active)
+		err := rows.Scan(&p.ID, &p.StationID, &p.Callsign, &p.Name, &p.City, &p.State, &p.Country, &p.Station.Notes, &p.Mode, &p.Notes, &p.QSOID, &p.RoundID, &p.Active, &p.Band)
 		if err != nil {
 			return nil, err
 		}
@@ -416,7 +431,7 @@ func (s *Store) recordParticipant(ctx context.Context, id int64) error {
 	if existing.Valid {
 		return tx.Commit()
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at,round_id) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,?,p.round_id FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.id=?`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
+	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at,round_id,band,round_name) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,?,p.round_id,p.band,r.name FROM participants p JOIN stations s ON s.id=p.station_id JOIN rounds r ON r.id=p.round_id WHERE p.id=?`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
 	if err != nil {
 		return err
 	}
