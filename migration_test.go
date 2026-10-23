@@ -45,7 +45,7 @@ func TestParticipantIdentityMigrationPreservesData(t *testing.T) {
 		}
 	}()
 	var version int
-	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 3 {
+	if err := s.db.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil || version != 4 {
 		t.Fatalf("schema version: %d %v", version, err)
 	}
 	st, err := s.station(ctx, 7)

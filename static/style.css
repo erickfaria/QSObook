@@ -398,3 +398,16 @@ button:disabled { cursor:wait; opacity:.65 }
   .round-list li { gap:.25rem }
   .start-round { width:100% }
 }
+
+.map-section { margin-top:2rem }
+.map-placeholder { padding:1.5rem; border:1px solid var(--line); background:var(--soft); border-radius:6px }
+.map-placeholder .hint { max-width:55rem }
+#contact-map { height:380px; border:1px solid var(--line); border-radius:6px; isolation:isolate }
+.city-list { list-style:none; margin:.75rem 0; padding:0 }
+.city-list li { display:flex; justify-content:space-between; align-items:center; gap:1rem; flex-wrap:wrap; border-bottom:1px solid var(--line); padding:.7rem 0 }
+.city-list button { font-size:.8rem }
+.city-details { margin-top:1rem }
+.leaflet-container { background:var(--soft); font:inherit }
+.leaflet-popup-content-wrapper,.leaflet-popup-tip,.leaflet-bar a,.leaflet-control-attribution { background:var(--paper); color:var(--ink) }
+.leaflet-container a { color:var(--accent) }
+@media(max-width:700px) { #contact-map { height:300px } }

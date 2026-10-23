@@ -23,10 +23,12 @@ import (
 var assets embed.FS
 
 type App struct {
-	store     *Store
-	templates *template.Template
-	token     string
-	mux       *http.ServeMux
+	store                    *Store
+	templates                *template.Template
+	token                    string
+	mux                      *http.ServeMux
+	mapTilesURL, geocoderURL string
+	geoClient                *http.Client
 }
 type Page struct {
 	Title, View, Token, Query, Message, Action, Back string
@@ -44,6 +46,10 @@ type Page struct {
 	ParticipantID                                    int64
 	RoundID                                          int64
 	ContactCount                                     int64
+	MapEnabled                                       bool
+	MapTilesURL                                      string
+	MapCities                                        []ContactCity
+	CityFilter                                       ContactCity
 }
 
 func newApp(store *Store, loc *time.Location) (*App, error) {
@@ -55,7 +61,8 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
-	a := &App{store: store, templates: t, token: hex.EncodeToString(secret), mux: http.NewServeMux()}
+	a := &App{store: store, templates: t, token: hex.EncodeToString(secret), mux: http.NewServeMux(), mapTilesURL: defaultMapTiles, geocoderURL: defaultGeocoder,
+		geoClient: &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
 	static, err := fs.Sub(assets, "static")
 	if err != nil {
 		return nil, err
@@ -63,6 +70,8 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	a.mux.HandleFunc("GET /{$}", a.dashboard)
 	a.mux.HandleFunc("GET /round", a.round)
+	a.mux.HandleFunc("POST /map/preference", a.mapPreference)
+	a.mux.HandleFunc("POST /map/locate", a.locateCity)
 	a.mux.HandleFunc("POST /round/start", a.startRound)
 	a.mux.HandleFunc("POST /round/end", a.endRound)
 	a.mux.HandleFunc("POST /participant/status", a.participantStatus)
@@ -138,6 +147,15 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) render(w http.ResponseWriter, p Page) {
 	p.Token = a.token
+	if p.MapEnabled {
+		u, err := url.Parse(a.mapTilesURL)
+		if err != nil {
+			a.fail(w, err)
+			return
+		}
+		p.MapTilesURL = a.mapTilesURL
+		w.Header().Set("Content-Security-Policy", strings.Replace(w.Header().Get("Content-Security-Policy"), "img-src 'self'", "img-src 'self' "+u.Scheme+"://"+u.Host, 1))
+	}
 	var b bytes.Buffer
 	if err := a.templates.ExecuteTemplate(&b, "layout.html", p); err != nil {
 		a.fail(w, err)
@@ -281,12 +299,24 @@ func (a *App) history(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Busca muito longa", 400)
 		return
 	}
-	list, err := a.store.contacts(r.Context(), q)
+	city := ContactCity{City: r.URL.Query().Get("city"), State: r.URL.Query().Get("state"), Country: r.URL.Query().Get("country")}
+	var list []Contact
+	var err error
+	if city.City != "" {
+		st := Station{Callsign: "MAP", City: city.City, State: city.State, Country: city.Country}
+		if err := st.validate(); err != nil {
+			http.Error(w, "Cidade inválida", 400)
+			return
+		}
+		list, err = a.store.contactsInCity(r.Context(), city, q)
+	} else {
+		list, err = a.store.contacts(r.Context(), q)
+	}
 	if err != nil {
 		a.fail(w, err)
 		return
 	}
-	a.render(w, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: q})
+	a.render(w, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: q, CityFilter: city})
 }
 func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 	p := Page{Title: "Registrar QSO", View: "form", IsContact: true, Mode: "FM", Action: "/contact", Back: "/history"}

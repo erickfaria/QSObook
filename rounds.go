@@ -57,8 +57,8 @@ func (s *Store) rounds(ctx context.Context) ([]Round, error) {
 // round has ended must not create a new, unintended round.
 func (s *Store) startRound(ctx context.Context, name string, previous int64) (int64, error) {
 	name = strings.TrimSpace(name)
-	if !utf8.ValidString(name) || utf8.RuneCountInString(name) > 120 || strings.ContainsRune(name, 0) {
-		return 0, errors.New("nome da rodada inválido: limite de 120 caracteres")
+	if err := validateRoundName(name); err != nil {
+		return 0, err
 	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -123,4 +123,11 @@ func (s *Store) removeParticipant(ctx context.Context, id int64) error {
 		return sql.ErrNoRows
 	}
 	return err
+}
+
+func validateRoundName(name string) error {
+	if !utf8.ValidString(name) || utf8.RuneCountInString(strings.TrimSpace(name)) > 120 || strings.ContainsRune(name, 0) {
+		return errors.New("nome da rodada inválido: limite de 120 caracteres")
+	}
+	return nil
 }

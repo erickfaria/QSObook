@@ -27,6 +27,16 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	if len(p.Rounds) > 0 {
 		p.PreviousRound = p.Rounds[0].ID
 	}
+	p.MapEnabled, err = a.store.mapEnabled(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
+	p.MapCities, err = a.store.contactCities(r.Context())
+	if err != nil {
+		a.fail(w, err)
+		return
+	}
 	a.render(w, p)
 }
 
@@ -77,9 +87,8 @@ func (a *App) startRound(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	name := r.PostForm.Get("name")
-	// Validation is also enforced by the store before any database write.
-	if len(name) > 480 {
-		http.Error(w, "Nome muito longo", 400)
+	if err := validateRoundName(name); err != nil {
+		http.Error(w, err.Error(), 400)
 		return
 	}
 	id, err := a.store.startRound(r.Context(), name, previous)

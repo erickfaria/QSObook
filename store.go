@@ -26,6 +26,9 @@ var participantIdentitySchema string
 //go:embed migrations/003_rounds.sql
 var roundsSchema string
 
+//go:embed migrations/004_map.sql
+var mapSchema string
+
 type Station struct {
 	ID       int64  `json:"id"`
 	Callsign string `json:"callsign"`
@@ -104,7 +107,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema}
 	if version < 0 || version > len(schemas) {
 		return errors.New("banco criado por versão mais recente")
 	}

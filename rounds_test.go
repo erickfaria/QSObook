@@ -214,3 +214,43 @@ func TestHTTPRoundLifecycle(t *testing.T) {
 		t.Fatal("missing CSRF protection")
 	}
 }
+
+func TestRoundMigrationFailurePreservesVersionTwo(t *testing.T) {
+	path := legacyDatabase(t)
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.Exec(participantIdentitySchema); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	if _, err = db.Exec("UPDATE participants SET station_id=9999 WHERE id=23"); err != nil {
+		db.Close()
+		t.Fatal(err)
+	}
+	db.Close()
+	if migrated, err := openStore(context.Background(), path); err == nil {
+		migrated.db.Close()
+		t.Fatal("accepted invalid legacy participation")
+	}
+	db, err = sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var version, rounds, participants, contacts int
+	for query, target := range map[string]*int{
+		"PRAGMA user_version": &version,
+		"SELECT count(*) FROM sqlite_master WHERE name='rounds'":            &rounds,
+		"SELECT count(*) FROM participants WHERE id=23 AND station_id=9999": &participants,
+		"SELECT count(*) FROM qsos WHERE id=11":                             &contacts,
+	} {
+		if err := db.QueryRow(query).Scan(target); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if version != 2 || rounds != 0 || participants != 1 || contacts != 1 {
+		t.Fatalf("migration failed to roll back: %d %d %d %d", version, rounds, participants, contacts)
+	}
+}

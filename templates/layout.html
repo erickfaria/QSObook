@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{.Title}} · QSObook</title>
 <script src="/static/theme.js"></script>
+{{if .MapEnabled}}<link rel="stylesheet" href="/static/vendor/leaflet/leaflet.css">
+<script src="/static/vendor/leaflet/leaflet.js" defer></script>
+<script src="/static/map.js" defer></script>{{end}}
 <link rel="stylesheet" href="/static/style.css">
 <script src="/static/app.js" defer>
 </script>
@@ -92,6 +95,7 @@
 </form>
 {{end}}
 {{define "search"}}<form class="search" method="get">
+{{if .CityFilter.City}}<input type="hidden" name="city" value="{{.CityFilter.City}}"><input type="hidden" name="state" value="{{.CityFilter.State}}"><input type="hidden" name="country" value="{{.CityFilter.Country}}">{{end}}
 <label for="q">Buscar por indicativo ou nome</label>
 <input id="q" name="q" value="{{.Query}}" maxlength="200" type="search">
 <button>Buscar</button>
@@ -130,7 +134,7 @@
 </table>
 </div>{{end}}
 {{define "history"}}<div class="toolbar">
-<p>Contatos permanentes, com data e hora no fuso configurado.</p>
+<p>Contatos permanentes, com data e hora no fuso configurado.{{if .CityFilter.City}} Cidade: {{.CityFilter.City}} / {{.CityFilter.State}} · {{.CityFilter.Country}}. <a href="/history">Ver todos</a>{{end}}</p>
 <a class="button" href="/contact">Registrar QSO</a>
 </div>{{template "search" .}}
 <div class="table-scroll" tabindex="0" role="region" aria-label="Histórico de contatos">
@@ -228,6 +232,26 @@
 {{define "dashboard"}}
 <div class="dashboard-intro"><div><p class="contact-total">{{.ContactCount}}</p><p>contatos confirmados no seu caderno</p></div>
 {{if .Round.ID}}<div><p class="hint">Uma rodada está em andamento{{if .Round.Name}} · {{.Round.Name}}{{end}}.</p><a class="button" href="/round">Continuar QSO</a></div>{{else}}{{template "start-round" .}}{{end}}</div>
-<section class="map-section" aria-labelledby="map-title"><h2 id="map-title">Cidades no seu caderno</h2><p class="hint">O mapa de contatos será exibido aqui.</p></section>
+{{template "contact-map" .}}
 {{if .Rounds}}<section aria-labelledby="rounds-title"><h2 id="rounds-title">Suas rodadas</h2><ul class="round-list">{{range .Rounds}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Name}}{{else}}Rodada{{end}}</a><span class="hint">{{localTime .StartedAt}} · {{if .EndedAt.Valid}}Encerrada{{else}}Em andamento{{end}}</span></li>{{end}}</ul><p class="hint">Últimas 50 rodadas. Os contatos continuam disponíveis no Caderno.</p></section>{{end}}
 {{end}}
+
+{{define "contact-map"}}<section class="map-section" aria-labelledby="map-title">
+<div class="toolbar"><h2 id="map-title">Cidades no seu caderno</h2>
+{{if .MapEnabled}}<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="0"><button class="text-button">Desativar mapa</button></form>{{end}}</div>
+{{if .MapEnabled}}
+<p class="hint">Pontos aproximados por cidade, somente de contatos confirmados. Selecione um ponto para consultar os contatos.</p>
+<div id="contact-map" data-tiles="{{.MapTilesURL}}" role="region" aria-label="Mapa das cidades dos contatos"></div>
+<p id="map-status" class="hint" role="status" aria-live="polite">As cidades e seus contatos também estão na lista abaixo. Coordenadas já localizadas ficam salvas neste computador.</p>
+<noscript><p class="hint">Ative o JavaScript para o mapa interativo. A lista de cidades funciona sem JavaScript.</p></noscript>
+{{else}}
+<div class="map-placeholder"><p>Veja por onde suas conversas passaram.</p><p class="hint">Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita.</p>
+<form method="post" action="/map/preference"><input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="enabled" value="1"><button>Ativar mapa</button></form></div>
+{{end}}
+<p class="hint">Dados © <a href="https://www.openstreetmap.org/copyright" rel="noreferrer">OpenStreetMap contributors</a> · <a href="https://operations.osmfoundation.org/policies/tiles/" rel="noreferrer">Uso do mapa</a> · <a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noreferrer">Uso da geocodificação</a>. Buscas de cidades são manuais. Sem internet, o caderno continua funcionando.</p>
+<details class="city-details"><summary>Cidades dos contatos · {{len .MapCities}}</summary>
+<ul class="city-list">{{range .MapCities}}<li {{if .Latitude.Valid}}data-map-city data-lat="{{.Latitude.Float64}}" data-lon="{{.Longitude.Float64}}" data-count="{{.Count}}"{{end}}>
+<div><a data-city-link href="/history?city={{.City}}&state={{.State}}&country={{.Country}}">{{.City}}{{if .State}} / {{.State}}{{end}}{{if .Country}} · {{.Country}}{{end}}</a><span class="cell-detail">{{.Count}} contato(s) confirmado(s){{if .Latitude.Valid}} · Localizada{{else if .CheckedAt.Valid}} · Não localizada{{end}}</span></div>
+{{if and $.MapEnabled (not .CheckedAt.Valid)}}<form method="post" action="/map/locate"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="city" value="{{.City}}"><input type="hidden" name="state" value="{{.State}}"><input type="hidden" name="country" value="{{.Country}}"><button class="secondary">Localizar cidade</button></form>{{end}}
+</li>{{else}}<li>Nenhuma cidade informada em contatos confirmados.</li>{{end}}</ul></details>
+</section>{{end}}
