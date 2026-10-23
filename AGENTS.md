@@ -53,10 +53,14 @@ These instructions apply to the entire QSObook repository. Read existing files a
 
 ## Current implementation
 
-- One root Go package: `main.go`, `store.go`, `web.go` and tests. Templates, assets, migrations and license notices are embedded.
+- One root Go package: `main.go`, `store.go`, `rounds.go`, `map.go`, `web.go`, `web_rounds.go` and tests. Templates, assets, migrations and license notices are embedded.
 - `modernc.org/sqlite` runs without CGO. Keep its required `modernc.org/libc` version aligned; changes require ARM64 and license checks.
 - Preserve the distinction between current registrations (`stations`), historical contact copies (`qsos`) and roundtable participation (`participants`). Do not propagate registration edits into old QSOs.
-- Use transactional migrations versioned by `PRAGMA user_version`, preserving records and rejecting future versions. Version 2 keeps participant IDs non-reusable across removals and restarts.
+- Use transactional migrations versioned by `PRAGMA user_version`, preserving records and rejecting future versions. Version 4 includes rounds and optional map settings/cache; keep legacy participants, QSO links and ID high-water marks intact.
 - Run `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` and `CGO_ENABLED=0 go build -o bin/qsobook .`. Keep caches/temporary files in `.cache/` when required; see the README.
-- Optional JavaScript regressions use `node --test tests/app.test.cjs`, without npm packages.
+- Optional JavaScript regressions use `node --test tests/*.test.cjs`, without npm packages.
 - Never develop/test using the default personal database or start a persistent server. Temporary preview servers must use an isolated database, stay on loopback and be stopped after use.
+
+- Keep maps disabled until explicit opt-in. Leaflet 1.9.4 is vendored locally with BSD-2-Clause notices. No external scripts/CDNs or map plugins are needed.
+- Geocode only a user-selected confirmed-contact city, never autocomplete or a background batch. Retain coordinate/negative caches, geographic-only queries, identifying User-Agent, bounded requests, lease/cooldowns and provider flags. Use fake local providers for automated tests; review provider policies before any manual external check.
+- Preserve the narrow tile-image CSP exception on the opted-in home page and origin-only tile Referer. Do not broaden script, frame, Host, Origin or CSRF policies for maps.

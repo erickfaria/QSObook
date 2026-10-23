@@ -31,7 +31,7 @@ Use clear English commit messages describing intent. No additional contribution 
 
 Prefer the Go standard library, idiomatic names, `gofmt`, explicit errors, parameterized SQL and behavior-focused tests. Justify dependencies and their impact on ARM64, licensing and CGO. Do not incidentally change the module path or declared Go version.
 
-Run `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` and `CGO_ENABLED=0 go build -o bin/qsobook .`. Use temporary databases and fictitious records; tests must not depend on external services or touch real data. Changes affecting portability must verify Linux ARM64 and state environment limitations. See the README for repository-local caches. HTTP tests use `httptest`, without persistent services. Optional JavaScript checks use `node --test tests/app.test.cjs` and built-in modules only.
+Run `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` and `CGO_ENABLED=0 go build -o bin/qsobook .`. Use temporary databases and fictitious records; tests must not depend on external services or touch real data. Changes affecting portability must verify Linux ARM64 and state environment limitations. See the README for repository-local caches. HTTP tests use `httptest`, without persistent services. Optional JavaScript checks use `node --test tests/*.test.cjs` and built-in modules only.
 
 For documentation, review clarity, relative links and screenshots, then run `git diff --check`. Preserve `go.mod`, `go.sum`, SQL, static assets and required synthetic fixtures. SQLite exceptions under `testdata/` do not authorize personal data.
 

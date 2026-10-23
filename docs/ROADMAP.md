@@ -24,6 +24,16 @@ No dates are promised. Planned features are not available until implemented and 
 
 Current checks run on Linux AMD64 with Go 1.27.3 and CGO disabled, including an ARM64 cross-build. The initial implementation was validated natively on ARM64. This revision still needs execution on Raspberry Pi, physical-phone testing and assistive-technology review. Explicit concurrent edits retain last-write-wins behavior. No vulnerability scanner is configured.
 
+## Implemented conversation workspace and home
+
+- Muted pastel light/dark palettes with a browser-local selector and system mode.
+- An essential home screen with confirmed-contact count and recent saved rounds.
+- Explicit round start/end, optional names, QRT/return state and read-only closed rounds.
+- Legacy participant preservation, non-reusable IDs and rejection of stale cross-round edits/actions.
+- Optional Leaflet/OpenStreetMap city points from confirmed historical contacts, grouped by location with links to city history.
+- Map opt-in, locally vendored assets, geographic-only manual geocoding, coordinate/negative caches, bounded requests and provider switching.
+- Tests for lifecycle, migration rollback, QRT, map privacy, caching, rate limits and provider failures; screenshots for the current UI.
+
 ## Data preservation and portability — planned
 
 - Export/import with documented formats and explicit duplicate handling.
@@ -34,12 +44,6 @@ Current checks run on Linux AMD64 with Go 1.27.3 and CGO disabled, including an 
 ## Interoperability — planned
 
 - Evaluate ADIF with explicit field conversion and no silent loss.
-
-## Optional integrations — planned
-
-- OpenStreetMap maps/geocoding only after informed opt-in, disabled by default, with provider, attribution and transmitted geographic data disclosed.
-- No personal operator data sent to geographic providers.
-- Missing internet or provider failure must never block the local notebook.
 
 ## Possible future work
 

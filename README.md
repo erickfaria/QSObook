@@ -2,21 +2,37 @@
 
 A small, free, self-hosted amateur radio notebook. Keep track of operators during a roundtable and record only the contacts you actually confirm.
 
-Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The application runs offline after compilation. The interface is currently in Brazilian Portuguese; this documentation is in English.
+Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. The interface is currently in Brazilian Portuguese; this documentation is in English.
+
+## A calm home screen
+
+The home screen shows the number of confirmed contacts, an optional city map and a direct way to start or resume a roundtable. There are no timers, charts or extra dashboard indicators. **Modo QSO** opens the conversation workspace; **Caderno** opens confirmed history; **Estações** opens reusable operator records.
+
+![Home screen with a contact total, a current roundtable and the map awaiting opt-in](docs/screenshots/dashboard.png)
 
 ## QSO mode: follow the conversation
+
+Choose **Iniciar QSO** (Start QSO), optionally name the roundtable, and add participants. The start action opens a roundtable; it does not confirm a contact. Only one roundtable can be open at a time, and it survives browser/server restarts.
 
 Add a callsign, name and city without leaving the current roundtable. Known callsigns recover their operator details from the local database. The table puts callsign, name, city/state and notes first; mode and country stay secondary.
 
 ![QSO mode showing participants, separate operator and conversation notes, and explicit QSO confirmation](docs/screenshots/qso-mode.png)
 
-All screenshots use fictitious operators, callsigns and locations. The example roundtable includes two confirmed contacts and one participant still waiting for confirmation. No personal database is included.
+Screenshots use demonstration data with fictitious operators and callsigns. The example roundtable includes two confirmed contacts and one participant marked QRT without a confirmed contact. No personal database is included.
 
 **Adding a participant does not record a QSO.** Click **Registrar QSO** (Record QSO) once you have actually made contact. Repeated or simultaneous confirmations create at most one QSO for that participation. Adding someone already in the list preserves their mode, conversation notes and confirmation status.
 
-Use **Editar** (Edit) to open an editor in the table. Country and conversation notes are available in an expandable section. Without JavaScript, the same edit link opens a separate page and the forms remain usable.
+Use **Mais → Editar** (More → Edit) to open an editor in the table. Country and conversation notes are available in an expandable section. Without JavaScript, the same edit link opens a separate page and the forms remain usable.
 
-The current roundtable is shared by browser tabs and survives restarts. Removing someone keeps their operator record and confirmed contacts. To record another contact with the same operator, remove and add them again. Removed participation IDs are never reused, so old record/remove forms cannot affect a later participation.
+Click **QRT** when someone leaves. They remain in the table, after active participants; **Voltou** (Returned) makes them active again. Neither action records a QSO or resets its confirmation. **Encerrar QSO** (End QSO) closes the roundtable and preserves participants, notes and confirmed contacts. Closed roundtables can be consulted from the home screen and cannot be changed through old forms.
+
+The current roundtable is shared by browser tabs. Removing someone from the list retains their participation in storage, operator record and confirmed contacts. A new roundtable reuses known operators with a fresh participation and an independent confirmation. For an additional contact within the same roundtable, remove and add the operator again. Participation IDs are never reused; old actions cannot reach the new participation. Start and end actions also handle repeated submissions safely.
+
+## Light and dark, without clutter
+
+A muted pastel palette, clear typography and compact controls keep the conversation table central. Choose **Claro** (Light), **Escuro** (Dark) or **Automático** (System) using the theme selector. The preference stays in the current browser, without an account or network request. If browser storage is blocked, switching still works for the current page.
+
+![QSO mode in the dark theme, with active participants and one QRT participant](docs/screenshots/qso-dark.png)
 
 ## Local callsign lookup and safe notes
 
@@ -43,6 +59,26 @@ Timestamps are stored in UTC and displayed in the configured time zone. Searches
 The **Estações** (Stations) page keeps operator details separate from contact history. Callsigns are unique and normalized to uppercase. Edit names, locations and permanent notes here without rewriting past contacts.
 
 ![Local operator registry with the three fictitious callsigns and their locations](docs/screenshots/operators.png)
+
+## Optional map of confirmed contacts
+
+Enable the map explicitly on the home screen. It groups **confirmed QSO locations**, using the historical city/state/country from each contact rather than a later operator registration edit. Each point represents an approximate city location; selecting it opens the contacts for that city. Contacts without a city are counted in the total but have no map point. The city list and history remain usable offline and without JavaScript.
+
+Expand the city list and choose **Localizar cidade** (Locate city) once for each unmapped city. This sends only the saved city, state and country to the configured geocoder. Callsigns, names and notes stay local. Coordinates and not-found results are cached in SQLite, so reopening the map or repeating a submission does not repeat the lookup. A cached not-found result currently has no retry/reset editor; check the contact location before the first lookup.
+
+![Optional map with a city point for a fictitious contact in São Paulo](docs/screenshots/contact-map.png)
+
+The default providers are OpenStreetMap tiles and Nominatim. Enabling the map permits the tile provider to receive the browser IP, viewed area, browser headers and the application origin as its Referer. The geocoder sees the server IP and geographic query. Disabling the map removes it on reload, blocks new geocoding requests and retains cached coordinates. Reload any other already-open map tabs as well. The preference applies to this local notebook and its browser tabs.
+
+Follow the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/): deliberate user-triggered searches only, no autocomplete or periodic batch work, an identifying User-Agent, local caching and at most one request per second. QSObook serializes requests through a database lease, enforces a gap after completion, bounds provider timeouts and respects retry delays. Operators running multiple independent instances must consider their combined usage and switch providers if required. The [tile policy](https://operations.osmfoundation.org/policies/tiles/) requires attribution, normal viewport use and normal HTTP caching; no bulk/offline tile download is offered. Provider availability is not guaranteed.
+
+Provider URLs can be changed without updating the application, for example to use self-hosted services:
+
+```sh
+./bin/qsobook -map-tiles-url 'https://tiles.example.org/{z}/{x}/{y}.png' -geocoder-url 'https://geo.example.org/search'
+```
+
+Tiles must be compatible with Leaflet's XYZ format and geocoding must accept Nominatim's structured query and JSON format. URLs require HTTPS, with HTTP allowed for loopback services. Review a provider's privacy and usage terms before enabling it. Leaflet 1.9.4 and its assets are embedded locally under BSD-2-Clause; no runtime CDN, npm toolchain or Leaflet plugin is used.
 
 ## Build
 
@@ -85,9 +121,9 @@ The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC displa
 
 Stop the application and every other process using its database before making a manual copy. Preserve any SQLite journal files. Do not copy only the `.db` file while it is in use. Test a copy at a separate path before relying on it.
 
-Database migrations run in a transaction and retain operator, contact and participation records. Schema version 2 makes participation IDs persistent and non-reusable, retaining existing IDs and QSO links. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
+Database migrations run in a transaction and retain operator, contact and participation records. Schema version 4 includes persistent non-reusable participation IDs, named roundtables, presence status, optional map preferences and cached city coordinates. The previous live list becomes “Rodada anterior” during migration, retaining IDs and QSO links; an empty database waits for an explicit start. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
 
-There is no in-app backup/restore, import/export, ADIF or map feature yet. The application does not permanently delete operators or QSOs. See the [roadmap](docs/ROADMAP.md).
+There is no in-app backup/restore, import/export or ADIF feature yet. The application does not permanently delete operators or QSOs. See the [roadmap](docs/ROADMAP.md).
 
 ## Tests
 
@@ -97,15 +133,15 @@ CGO_ENABLED=0 go vet ./...
 git diff --check
 ```
 
-Tests use temporary databases and fictitious data. They cover persistence, validation, historical snapshots, independent notes, rollback, concurrent confirmation, callsign reuse, HTTP security and migrations from schema version 1. Migration tests verify that records and links survive, failures roll back and removed participation IDs stay unused after reopening the database.
+Tests use temporary databases and fictitious data. They cover persistence, validation, historical snapshots, independent notes, rollback, concurrent confirmation, callsign reuse, round lifecycle/QRT, stale actions, map opt-in, geographic-only requests, local/negative caches, rate limits, provider failures, HTTP security and migrations from earlier schemas. Automated map tests use local HTTP providers, never public geocoding services. Migration tests verify that records and links survive, failures roll back and removed participation IDs stay unused after reopening the database.
 
 JavaScript tests optionally use Node.js and its built-in test runner:
 
 ```sh
-node --test tests/app.test.cjs
+node --test tests/*.test.cjs
 ```
 
-No npm packages are required. The tests run `static/app.js` against a simulated DOM with controlled requests and timers. They do not replace real browser testing.
+No npm packages are required. The tests run lookup/form behavior against a simulated DOM with controlled requests and timers, and verify theme persistence, system changes and unavailable browser storage. They do not replace real browser testing.
 
 To keep development caches and temporary files inside the repository:
 
@@ -117,7 +153,7 @@ export GOTMPDIR="$PWD/.cache/tmp"
 export TMPDIR="$PWD/.cache/tmp"
 ```
 
-The UI uses labels, visible keyboard focus, responsive forms and horizontal scrolling confined to the participant table. Desktop layout, lookup and inline editing have been checked in the browser, along with dimensions at phone/tablet widths. POSTs in the integrated browser were blocked by its mediated origin; writes were checked through HTTP tests and valid-origin local requests. Full testing on a physical phone and with assistive technology remains pending. Security controls were kept in place.
+The UI uses labels, visible keyboard focus, responsive forms and horizontal scrolling confined to the participant table. Desktop layout, local lookup, theme selection/persistence and phone/tablet widths have been checked in the browser. A real geographic-only Nominatim request, loaded OpenStreetMap tiles, a city marker and its filtered-history link were also checked with fictitious contact data. POSTs in the integrated browser were blocked by its mediated origin; writes were checked through HTTP tests and valid-origin local requests. Full testing on a physical phone and with assistive technology remains pending. Security controls were kept in place.
 
 ## Manual QSO checklist
 
@@ -127,33 +163,40 @@ Use a separate database for fictitious test records:
 ./bin/qsobook -db .cache/manual-test.db -addr 127.0.0.1:8081
 ```
 
-1. Open `http://127.0.0.1:8081`. Add `ZZ0TEST`, a name and city. The participant should appear in QSO mode without a new contact in the Notebook.
-2. Use **Editar**, expand the conversation notes section, add a note and save in place.
+1. Open `http://127.0.0.1:8081`, choose **Iniciar QSO**, optionally name the roundtable and start it. Add `ZZ0TEST`, a name and city. The participant should appear in QSO mode without a new contact in the Notebook.
+2. Use **Mais → Editar**, expand the conversation notes section, add a note and save in place.
 3. In Stations, save a different permanent operator note. QSO mode should label the permanent and conversation notes separately.
 4. Enter `zz0test` again. Name and location should fill locally while conversation notes stay empty. An immediate submission, empty fields or a stale inclusion form must not replace saved operator data or duplicate the participation.
 5. Click **Registrar QSO**. Check for one contact in the Notebook with the conversation note. Reloading must not create another QSO.
 6. Edit the operator and roundtable notes. The confirmed contact should keep its historical values.
 7. Switch rapidly between callsigns and clear the callsign field. Check that drafts and asynchronous responses never mix operators.
 8. In a second tab, keep an old record/remove form open. Remove that participant and add another in the first tab. The old action should return not found and leave the new participant untouched.
-9. Stop and restart with the same database. Records and the roundtable should persist. Also check keyboard navigation and the fallback without JavaScript.
+9. Mark a participant **QRT**, then **Voltou**. Confirm that presence changes without a new QSO. End the roundtable, consult it from the home screen and start a new one with the same operator. The old roundtable and contacts should remain intact.
+10. Choose light, dark and system themes, then navigate/reload. Stop and restart with the same database. Check persistence, keyboard navigation and the fallback without JavaScript.
+11. The map starts disabled. Enable it after reading the disclosure, locate a city with a confirmed contact, reload and open its marker/history. Disable it and confirm the local notebook remains usable without map requests. Public providers must only be exercised manually and sparingly; use fake local providers for automated tests.
 
 ## Structure and maintenance
 
 ```text
 main.go                 configuration and HTTP lifecycle
 store.go                SQLite operations and validation
+rounds.go               saved roundtables, presence and lifecycle
+map.go                  optional providers and local coordinate cache
+web_rounds.go           home screen and roundtable HTTP workflows
 web.go                  routes, templates and HTTP protection
 store_test.go           persistence and data integrity tests
 migration_test.go       migration preservation and rollback tests
 web_test.go             HTTP workflows and security tests
-tests/app.test.cjs       JavaScript regressions using built-in modules
+rounds_test.go          lifecycle, QRT and migration regressions
+map_test.go             privacy, cache and provider-failure regressions
+tests/*.test.cjs        JavaScript regressions using built-in modules
 migrations/             versioned SQL schema
 templates/              HTML interface
 static/                 local CSS and JavaScript
 docs/                   architecture, roadmap and screenshots
 ```
 
-The only direct dependency is `modernc.org/sqlite v1.36.3`, a BSD-3-Clause SQLite driver without CGO. Transitive dependencies are pinned in `go.mod`/`go.sum`. See [architecture](docs/ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Changes use maintainer review; the application itself does not perform Git operations.
+The only direct Go dependency is `modernc.org/sqlite v1.36.3`, a BSD-3-Clause SQLite driver without CGO. Transitive dependencies are pinned in `go.mod`/`go.sum`. See [architecture](docs/ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Changes use maintainer review; the application itself does not perform Git operations.
 
 ## License
 

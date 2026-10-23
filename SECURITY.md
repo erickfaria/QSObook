@@ -25,10 +25,10 @@ Keep data local, avoid unnecessary exposure and never introduce telemetry. Fix d
 - Parameterized SQL, server-side validation and automatically escaped templates.
 - Writes restricted to POST, a per-run CSRF token, Origin verification and rejection of external Host values.
 - Form bodies limited to 32 KiB, bounded headers and HTTP timeouts, and errors without internal details.
-- CSP for local resources, frame blocking, `nosniff`, `no-referrer` and no-store responses.
+- CSP for local resources, frame blocking, `nosniff`, `no-referrer` and no-store responses. An opted-in home page additionally permits images from the configured tile origin; tile images send only the application origin as Referer.
 - A local database file with `0600` permissions and new directories with `0700`; databases, configuration and backups are never static assets.
-- No automatic transmission to third parties, external callsign lookup or telemetry.
+- No telemetry or external callsign lookup. Maps are disabled by default and require opt-in. Enabled maps request the viewed tile area; explicit geocoding requests send geographic fields only, with local caching and request limits.
 
-The CSRF token does not authenticate users. Processes and people with access to the OS account or local port can access contacts. Reload old forms after restarting the server. Use a private directory: existing directory permissions are not changed. There is no database encryption or in-app backup. Stop every database user before manual copies and test restoration separately. The source-code link is only requested when a user opens it.
+The CSRF token does not authenticate users. Processes and people with access to the OS account or local port can access contacts. Reload old forms after restarting the server. Use a private directory: existing directory permissions are not changed. There is no database encryption or in-app backup. Stop every database user before manual copies and test restoration separately. External license, policy and source links are only requested when opened. Maps use the disclosed providers only after opt-in. The tile provider receives the browser IP and view area; the geocoder receives the server IP and city/state/country. Disable the map and reload other already-open map tabs to stop their future tile requests. New geocoding requests are rejected immediately after disabling. No contacts or notes are sent to those providers.
 
 Dependencies are pinned in `go.mod`/`go.sum`; this does not replace security notice review and updates. There is no external audit or configured vulnerability scanner. See [architecture](docs/ARCHITECTURE.md) for the embedded SQLite version and storage limits.
