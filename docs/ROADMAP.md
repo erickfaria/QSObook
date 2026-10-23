@@ -22,7 +22,7 @@ No dates are promised. Planned features are not available until implemented and 
 - Lookup request ordering and isolated drafts are covered by JavaScript tests without external packages.
 - English documentation describing the workflows, setup and data guarantees, with real application screenshots using fictitious data.
 
-Current checks run on Linux AMD64 with Go 1.27.3 and CGO disabled, including an ARM64 cross-build. The initial implementation was validated natively on ARM64. This revision still needs execution on Raspberry Pi, physical-phone testing and assistive-technology review. Explicit concurrent edits retain last-write-wins behavior. No vulnerability scanner is configured.
+CI runs native Linux AMD64 and ARM64 checks using Go 1.27.3 with CGO disabled, including container persistence/backup tests. Pinned govulncheck checks reachable Go vulnerabilities. Physical Raspberry Pi and phone feedback remains part of beta testing; hosted ARM64 tests do not replace it. Assistive-technology review is pending. Explicit concurrent edits retain last-write-wins behavior.
 
 ## Implemented conversation workspace and home
 
