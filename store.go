@@ -373,6 +373,7 @@ func (s *Store) participants(ctx context.Context) ([]Participant, error) {
 		if err != nil {
 			return nil, err
 		}
+		p.Station.ID = p.StationID
 		list = append(list, p)
 	}
 	return list, rows.Err()

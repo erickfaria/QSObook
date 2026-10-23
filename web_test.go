@@ -66,6 +66,87 @@ func TestHTTPParticipantPreservesRegistrationWithoutLookup(t *testing.T) {
 		t.Fatalf("manual QSO changed permanent notes: %+v %v", st, err)
 	}
 }
+
+func TestRoundInlineEditAndValidation(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	if _, err := a.store.saveStation(ctx, Station{Callsign: "ZZ0OTHER"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.store.saveParticipant(ctx, Station{Callsign: "ZZ0EDIT", Name: "Nome atual", Notes: "Não copiar"}, "DMR", "Nota da conversa"); err != nil {
+		t.Fatal(err)
+	}
+	st, err := a.store.lookup(ctx, "ZZ0EDIT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	st.Notes = "Nota permanente"
+	if _, err := a.store.saveStation(ctx, st); err != nil {
+		t.Fatal(err)
+	}
+	w := request(a, "GET", "/", nil)
+	body := w.Body.String()
+	for _, want := range []string{`data-edit-participant`, `id="participant-edit-1"`, `name="id" value="2"`, `Nota permanente`, `Nota da conversa`, `Registrar QSO`, `Cidade / UF`} {
+		if w.Code != 200 || !strings.Contains(body, want) {
+			t.Fatalf("round missing %q: %d %s", want, w.Code, body)
+		}
+	}
+	if strings.Count(body, `id="lookup-status"`) != 1 || strings.Count(body, `id="modes"`) != 1 || strings.Count(body, `name="notes"`) != 2 {
+		t.Fatalf("field counts: status=%d modes=%d notes=%d", strings.Count(body, `id="lookup-status"`), strings.Count(body, `id="modes"`), strings.Count(body, `name="notes"`))
+	}
+	form := url.Values{"csrf": {a.token}, "callsign": {"bad space"}, "name": {"Digitado"}, "mode": {"DMR"}, "notes": {"Rascunho"}}
+	w = request(a, "POST", "/participant", form)
+	if w.Code != 400 || !strings.Contains(w.Body.String(), "Rodada atual") || !strings.Contains(w.Body.String(), `value="Digitado"`) || !strings.Contains(w.Body.String(), "Rascunho") {
+		t.Fatalf("validation lost round or draft: %d %s", w.Code, w.Body)
+	}
+	form.Set("id", strconv.FormatInt(st.ID, 10))
+	form.Set("callsign", st.Callsign)
+	form.Set("name", "Nome corrigido")
+	form.Set("notes", "")
+	w = request(a, "POST", "/participant", form)
+	if w.Code != 303 {
+		t.Fatalf("inline edit: %d %s", w.Code, w.Body)
+	}
+	got, err := a.store.station(ctx, st.ID)
+	if err != nil || got.Name != "Nome corrigido" || got.Notes != "Nota permanente" {
+		t.Fatalf("wrong registration changed: %+v %v", got, err)
+	}
+	list, err := a.store.participants(ctx)
+	if err != nil || len(list) != 1 || list[0].Notes != "" {
+		t.Fatalf("conversation notes not cleared: %+v %v", list, err)
+	}
+}
+
+func TestStaleParticipantEditDoesNotRecreateParticipation(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	if err := a.store.saveParticipant(ctx, Station{Callsign: "ZZ0REMOVED", Name: "Original"}, "FM", ""); err != nil {
+		t.Fatal(err)
+	}
+	list, err := a.store.participants(ctx)
+	if err != nil || len(list) != 1 {
+		t.Fatalf("participants: %+v %v", list, err)
+	}
+	form := url.Values{"csrf": {a.token}, "id": {strconv.FormatInt(list[0].ID, 10)}}
+	if w := request(a, "POST", "/participant/remove", form); w.Code != 303 {
+		t.Fatalf("remove: %d %s", w.Code, w.Body)
+	}
+	form.Set("id", strconv.FormatInt(list[0].StationID, 10))
+	form.Set("callsign", "ZZ0REMOVED")
+	form.Set("name", "Alteração de formulário antigo")
+	form.Set("mode", "DMR")
+	if w := request(a, "POST", "/participant", form); w.Code != 404 {
+		t.Fatalf("stale edit: %d %s", w.Code, w.Body)
+	}
+	st, err := a.store.lookup(ctx, "ZZ0REMOVED")
+	if err != nil || st.Name != "Original" {
+		t.Fatalf("stale edit changed registration: %+v %v", st, err)
+	}
+	list, err = a.store.participants(ctx)
+	if err != nil || len(list) != 0 {
+		t.Fatalf("stale edit recreated participation: %+v %v", list, err)
+	}
+}
 func request(a *App, method, path string, form url.Values) *httptest.ResponseRecorder {
 	var body io.Reader
 	if form != nil {

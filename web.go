@@ -235,6 +235,16 @@ func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, va
 			p.Station.ID = id
 		}
 	}
+	if r.URL.Path == "/participant" && p.Station.ID == 0 {
+		list, err := a.store.participants(r.Context())
+		if err != nil {
+			a.fail(w, err)
+			return
+		}
+		p.Title = "Modo QSO"
+		p.View = "round"
+		p.Participants = list
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusBadRequest)
 	a.render(w, p)
