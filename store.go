@@ -133,6 +133,12 @@ func validateMode(mode string) error {
 	}
 	return nil
 }
+func validateNotes(notes string) error {
+	if !utf8.ValidString(notes) || utf8.RuneCountInString(notes) > 4000 || strings.ContainsRune(notes, 0) {
+		return errors.New("observações inválidas: limite de 4000 caracteres")
+	}
+	return nil
+}
 func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 	if err := st.validate(); err != nil {
 		return 0, err
@@ -152,8 +158,101 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 		return st.ID, nil
 	}
 	var id int64
-	err := s.db.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country,notes) VALUES(?,?,?,?,?,?) ON CONFLICT(callsign) DO UPDATE SET name=excluded.name,city=excluded.city,state=excluded.state,country=excluded.country,notes=excluded.notes RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country, st.Notes).Scan(&id)
+	err := s.db.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country,notes) VALUES(?,?,?,?,?,?) ON CONFLICT(callsign) DO UPDATE SET
+		name=coalesce(nullif(excluded.name,''),stations.name), city=coalesce(nullif(excluded.city,''),stations.city),
+		state=coalesce(nullif(excluded.state,''),stations.state), country=coalesce(nullif(excluded.country,''),stations.country),
+		notes=coalesce(nullif(excluded.notes,''),stations.notes) RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country, st.Notes).Scan(&id)
 	return id, err
+}
+
+// Conversation forms may complete the current registration, but never erase
+// fields with empty values or write permanent operator notes.
+func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int64, error) {
+	var id int64
+	if st.ID > 0 {
+		err := tx.QueryRowContext(ctx, `UPDATE stations SET
+			name=coalesce(nullif(?,''),name), city=coalesce(nullif(?,''),city),
+			state=coalesce(nullif(?,''),state), country=coalesce(nullif(?,''),country)
+			WHERE id=? RETURNING id`, st.Name, st.City, st.State, st.Country, st.ID).Scan(&id)
+		return id, err
+	}
+	err := tx.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country) VALUES(?,?,?,?,?)
+		ON CONFLICT(callsign) DO UPDATE SET
+		name=coalesce(nullif(excluded.name,''),stations.name), city=coalesce(nullif(excluded.city,''),stations.city),
+		state=coalesce(nullif(excluded.state,''),stations.state), country=coalesce(nullif(excluded.country,''),stations.country)
+		RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country).Scan(&id)
+	return id, err
+}
+
+// Saving a participant does not confirm a QSO. Only an explicit edit changes
+// an existing participation; resubmitting an addition preserves it.
+func (s *Store) saveParticipant(ctx context.Context, st Station, mode, notes string) error {
+	if err := st.validate(); err != nil {
+		return err
+	}
+	if err := validateMode(mode); err != nil {
+		return err
+	}
+	notes = strings.TrimSpace(notes)
+	if err := validateNotes(notes); err != nil {
+		return err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	id, err := mergeConversationStation(ctx, tx, st)
+	if err != nil {
+		return fmt.Errorf("salvar operador da rodada: %w", err)
+	}
+	if st.ID > 0 {
+		result, err := tx.ExecContext(ctx, `UPDATE participants SET mode=?,notes=? WHERE station_id=?`, strings.TrimSpace(mode), notes, id)
+		if err != nil {
+			return err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 0 {
+			return sql.ErrNoRows
+		}
+	} else if _, err := tx.ExecContext(ctx, `INSERT INTO participants(station_id,mode,notes) VALUES(?,?,?) ON CONFLICT(station_id) DO NOTHING`, id, strings.TrimSpace(mode), notes); err != nil {
+		return fmt.Errorf("adicionar participante: %w", err)
+	}
+	return tx.Commit()
+}
+
+// A manual contact also keeps conversation notes away from the registration.
+func (s *Store) createContact(ctx context.Context, st Station, mode, notes string) (int64, error) {
+	if err := st.validate(); err != nil {
+		return 0, err
+	}
+	if err := validateMode(mode); err != nil {
+		return 0, err
+	}
+	notes = strings.TrimSpace(notes)
+	if err := validateNotes(notes); err != nil {
+		return 0, err
+	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	id, err := mergeConversationStation(ctx, tx, st)
+	if err != nil {
+		return 0, err
+	}
+	var qid int64
+	if err := tx.QueryRowContext(ctx, insertContactSQL, strings.TrimSpace(mode), notes, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id).Scan(&qid); err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	return qid, nil
 }
 
 const stationColumns = `id,callsign,name,city,state,country,notes`
@@ -185,15 +284,18 @@ func (s *Store) stations(ctx context.Context, query string) ([]Station, error) {
 	}
 	return list, rows.Err()
 }
+
+const insertContactSQL = `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at) SELECT id,callsign,name,city,state,country,?,?,? FROM stations WHERE id=? RETURNING id`
+
 func (s *Store) record(ctx context.Context, stationID int64, mode, notes string) (int64, error) {
 	if err := validateMode(mode); err != nil {
 		return 0, err
 	}
-	if utf8.RuneCountInString(notes) > 4000 {
-		return 0, errors.New("observações excedem 4000 caracteres")
+	if err := validateNotes(notes); err != nil {
+		return 0, err
 	}
 	var id int64
-	err := s.db.QueryRowContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at) SELECT id,callsign,name,city,state,country,?,?,? FROM stations WHERE id=? RETURNING id`, strings.TrimSpace(mode), notes, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), stationID).Scan(&id)
+	err := s.db.QueryRowContext(ctx, insertContactSQL, strings.TrimSpace(mode), notes, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), stationID).Scan(&id)
 	return id, err
 }
 func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
@@ -252,8 +354,8 @@ func (s *Store) addParticipant(ctx context.Context, id int64, mode, notes string
 	if err := validateMode(mode); err != nil {
 		return err
 	}
-	if utf8.RuneCountInString(notes) > 4000 {
-		return errors.New("observações excedem 4000 caracteres")
+	if err := validateNotes(notes); err != nil {
+		return err
 	}
 	_, err := s.db.ExecContext(ctx, `INSERT INTO participants(station_id,mode,notes) VALUES(?,?,?) ON CONFLICT(station_id) DO UPDATE SET mode=excluded.mode,notes=excluded.notes`, id, strings.TrimSpace(mode), notes)
 	return err

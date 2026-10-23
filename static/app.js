@@ -2,7 +2,8 @@
 for (const input of document.querySelectorAll('[data-lookup]')) {
   const form = input.form;
   const status = form.querySelector('#lookup-status');
-  const fields = ['name', 'city', 'state', 'country', 'notes'];
+  const fields = ['name', 'city', 'state', 'country'];
+  if (form.getAttribute('action') === '/station') fields.push('notes');
   let timer, request;
   const pending = new Set();
   const automatic = new Set();

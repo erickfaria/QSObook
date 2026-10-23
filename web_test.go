@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -18,6 +19,52 @@ func testApp(t *testing.T) *App {
 		t.Fatal(err)
 	}
 	return a
+}
+
+func TestHTTPParticipantPreservesRegistrationWithoutLookup(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	id, err := a.store.saveStation(ctx, Station{Callsign: "ZZ0LOCAL", Name: "Nome salvo", City: "Cidade salva", State: "UF", Country: "Brasil", Notes: "Nota permanente"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	form := url.Values{"csrf": {a.token}, "callsign": {" zz0local "}, "mode": {"DMR"}, "notes": {"Nota da conversa"}}
+	for i := 0; i < 2; i++ {
+		if w := request(a, "POST", "/participant", form); w.Code != 303 {
+			t.Fatalf("addition: %d %s", w.Code, w.Body)
+		}
+	}
+	st, err := a.store.station(ctx, id)
+	if err != nil || st.Name != "Nome salvo" || st.City != "Cidade salva" || st.State != "UF" || st.Country != "Brasil" || st.Notes != "Nota permanente" {
+		t.Fatalf("registration overwritten: %+v %v", st, err)
+	}
+	participants, err := a.store.participants(ctx)
+	if err != nil || len(participants) != 1 || participants[0].Notes != "Nota da conversa" {
+		t.Fatalf("participants: %+v %v", participants, err)
+	}
+	contacts, err := a.store.contacts(ctx, "")
+	if err != nil || len(contacts) != 0 {
+		t.Fatalf("unconfirmed QSO: %+v %v", contacts, err)
+	}
+	record := url.Values{"csrf": {a.token}, "id": {strconv.FormatInt(participants[0].ID, 10)}}
+	for i := 0; i < 2; i++ {
+		if w := request(a, "POST", "/participant/record", record); w.Code != 303 {
+			t.Fatalf("confirmation: %d %s", w.Code, w.Body)
+		}
+	}
+	contacts, err = a.store.contacts(ctx, "")
+	if err != nil || len(contacts) != 1 || contacts[0].Notes != "Nota da conversa" || contacts[0].City != "Cidade salva" {
+		t.Fatalf("confirmed QSO: %+v %v", contacts, err)
+	}
+	// The manual QSO form follows the same separation of notes.
+	form.Set("notes", "Outra conversa")
+	if w := request(a, "POST", "/contact", form); w.Code != 303 {
+		t.Fatalf("manual QSO: %d %s", w.Code, w.Body)
+	}
+	st, err = a.store.station(ctx, id)
+	if err != nil || st.Notes != "Nota permanente" {
+		t.Fatalf("manual QSO changed permanent notes: %+v %v", st, err)
+	}
 }
 func request(a *App, method, path string, form url.Values) *httptest.ResponseRecorder {
 	var body io.Reader

@@ -41,7 +41,7 @@
 </label>
 {{if or .IsContact (eq .Action "/participant")}}<label>Modo <input name="mode" required maxlength="40" value="{{.Mode}}" list="modes">
 </label>{{end}}
-<label class="wide">Observações <textarea name="notes" maxlength="4000" rows="2">{{.Station.Notes}}</textarea>
+<label class="wide">{{if or .IsContact (eq .Action "/participant")}}Observações da conversa{{else}}Observações do operador{{end}} <textarea name="notes" maxlength="4000" rows="2">{{if or .IsContact (eq .Action "/participant")}}{{.Notes}}{{else}}{{.Station.Notes}}{{end}}</textarea>
 </label>
 </div>
 <p id="lookup-status" class="hint" role="status" aria-live="polite">{{if or .Station.ID .Contact.ID}}O indicativo identifica a estação.{{else}}Indicativos conhecidos recuperam dados locais; revise antes de salvar.{{end}}</p>

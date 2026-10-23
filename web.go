@@ -36,6 +36,7 @@ type Page struct {
 	Station                                          Station
 	Contact                                          Contact
 	Mode                                             string
+	Notes                                            string
 	IsContact                                        bool
 }
 
@@ -221,7 +222,7 @@ func (a *App) saveStation(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/station?id="+strconv.FormatInt(id, 10))
 }
 func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, validationErr error) {
-	p := Page{Title: "Revise os dados", View: "form", Action: r.URL.Path, Station: st, Mode: r.PostForm.Get("mode"), Message: validationErr.Error(), Back: "/", IsContact: r.URL.Path == "/contact"}
+	p := Page{Title: "Revise os dados", View: "form", Action: r.URL.Path, Station: st, Mode: r.PostForm.Get("mode"), Notes: r.PostForm.Get("notes"), Message: validationErr.Error(), Back: "/", IsContact: r.URL.Path == "/contact"}
 	if r.PostForm.Get("id") != "" {
 		id, err := identifier(r, "id")
 		if err != nil {
@@ -267,6 +268,7 @@ func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 		}
 		p.Station = p.Contact.Station
 		p.Mode = p.Contact.Mode
+		p.Notes = p.Contact.Notes
 		p.Title = "Detalhes e edição do QSO"
 	}
 	a.render(w, p)
@@ -303,12 +305,7 @@ func (a *App) saveContact(w http.ResponseWriter, r *http.Request) {
 		redirect(w, r, "/contact?id="+strconv.FormatInt(id, 10))
 		return
 	}
-	id, err := a.store.saveStation(r.Context(), st)
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	qid, err := a.store.record(r.Context(), id, mode, st.Notes)
+	qid, err := a.store.createContact(r.Context(), st, mode, st.Notes)
 	if err != nil {
 		a.fail(w, err)
 		return
@@ -341,12 +338,7 @@ func (a *App) saveParticipant(w http.ResponseWriter, r *http.Request) {
 		a.invalidForm(w, r, st, err)
 		return
 	}
-	id, err := a.store.saveStation(r.Context(), st)
-	if err != nil {
-		a.fail(w, err)
-		return
-	}
-	if err = a.store.addParticipant(r.Context(), id, mode, st.Notes); err != nil {
+	if err := a.store.saveParticipant(r.Context(), st, mode, st.Notes); err != nil {
 		a.fail(w, err)
 		return
 	}
@@ -423,8 +415,7 @@ func (a *App) participantForm(w http.ResponseWriter, r *http.Request) {
 	for _, p := range list {
 		if p.ID == id {
 			st := p.Station
-			st.Notes = p.Notes
-			a.render(w, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/", Station: st, Mode: p.Mode})
+			a.render(w, Page{Title: "Editar participante", View: "form", Action: "/participant", Back: "/", Station: st, Mode: p.Mode, Notes: p.Notes})
 			return
 		}
 	}
