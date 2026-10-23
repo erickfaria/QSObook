@@ -6,9 +6,9 @@ Use the official [Docker Engine installation instructions](https://docs.docker.c
 
 ## Install on Tortuga for your private LAN
 
-The browser address will be **http://tortuga.local:8088** or **http://YOUR_PI_IP:8088**. Choose a free port if another service already uses 8088. The application stays in one container; SQLite stays in a local Docker volume.
+The browser address will be **http://tortuga.local:18088** or **http://YOUR_PI_IP:18088**. Choose a free port if another service already uses 18088. The application stays in one container; SQLite stays in a local Docker volume.
 
-This mode is for a **trusted home network**. It uses the browser's native username/password prompt. HTTP does not encrypt the password or notebook traffic: do not use it on guest/public Wi-Fi, forward the port through your router or expose it to the internet. Use HTTPS/VPN before accessing it through an untrusted network. A container does not replace access control, encryption or backups.
+This mode is for a **trusted private network or VPN**, such as an existing Tailscale network. Password authentication is optional. Without a password, anyone who can reach the published port can read and change the notebook; network/VPN access rules must provide access control. Do not expose this port to the internet. HTTP does not encrypt notebook traffic; use your VPN for remote access.
 
 ### 1. Download a specific release
 
@@ -17,8 +17,8 @@ Run these commands on Tortuga. Replace the version below when installing a later
 ```sh
 mkdir qsobook-beta
 cd qsobook-beta
-version=v0.1.0-beta.1
-for file in compose.yaml compose.lan.yaml image-digest.txt image-manifest.json SHA256SUMS; do
+version=v0.1.0-beta.2
+for file in compose.yaml compose.lan.yaml compose.auth.yaml image-digest.txt image-manifest.json SHA256SUMS; do
   curl --fail --location --output "$file" \
     "https://github.com/erickfaria/QSObook/releases/download/$version/$file" || break
 done
@@ -29,7 +29,48 @@ sha256sum --check SHA256SUMS
 
 Use one fixed directory and Compose project for this notebook. The project name is `qsobook`, preserving the existing `qsobook_data` volume if you already used the source-build Compose deployment. Stop that deployment first; do not run two instances on the same notebook. A standalone binary's database is not automatically imported. Never delete an existing notebook or volume to make this installation work.
 
-### 2. Create the private access password once
+### 2. Set the LAN address and allowed names
+
+Find Tortuga's LAN IPv4 address in your existing router/server settings. `hostname -I` on Tortuga may show several interfaces; choose the address of your home network.
+
+Create a `.env` file in this directory, replacing **both occurrences** of the example address:
+
+```dotenv
+QSOBOOK_BIND_ADDRESS=192.168.1.50
+QSOBOOK_PORT=18088
+QSOBOOK_ALLOWED_HOSTS=tortuga.local:18088,192.168.1.50:18088
+```
+
+Bind to Tortuga's specific LAN address, not `0.0.0.0`. The allowed entries are exact `host:port` values, not URLs or wildcards. If you choose a different port, update it in every entry. Reserve a stable LAN address in your existing network configuration if you need it; QSObook does not configure DHCP or DNS. `tortuga.local` must already resolve on your device; use the IP otherwise.
+
+### 3. Start the image
+
+```sh
+docker compose -f compose.lan.yaml config --quiet
+docker compose -f compose.lan.yaml pull
+docker compose -f compose.lan.yaml up -d
+docker compose -f compose.lan.yaml logs --tail=30 qsobook
+```
+
+Open **http://tortuga.local:18088** in your computer/phone browser on the same trusted network. No password prompt is shown. Start a round, add a fictitious callsign, confirm a QSO, reload and check the notebook. Test the flow before entering records you want to keep.
+
+The container runs without root, drops capabilities and uses a read-only root filesystem. SQLite is in the named `qsobook_data` volume. Changing the image or recreating the container keeps that volume. Map requests remain disabled until explicit opt-in.
+
+## Use your existing Tailscale VPN
+
+To publish only on the Pi's existing Tailscale interface, read its address with `tailscale ip -4` and use that address in `.env`, for example:
+
+```dotenv
+QSOBOOK_BIND_ADDRESS=100.101.102.103
+QSOBOOK_PORT=18088
+QSOBOOK_ALLOWED_HOSTS=100.101.102.103:18088
+```
+
+Replace the example with your actual Tailscale IPv4 address. Run the same Compose start commands, then open `http://YOUR_TAILSCALE_IP:18088` from a device authorized on your VPN. A LAN-only binding does not also publish on the VPN interface. If using an existing MagicDNS name, add that exact name and port to `QSOBOOK_ALLOWED_HOSTS`; do not assume `tortuga.local` resolves over the VPN. QSObook does not install or configure Tailscale. See the [Tailscale CLI reference](https://tailscale.com/docs/reference/tailscale-cli).
+
+## Optional password
+
+Choose `compose.auth.yaml` instead of `compose.lan.yaml` to require a shared password. Do not run both profiles simultaneously. Both use the same project and data volume.
 
 ```sh
 mkdir -m 700 secrets
@@ -40,34 +81,11 @@ cat secrets/access-password.txt
 
 Save the displayed password in your password manager. The username is **`qsobook`**. Do not send the password through chat or commit it to Git. Run this only for a new installation; the command refuses to overwrite an existing file. The 0700 parent directory keeps the file private on the host; the read-only file must be readable by the container's non-root user. Compose mounts only this file as a secret, never the entire directory.
 
-The app refuses passwords shorter than 16 bytes or missing password files. New network hostnames cannot be enabled without authentication. Passwords are not stored in the database or container image. Changing the password file and recreating the container changes access without rewriting contacts. Browser Basic authentication has no application logout button; close the browser session to clear cached credentials.
+The app refuses passwords shorter than 16 bytes or missing password files. Passwords are not stored in the database or container image. Changing the password file and recreating the container changes access without rewriting contacts. Browser Basic authentication has no application logout button; close the browser session to clear cached credentials.
 
-### 3. Set the LAN address and allowed names
+Use `docker compose -f compose.auth.yaml pull` and `docker compose -f compose.auth.yaml up -d` after creating `.env` as above. This profile requires a valid password file; missing or invalid files cause startup to fail. Username: `qsobook`.
 
-Find Tortuga's LAN IPv4 address in your existing router/server settings. `hostname -I` on Tortuga may show several interfaces; choose the address of your home network.
-
-Create a `.env` file in this directory, replacing **both occurrences** of the example address:
-
-```dotenv
-QSOBOOK_BIND_ADDRESS=192.168.1.50
-QSOBOOK_PORT=8088
-QSOBOOK_ALLOWED_HOSTS=tortuga.local:8088,192.168.1.50:8088
-```
-
-Bind to Tortuga's specific LAN address, not `0.0.0.0`. The allowed entries are exact `host:port` values, not URLs or wildcards. If you choose a different port, update it in every entry. Reserve a stable LAN address in your existing network configuration if you need it; QSObook does not configure DHCP or DNS. `tortuga.local` must already resolve on your device; use the IP otherwise.
-
-### 4. Start the image
-
-```sh
-docker compose -f compose.lan.yaml config --quiet
-docker compose -f compose.lan.yaml pull
-docker compose -f compose.lan.yaml up -d
-docker compose -f compose.lan.yaml logs --tail=30 qsobook
-```
-
-Open **http://tortuga.local:8088** in your computer/phone browser on the same trusted network. Enter username `qsobook` and the password saved above. Start a round, add a fictitious callsign, confirm a QSO, reload and check the notebook. Test the flow before entering records you want to keep.
-
-The container runs without root, drops capabilities and uses a read-only root filesystem. SQLite is in the named `qsobook_data` volume. Changing the image or recreating the container keeps that volume. Map requests remain disabled until explicit opt-in.
+To switch an existing installation to no password, replace the LAN Compose file with the beta.2 release file and recreate the service using that file. Keep your `.env` and data volume. Existing `secrets/` files may remain unused; no database records or password files are deleted. To keep authentication when upgrading from beta.1, use the new `compose.auth.yaml` file instead.
 
 ## Stop and resume
 
@@ -89,7 +107,7 @@ mkdir -m 700 "$backup_dir"
 docker compose -f compose.lan.yaml stop
 docker compose -f compose.lan.yaml cp qsobook:/data "$backup_dir/"
 cp -p compose.lan.yaml .env "$backup_dir/"
-cp -Rp secrets "$backup_dir/"
+if [ -d secrets ]; then cp -Rp secrets "$backup_dir/"; fi
 docker compose -f compose.lan.yaml start
 ```
 
