@@ -105,7 +105,7 @@ docker compose start
 
 Only resume after the copy succeeds. If copying fails, inspect the error and make a successful stopped copy before upgrading. Keep backups private, offline where appropriate, and outside the Docker volume. `backups/` is ignored by Git and excluded from the build context. Store another copy wherever you choose; QSObook does not upload it.
 
-This is a manual cold backup, not an in-app backup/restore feature. Do not overwrite a live notebook when testing restoration. Keep the original backup untouched and verify a working copy separately using the standalone application's `-db` option; check the operators, history and rounds before relying on it. Import into a new Docker volume, ownership handling and a validated restore command are not automated in this stage.
+This is the manual cold-backup alternative. Beta 5 also offers consistent in-app backups and validated restoration under Preferences → Data; see the [data guide](DATA.md). Do not overwrite a live notebook when testing restoration. Keep the original backup untouched and verify a working copy separately using the standalone application's `-db` option; check the operators, history and rounds before relying on it. Moving a notebook into a different Docker volume and ownership handling remain manual; the in-app restore works within the existing deployment.
 
 ## 7. Update
 

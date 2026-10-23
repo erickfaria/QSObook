@@ -44,13 +44,29 @@ The [Nominatim usage policy](https://operations.osmfoundation.org/policies/nomin
 
 ## History and optional roundtables
 
-**Caderno** (Notebook) lists confirmed contacts, automatic date/time, mode, band, optional roundtable name and conversation notes. Search by callsign/name or open a city/mode/band selection from the map. Dates are stored in UTC and displayed in the configured time zone. Listings return up to 200 results; name search distinguishes accented characters.
+**Caderno** (Notebook) lists confirmed contacts, automatic date/time, mode, band, optional roundtable name and conversation notes. Search by callsign/name or open a city/mode/band selection from the map. Dates are stored in UTC and displayed in the configured time zone. Records, Stations and Notebook show 50 results per page with previous/next links. Search includes callsign, name and city, ignoring common Latin accents; Notebook adds an inclusive date range in the configured time zone.
 
 The earlier live roundtable workspace remains under **Preferências → Rodadas**. Existing rounds, participants, QRT state, notes, IDs and contact links are preserved. Participation still does not confirm a QSO; confirm explicitly in that optional workspace. Closed roundtables remain read-only. The new roundtable-name field is contact metadata and does not create a live session.
 
 Screenshots use fictitious operators and demonstration contacts only. Explicit concurrent edits still use the last saved values. The replay protection applies to the new Records form and the existing participant-confirmation action; older direct `POST /contact` clients retain their previous new-contact semantics.
 
 ![Approximate home city and explicit map/geocoding consent](docs/screenshots/location-settings.png)
+
+## Keep and recover your notebook
+
+**Preferences → Data** downloads a consistent SQLite `.db` backup while the app is running. Restore validates a separately staged file and shows a preview before you confirm replacement of the whole notebook. It preserves a validated pre-restore recovery copy first, replaces related data atomically and expires old forms. Backups include the trash, preferences and coordinate cache; Docker settings and password files stay separate. Uploaded backups are limited to 64 MiB and exact schema versions 5/6. Keep a private offline copy outside the Pi.
+
+![Data tools with explicit backup and transfer controls](docs/screenshots/data-desktop.png)
+
+**Delete QSO** and **Delete station** are available from the relevant edit page, with a confirmation screen. QSOs in the trash are excluded from history, totals and map points. Deleting a station preserves its contacts and reserves the callsign until restored. Restore items under **Preferences → Trash**. There is no permanent purge or automatic expiry of trashed records.
+
+![Recoverable stations and contacts in the trash](docs/screenshots/trash-desktop.png)
+
+ADIF export covers every non-trashed QSO. Import previews new contacts, duplicates and unsupported fields before an atomic confirmation. It accepts ASCII ADI up to 16 MiB/10,000 records, skips matching callsign/UTC-second/mode/band identities (including trashed contacts), preserves current registrations and does not geocode imported cities. Unicode and custom values from QSObook exports survive through an application-defined field; other software may ignore it. ADX and non-ASCII ADI are not supported. ADIF is a contact interchange format, not a full backup. See the [data guide](docs/DATA.md) for field mapping and limitations.
+
+<img src="docs/screenshots/data-mobile.png" alt="Backup and ADIF controls on a phone" width="396">
+
+Correct a map point through the city's **Correct location** link or **My location**. Coordinates can be saved offline; an explicit provider retry also works for no-match caches, obeys cooldowns and preserves an existing point if the provider fails. These actions never change historical location text. **Preferences → About** shows the installed app/source/schema version and update links, without checking the internet automatically.
 
 ## Ready-made beta image
 
@@ -111,9 +127,9 @@ The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC displa
 
 Stop the application and every other process using its database before making a manual copy. Preserve any SQLite journal files. Do not copy only the `.db` file while it is in use. Test a copy at a separate path before relying on it.
 
-Database migrations run in a transaction and retain operator, contact and participation records. Schema version 4 includes persistent non-reusable participation IDs, named roundtables, presence status, optional map preferences and cached city coordinates. The previous live list becomes “Rodada anterior” during migration, retaining IDs and QSO links; an empty database waits for an explicit start. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
+Database migrations run in a transaction and retain operator, contact and participation records. Schema version 6 adds recoverable deletion to the existing band/round-label and map settings schema, retaining persistent participation IDs, roundtables, presence status and cached coordinates. The previous live list becomes “Rodada anterior” during migration, retaining IDs and QSO links; an empty database waits for an explicit start. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
 
-There is no in-app backup/restore, import/export or ADIF feature yet. The application does not permanently delete operators or QSOs. See the [roadmap](docs/ROADMAP.md).
+Open **Preferences → Data** for consistent SQLite backups, validated restoration and ADIF contact transfer. **Trash** provides recoverable deletion. There is no permanent purge. Read the [data and recovery guide](docs/DATA.md) for limits, duplicate handling and recovery procedures.
 
 ## Continuous integration
 
@@ -178,7 +194,10 @@ web_records.go          unified record form
 location.go             approximate home city and opt-in geocoding
 options.go              local country/mode/band selectors
 rounds.go               saved roundtables, presence and lifecycle
-map.go                  optional providers and local coordinate cache
+map.go / map_edit.go    optional providers, local cache and explicit corrections
+backup.go / web_data.go  consistent snapshots and validated transfer previews
+adif.go / trash.go      contact interchange and recoverable deletion
+search.go / version.go  pagination, local search and installed version
 web_rounds.go           home screen and roundtable HTTP workflows
 web.go                  routes, templates and HTTP protection
 store_test.go           persistence and data integrity tests
