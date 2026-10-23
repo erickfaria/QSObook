@@ -30,6 +30,7 @@
 <a href="/location">{{t "Meu local"}}</a>
 <a href="/round">{{t "Rodadas"}}</a>
 <a href="/stations">{{t "Estações"}}</a>
+<a href="/trash">{{t "Lixeira"}}</a><a href="/data">{{t "Dados"}}</a><a href="/about">{{t "Sobre"}}</a>
 <form method="post" action="/language" class="language-picker">
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="return_to" value="{{.ReturnTo}}">
 <label for="language">{{t "Idioma"}}</label>
@@ -48,7 +49,7 @@
 </header>
 <main id="main">
 <h1>{{.Title}}</h1>{{if .Message}}<p class="notice" role="status">{{.Message}}</p>{{end}}
-{{if eq .View "dashboard"}}{{template "dashboard" .}}{{else if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else if eq .View "records"}}{{template "records" .}}{{else if eq .View "location"}}{{template "location" .}}{{else}}{{template "form" .}}{{end}}
+{{if eq .View "dashboard"}}{{template "dashboard" .}}{{else if eq .View "round"}}{{template "round" .}}{{else if eq .View "stations"}}{{template "stations" .}}{{else if eq .View "history"}}{{template "history" .}}{{else if eq .View "records"}}{{template "records" .}}{{else if eq .View "location"}}{{template "location" .}}{{else if eq .View "about"}}{{template "about" .}}{{else if eq .View "map-edit"}}{{template "map-edit" .}}{{else if eq .View "data"}}{{template "data" .}}{{else if eq .View "transfer"}}{{template "transfer" .}}{{else if eq .View "trash"}}{{template "trash" .}}{{else if eq .View "trash-confirm"}}{{template "trash-confirm" .}}{{else}}{{template "form" .}}{{end}}
 </main>
 <datalist id="modes">
 <option value="AM">
@@ -112,14 +113,16 @@
 <a href="{{.Back}}">{{t "Voltar"}}</a>
 </div>
 </form>
+{{if .Contact.ID}}<p><a href="/trash/confirm?kind=contact&id={{.Contact.ID}}">{{t "Excluir QSO"}}</a></p>{{else if and .Station.ID (eq .Action "/station")}}<p><a href="/trash/confirm?kind=station&id={{.Station.ID}}">{{t "Excluir estação"}}</a></p>{{end}}
 {{end}}
 {{define "search"}}<form class="search" method="get">
 {{if .CityFilter.City}}<input type="hidden" name="city" value="{{.CityFilter.City}}"><input type="hidden" name="state" value="{{.CityFilter.State}}"><input type="hidden" name="country" value="{{.CityFilter.Country}}">{{end}}
-<label for="q">{{t "Buscar por indicativo ou nome"}}</label>
+<label for="q">{{t "Buscar por indicativo, nome ou cidade"}}</label>
 <input id="q" name="q" value="{{.Query}}" maxlength="200" type="search">
+{{if eq .View "history"}}<input type="hidden" name="mode" value="{{.Filter.Mode}}"><input type="hidden" name="band" value="{{.Filter.Band}}"><label>{{t "De"}}<input type="date" name="from" value="{{.Filter.From}}"></label><label>{{t "Até"}}<input type="date" name="to" value="{{.Filter.To}}"></label>{{end}}
 <button>{{t "Buscar"}}</button>
 </form>
-<p class="hint">{{t "Até 200 resultados por busca. Refine o termo para localizar registros antigos. Letras acentuadas são diferenciadas na busca por nome."}}</p>{{end}}
+{{end}}
 {{define "stations"}}<div class="toolbar">
 <p>{{t "Cadastro local de estações e pessoas."}}</p>
 <a class="button" href="/station">{{t "Cadastrar estação"}}</a>
@@ -151,7 +154,7 @@
 <td colspan="6">{{t "Nenhuma estação encontrada."}}</td>
 </tr>{{end}}</tbody>
 </table>
-</div>{{end}}
+</div>{{template "pagination" .}}{{end}}
 {{define "history"}}<div class="toolbar">
 <p>{{t "Contatos permanentes, com data e hora no fuso configurado."}}{{if .CityFilter.City}} {{t "Cidade:"}} {{.CityFilter.City}} / {{.CityFilter.State}} · {{.CityFilter.Country}}. <a href="/history">{{t "Ver todos"}}</a>{{end}}</p>
 <a class="button" href="/records">{{t "Registrar QSO"}}</a>
@@ -187,7 +190,7 @@
 <td colspan="8">{{t "Nenhum QSO encontrado."}}</td>
 </tr>{{end}}</tbody>
 </table>
-</div>{{end}}
+</div>{{template "pagination" .}}{{end}}
 {{define "round"}}
 {{if not .Round.ID}}
 <p class="intro">{{t "Comece uma rodada para acompanhar quem está no rádio. Confirme apenas os contatos que você realizou."}}</p>
@@ -271,6 +274,7 @@
 <details class="city-details"><summary>{{t "Cidades dos contatos ·"}} {{len .MapCities}}</summary>
 <ul class="city-list">{{range .MapCities}}<li {{if .Latitude.Valid}}data-map-city data-lat="{{.Latitude.Float64}}" data-lon="{{.Longitude.Float64}}" data-count="{{.Count}}" data-groups="{{.GroupsJSON}}"{{end}}>
 <div><a data-city-link href="/history?city={{.City}}&state={{.State}}&country={{.Country}}">{{.City}}{{if .State}} / {{.State}}{{end}}{{if .Country}} · {{.Country}}{{end}}</a><span class="cell-detail">{{.Count}} {{t "contato(s) confirmado(s)"}}{{if .Latitude.Valid}} {{t "· Localizada"}}{{else if .CheckedAt.Valid}} {{t "· Não localizada"}}{{end}}</span></div>
+<a href="/map/edit?city={{.City}}&state={{.State}}&country={{.Country}}">{{t "Corrigir localização"}}</a>
 {{if and $.MapEnabled (not .CheckedAt.Valid)}}<form method="post" action="/map/locate"><input type="hidden" name="csrf" value="{{$.Token}}"><input type="hidden" name="city" value="{{.City}}"><input type="hidden" name="state" value="{{.State}}"><input type="hidden" name="country" value="{{.Country}}"><button class="secondary">{{t "Localizar cidade"}}</button></form>{{end}}
 </li>{{else}}<li>{{t "Nenhuma cidade informada em contatos confirmados."}}</li>{{end}}</ul></details>
 </section>{{end}}

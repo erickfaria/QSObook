@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"database/sql"
@@ -13,8 +14,11 @@ import (
 	"io/fs"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -22,6 +26,8 @@ import (
 var assets embed.FS
 
 type App struct {
+	requests                 sync.RWMutex
+	transfers                transferState
 	allowedHosts             map[string]bool
 	passwordHash             *[32]byte
 	location                 *time.Location
@@ -35,6 +41,8 @@ type App struct {
 	geoClient                *http.Client
 }
 type Page struct {
+	Version, Revision                                string
+	Schema                                           int
 	Language, ReturnTo, JSMessages                   string
 	Title, View, Token, Query, Message, Action, Back string
 	Stations                                         []Station
@@ -59,6 +67,12 @@ type Page struct {
 	MapTilesURL                                      string
 	MapCities                                        []ContactCity
 	CityFilter                                       ContactCity
+	Filter                                           ListFilter
+	Pagination                                       Pagination
+	Trash                                            []TrashItem
+	Summary                                          NotebookSummary
+	RecoveryFiles                                    []string
+	Transfer                                         *transferPreview
 }
 
 func newApp(store *Store, loc *time.Location) (*App, error) {
@@ -92,6 +106,20 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.HandleFunc("POST /language", a.languagePreference)
 	a.mux.HandleFunc("GET /records", a.records)
 	a.mux.HandleFunc("POST /records", a.saveRecord)
+	a.mux.HandleFunc("GET /about", a.about)
+	a.mux.HandleFunc("GET /map/edit", a.mapEdit)
+	a.mux.HandleFunc("POST /map/edit", a.saveMapEdit)
+	a.mux.HandleFunc("GET /data", a.dataPage)
+	a.mux.HandleFunc("POST /data/export", a.downloadADIF)
+	a.mux.HandleFunc("POST /data/backup", a.downloadBackup)
+	a.mux.HandleFunc("POST /data/recovery", a.downloadRecovery)
+	a.mux.HandleFunc("POST /data/restore", a.previewRestore)
+	a.mux.HandleFunc("POST /data/import", a.previewImport)
+	a.mux.HandleFunc("POST /data/confirm", a.confirmTransfer)
+	a.mux.HandleFunc("POST /data/cancel", a.cancelTransfer)
+	a.mux.HandleFunc("GET /trash", a.trash)
+	a.mux.HandleFunc("GET /trash/confirm", a.trashConfirm)
+	a.mux.HandleFunc("POST /trash", a.trashAction)
 	a.mux.HandleFunc("GET /location", a.locationForm)
 	a.mux.HandleFunc("POST /location", a.saveLocation)
 	a.mux.HandleFunc("GET /round", a.round)
@@ -132,6 +160,14 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	return a, nil
 }
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// Serialize replacement against all in-flight HTTP operations and token reads.
+	if r.Method == "POST" && (r.URL.Path == "/data/confirm" || r.URL.Path == "/data/restore" || r.URL.Path == "/data/import") {
+		a.requests.Lock()
+		defer a.requests.Unlock()
+	} else {
+		a.requests.RLock()
+		defer a.requests.RUnlock()
+	}
 	w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
 	w.Header().Set("X-Content-Type-Options", "nosniff")
 	// Keep browser form Origins intact; cross-origin requests still omit Referer.
@@ -146,7 +182,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.Method == http.MethodPost {
-		r.Body = http.MaxBytesReader(w, r.Body, 32<<10)
+		limit := int64(32 << 10)
+		upload := r.URL.Path == "/data/restore" || r.URL.Path == "/data/import"
+		if upload {
+			limit = maxUpload + (1 << 20)
+		}
+		r.Body = http.MaxBytesReader(w, r.Body, limit)
 		if origin := r.Header.Get("Origin"); origin != "" {
 			u, err := url.Parse(origin)
 			if err != nil || u.Host != r.Host || u.Scheme != "http" {
@@ -158,7 +199,23 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			a.httpError(w, r, "Origem não permitida", 403)
 			return
 		}
-		if err := r.ParseForm(); err != nil {
+		var parseErr error
+		if upload {
+			uploaded, status, err := a.readUpload(r)
+			if err != nil {
+				a.httpError(w, r, err.Error(), status)
+				return
+			}
+			defer func() {
+				if !uploaded.Keep {
+					os.RemoveAll(filepath.Dir(uploaded.Path))
+				}
+			}()
+			r = r.WithContext(context.WithValue(r.Context(), uploadContextKey{}, uploaded))
+		} else {
+			parseErr = r.ParseForm()
+		}
+		if parseErr != nil {
 			a.httpError(w, r, "Formulário inválido ou muito grande", 400)
 			return
 		}
@@ -216,6 +273,10 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p Page) {
 	w.Write(b.Bytes())
 }
 func (a *App) fail(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, errStationInTrash) {
+		a.httpError(w, r, err.Error(), 409)
+		return
+	}
 	if errors.Is(err, errRoundChanged) {
 		a.httpError(w, r, err.Error(), http.StatusConflict)
 		return
@@ -240,17 +301,17 @@ func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, path, http.StatusSeeOther)
 }
 func (a *App) stations(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query().Get("q")
-	if len(q) > 200 {
-		a.httpError(w, r, "Busca muito longa", 400)
+	f, err := a.listFilter(r)
+	if err != nil {
+		a.httpError(w, r, err.Error(), 400)
 		return
 	}
-	list, err := a.store.stations(r.Context(), q)
+	list, total, err := a.store.stationPage(r.Context(), f)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	a.render(w, r, Page{Title: "Estações", View: "stations", Stations: list, Query: q})
+	a.render(w, r, Page{Title: "Estações", View: "stations", Stations: list, Query: f.Query, Filter: f, Pagination: pagination(r, f.Page, total)})
 }
 func (a *App) stationForm(w http.ResponseWriter, r *http.Request) {
 	p := Page{Title: "Cadastrar estação", View: "form", Action: "/station", Back: "/stations"}
@@ -346,29 +407,17 @@ func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, va
 }
 
 func (a *App) history(w http.ResponseWriter, r *http.Request) {
-	q := r.URL.Query().Get("q")
-	if len(q) > 200 {
-		a.httpError(w, r, "Busca muito longa", 400)
+	f, err := a.listFilter(r)
+	if err != nil {
+		a.httpError(w, r, err.Error(), 400)
 		return
 	}
-	city := ContactCity{City: r.URL.Query().Get("city"), State: r.URL.Query().Get("state"), Country: r.URL.Query().Get("country")}
-	var list []Contact
-	var err error
-	if city.City != "" {
-		st := Station{Callsign: "MAP", City: city.City, State: city.State, Country: city.Country}
-		if err := st.validate(); err != nil {
-			a.httpError(w, r, "Cidade inválida", 400)
-			return
-		}
-		list, err = a.store.contactsInCity(r.Context(), city, q, r.URL.Query().Get("mode"), r.URL.Query().Get("band"))
-	} else {
-		list, err = a.store.contacts(r.Context(), q)
-	}
+	list, total, err := a.store.contactPage(r.Context(), f)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	a.render(w, r, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: q, CityFilter: city})
+	a.render(w, r, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: f.Query, Filter: f, CityFilter: ContactCity{City: f.City, State: f.State, Country: f.Country}, Pagination: pagination(r, f.Page, total)})
 }
 func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 	if r.FormValue("id") == "" {
@@ -516,7 +565,7 @@ func (a *App) lookup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var count int
-	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE station_id=?", st.ID).Scan(&count); err != nil {
+	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE deleted_at IS NULL AND station_id=?", st.ID).Scan(&count); err != nil {
 		a.fail(w, r, err)
 		return
 	}

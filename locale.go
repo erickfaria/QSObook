@@ -95,7 +95,7 @@ func (a *App) languagePreference(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch destination.Path {
-	case "/", "/round", "/history", "/stations", "/station", "/contact", "/participant", "/records", "/location":
+	case "/", "/round", "/history", "/stations", "/station", "/contact", "/participant", "/records", "/location", "/trash", "/trash/confirm", "/data", "/about", "/map/edit":
 	default:
 		a.httpError(w, r, "Destino inválido", http.StatusBadRequest)
 		return

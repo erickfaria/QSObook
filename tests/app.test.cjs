@@ -246,3 +246,14 @@ test('records lookup keeps permanent and conversation notes independent', async 
   assert.equal(h.form.elements.operator_notes.value, 'Permanent operator note');
   assert.equal(h.form.elements.notes.value, 'Current conversation');
 });
+
+test('attachment downloads remain usable without a page navigation', () => {
+  const h = setup('/data/backup');
+  h.form.setAttribute('data-download', 'true');
+  for (let i = 0; i < 2; i++) {
+    const event = h.form.emit('submit');
+    assert.equal(event.defaultPrevented, false);
+    assert.equal(h.button.disabled, false);
+    assert.equal(h.form.dataset.submitting, undefined);
+  }
+});

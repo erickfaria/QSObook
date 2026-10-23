@@ -25,7 +25,7 @@
 </form>
 <div class="toolbar"><h2>{{t "Operadores"}}</h2><a href="/stations">{{t "Editar cadastros"}}</a></div>
 {{template "search" .}}
-<div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Estações cadastradas"}}"><table class="records-table"><thead><tr><th>{{t "Indicativo"}}</th><th>{{t "Nome"}}</th><th>{{t "Cidade / UF"}}</th><th>{{t "Observações"}}</th><th>{{t "Ação"}}</th></tr></thead><tbody>{{range .Stations}}<tr><th><a href="/records?callsign={{.Callsign}}">{{.Callsign}}</a></th><td>{{.Name}}</td><td>{{.City}}{{if .State}} / {{.State}}{{end}}</td><td class="notes">{{.Notes}}</td><td><a href="/history?q={{.Callsign}}">{{t "Histórico"}}</a></td></tr>{{else}}<tr><td colspan="5">{{t "Nenhuma estação encontrada."}}</td></tr>{{end}}</tbody></table></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Estações cadastradas"}}"><table class="records-table"><thead><tr><th>{{t "Indicativo"}}</th><th>{{t "Nome"}}</th><th>{{t "Cidade / UF"}}</th><th>{{t "Observações"}}</th><th>{{t "Ação"}}</th></tr></thead><tbody>{{range .Stations}}<tr><th><a href="/records?callsign={{.Callsign}}">{{.Callsign}}</a></th><td>{{.Name}}</td><td>{{.City}}{{if .State}} / {{.State}}{{end}}</td><td class="notes">{{.Notes}}</td><td><a href="/history?q={{.Callsign}}">{{t "Histórico"}}</a></td></tr>{{else}}<tr><td colspan="5">{{t "Nenhuma estação encontrada."}}</td></tr>{{end}}</tbody></table></div>{{template "pagination" .}}
 {{end}}
 {{define "location"}}
 <p class="hint">{{t "Use somente cidade, estado e país. A casa no mapa indica uma posição aproximada, sem endereço residencial."}}</p>
@@ -34,6 +34,7 @@
 <div class="fields"><label>{{t "Cidade"}}<input name="city" maxlength="120" value="{{.Home.City}}"></label><label>{{t "Estado"}}<input name="state" maxlength="120" value="{{.Home.State}}"></label><label>{{t "País"}}{{template "country" .Home.Country}}</label></div>
 <div class="location-consent"><label class="check"><input type="checkbox" name="map_enabled" value="1" {{if .Home.MapEnabled}}checked{{end}}> {{t "Mostrar mapa"}}</label><label class="check"><input type="checkbox" name="auto_geocode" value="1" {{if .Home.AutoGeocode}}checked{{end}}> {{t "Localizar cidades ao salvar"}}</label>
 <p class="hint">{{t "O mapa recebe seu IP e a área exibida. Ao salvar, só cidade, estado e país vão ao geocodificador; coordenadas ficam no banco local. Sem consultas enquanto você digita ou ao abrir o app."}}</p><a href="https://operations.osmfoundation.org/policies/nominatim/" rel="noreferrer">{{t "Uso da geocodificação"}}</a></div>
+{{if .Home.City}}<p><a href="/map/edit?city={{.Home.City}}&state={{.Home.State}}&country={{.Home.Country}}">{{t "Corrigir localização"}}</a></p>{{end}}
 <div class="actions"><button>{{t "Salvar local"}}</button><a href="/">{{t "Voltar"}}</a></div>
 </form>
 {{end}}

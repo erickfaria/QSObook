@@ -1,15 +1,22 @@
-A testing beta of QSObook, a free local amateur radio notebook.
+# QSObook test beta 5
 
-- A unified Records screen: register an operator and optionally confirm a QSO without starting a roundtable. Confirmation starts unchecked; country has no default.
-- Local country dropdowns in four UI languages, common modes and wavelength bands, custom values and an optional roundtable name.
-- Transactional form replay protection, automatic timestamps, independent notes and preserved historical snapshots.
-- A smaller monthly/total/city summary; optional cached map, approximate home marker, mode colors and local mode/band filters.
-- Opt-in city geocoding when saving a location or confirmed contact. User-triggered geographic queries only, caching, bounded requests and rate limits; provider failure never discards a saved contact. No startup batches or external autocomplete.
-- More compact rounded mobile forms; original SVG branding; bundled SIL OFL Atkinson Hyperlegible fonts and Unicode-licensed country data. No new runtime dependencies or remote fonts.
-- Existing roundtables, participants, QRT and history remain accessible. Passwords remain optional for private LAN/VPN use; Host/Origin/CSRF/frame protections are unchanged.
+This beta adds data recovery and portability while preserving Go, SQLite and the compact browser interface. Linux AMD64 and ARM64 images are published after native tests and real container integration checks.
 
-**Back up before upgrading:** this release migrates SQLite schema 4 to 5. Existing records, IDs, links and cache are retained. Band starts blank for older contacts; home city is empty and geocoding-on-save is disabled until selected. An older beta cannot open the upgraded notebook. Keep the stopped pre-upgrade backup and earlier release files for rollback; do not delete or recreate the data volume.
+## Included
 
-Download `compose.lan.yaml` for LAN/VPN access without a password, `compose.auth.yaml` for optional shared-password access, or `compose.yaml` for loopback-only access. Images support Linux ARM64 and AMD64, and release Compose assets pin their exact digest. Read the [installation, backup and update guide](https://github.com/erickfaria/QSObook/blob/main/docs/BETA.md). Reload open browser pages after updating.
+- Recoverable deletion of QSOs and stations, with confirmation and a Trash screen. Historical snapshots, links and replay keys remain intact; no permanent purge.
+- Consistent online SQLite backup downloads and validated full-notebook restoration. Review the preview before confirming; a durable pre-restore recovery snapshot is saved first, replacement is transactional and old forms expire.
+- Fifty-row pagination, callsign/name/city search with common Latin accent folding and local-calendar date ranges.
+- ADIF ASCII ADI export/import with preview, explicit unsupported-field disclosure, conservative duplicate handling and preservation of current registrations. Unicode/custom QSObook values survive in `APP_QSOBOOK_DATA`; other programs may ignore this extension. ADX and non-ASCII ADI are not supported.
+- Offline coordinate corrections and explicit retries for cached/no-match cities under the existing map opt-in, geographic-only requests and cooldowns. Imports never geocode automatically.
+- Installed version/source/schema display, `-version`, English documentation and current desktop/mobile screenshots. Four interface languages remain supported.
 
-Maps require opt-in and internet for tiles/geocoding; core recording and lookup remain local/offline. Follow the [Nominatim policy](https://operations.osmfoundation.org/policies/nominatim/) and manage aggregate usage across instances. Unmapped older cities need an explicit location action; no-match results are cached. Independent concurrent edits still use last-write-wins. No individual accounts, automatic deployment, in-app backup/restore or ADIF export yet. Without a password, network/VPN rules must restrict access to the port. This beta is not an external security audit.
+## Upgrade carefully
+
+**Back up before updating.** Schema 6 adds nullable deletion timestamps and indexes. The migration preserves existing data; beta 4 cannot open the upgraded notebook. Keep a pre-upgrade schema-5 snapshot for rollback. A raw database copied while running may be incomplete without its journals; use a consistent snapshot or the stopped-directory backup procedure.
+
+The restore UI accepts exact schema-5/6 snapshots up to 64 MiB, replacing the complete notebook only after confirmation. ADIF imports are limited to 16 MiB/10,000 records and do not replace a full backup. Recovery copies stay on the server until managed manually; download an external offline copy. See [data and recovery procedures](https://github.com/erickfaria/QSObook/blob/main/docs/DATA.md).
+
+Use the downloaded checksum-verified, digest-pinned Compose files and preserve `.env`, the project name and `qsobook_data`. Password-free trusted LAN/VPN deployment remains available in `compose.lan.yaml`; optional shared-password access uses `compose.auth.yaml`. Host/Origin/CSRF/CSP protections remain in place. Do not expose the unauthenticated configuration to the internet. Never use `down -v` to update.
+
+This remains a testing beta. Native hosted ARM64/container checks do not replace physical Raspberry Pi testing. Downloading a new GitHub commit does not deploy to your Pi. Follow the [installation/update guide](https://github.com/erickfaria/QSObook/blob/main/docs/BETA.md).

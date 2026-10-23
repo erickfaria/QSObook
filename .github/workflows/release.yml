@@ -7,7 +7,7 @@ name: Publish beta
         description: 'New beta version, e.g. v0.1.0-beta.1 (never reuse a version)'
         required: true
         type: string
-        default: v0.1.0-beta.4
+        default: v0.1.0-beta.5
 
 permissions:
   contents: read
@@ -70,7 +70,7 @@ jobs:
           ARCH: ${{ matrix.arch }}
         run: |
           image="$IMAGE:sha-$GITHUB_SHA-$ARCH"
-          docker build --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+          docker build --build-arg "APP_VERSION=$VERSION" --build-arg "APP_REVISION=$GITHUB_SHA" --label "org.opencontainers.image.revision=$GITHUB_SHA" \
             --label "org.opencontainers.image.version=$VERSION" --tag "$image" .
           QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.release.yaml python3 tests/container_smoke.py
           QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.lan.yaml python3 tests/container_smoke.py

@@ -2,12 +2,14 @@
 FROM --platform=$BUILDPLATFORM golang:1.27.3-bookworm@sha256:972b4110ba0f47539a975c31e52c64765e1ff19f2d74469ae4a595c6676e80a5 AS build
 ARG TARGETOS=linux
 ARG TARGETARCH
+ARG APP_VERSION=dev
+ARG APP_REVISION=unknown
 ENV CGO_ENABLED=0 GOTOOLCHAIN=local GOTELEMETRY=off
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download && go mod verify
 COPY . .
-RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -mod=readonly -trimpath -o /out/qsobook . \
+RUN GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -mod=readonly -trimpath -ldflags="-X main.appVersion=${APP_VERSION} -X main.appRevision=${APP_REVISION}" -o /out/qsobook . \
     && install -d -o 10001 -g 10001 -m 0700 /out/data
 
 FROM scratch

@@ -76,6 +76,8 @@ for (const link of document.querySelectorAll('[data-edit-participant]')) {
 
 for (const form of document.querySelectorAll('form[method="post"]')) {
   form.addEventListener('submit', event => {
+    // Attachment responses keep this page open; these read-only actions can repeat.
+    if (form.getAttribute('data-download') === 'true') return;
     if (form.dataset.submitting) { event.preventDefault(); return; }
     form.dataset.submitting = 'true';
     for (const button of form.querySelectorAll('button:not([type]), button[type="submit"]')) {

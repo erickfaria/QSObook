@@ -14,16 +14,20 @@ func (a *App) records(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p := Page{Title: "Registros", View: "records", Action: "/records", SubmissionKey: key, Message: r.URL.Query().Get("message")}
-	p.Query = r.URL.Query().Get("q")
-	if len(p.Query) > 200 {
-		a.httpError(w, r, "Busca muito longa", 400)
+	f, err := a.listFilter(r)
+	if err != nil {
+		a.httpError(w, r, err.Error(), 400)
 		return
 	}
-	p.Stations, err = a.store.stations(r.Context(), p.Query)
+	p.Query = f.Query
+	p.Filter = f
+	var total int64
+	p.Stations, total, err = a.store.stationPage(r.Context(), f)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
+	p.Pagination = pagination(r, f.Page, total)
 	if callsign := r.URL.Query().Get("callsign"); callsign != "" {
 		p.Station, err = a.store.lookup(r.Context(), callsign)
 		if err != nil {
@@ -60,12 +64,12 @@ func (a *App) saveRecord(w http.ResponseWriter, r *http.Request) {
 		err = validationErr
 	}
 	if err != nil {
-		if validationErr == nil && !errors.Is(err, errSubmissionConflict) {
+		if validationErr == nil && !errors.Is(err, errSubmissionConflict) && !errors.Is(err, errStationInTrash) {
 			a.fail(w, r, err)
 			return
 		}
 		status := http.StatusBadRequest
-		if errors.Is(err, errSubmissionConflict) {
+		if errors.Is(err, errSubmissionConflict) || errors.Is(err, errStationInTrash) {
 			status = http.StatusConflict
 		}
 		// Preserve drafts on validation errors, including the original replay key.

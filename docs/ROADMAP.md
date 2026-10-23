@@ -35,16 +35,20 @@ CI runs native Linux AMD64 and ARM64 checks using Go 1.27.3 with CGO disabled, i
 - Tests for lifecycle, migration rollback, QRT, map privacy, caching, rate limits and provider failures; screenshots for the current UI.
 - GitHub Actions for pull requests and `main`: formatting, module verification, Go/JavaScript tests, vet and native Linux AMD64/ARM64 builds.
 
-## Data preservation and portability — planned
+## Implemented data tools (beta 5)
 
-- Export/import with documented formats and explicit duplicate handling.
-- Consistent SQLite backup and validated restoration into a separate database.
-- History pagination and improved Unicode search.
+- Recoverable QSO/station deletion with explicit confirmation and independent restoration, preserving historical links and replay protection.
+- Consistent online SQLite snapshots, strict isolated validation, restoration preview, durable pre-restore copies and atomic table replacement.
+- Fifty-row pagination, callsign/name/city search with common Latin accent folding and local-calendar history ranges.
+- ASCII ADIF contact export/import with explicit field mapping, preview, unsupported-field disclosure and transactional duplicate handling.
+- Offline map coordinate correction and explicit cached/no-match retry under existing provider controls.
+- Installed app/source/schema version display and manual update guidance without remote update checks.
+
+## Maintenance and possible improvements
+
 - Periodic review of driver and transitive dependency versions.
-
-## Interoperability — planned
-
-- Evaluate ADIF with explicit field conversion and no silent loss.
+- Broader Unicode normalization, ADX/international interchange and additional ADIF fields, based on actual user feedback.
+- Review accessibility and physical Raspberry Pi behavior with larger notebooks and real mobile browsers.
 
 ## Possible future work
 
