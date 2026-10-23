@@ -25,7 +25,7 @@
 </form>
 <div class="toolbar"><h2>{{t "Operadores"}}</h2><a href="/stations">{{t "Editar cadastros"}}</a></div>
 {{template "search" .}}
-<div class="table-scroll"><table class="records-table"><thead><tr><th>{{t "Indicativo"}}</th><th>{{t "Nome"}}</th><th>{{t "Cidade / UF"}}</th><th>{{t "Observações"}}</th><th>{{t "Ação"}}</th></tr></thead><tbody>{{range .Stations}}<tr><th><a href="/records?callsign={{.Callsign}}">{{.Callsign}}</a></th><td>{{.Name}}</td><td>{{.City}}{{if .State}} / {{.State}}{{end}}</td><td class="notes">{{.Notes}}</td><td><a href="/history?q={{.Callsign}}">{{t "Histórico"}}</a></td></tr>{{else}}<tr><td colspan="5">{{t "Nenhuma estação encontrada."}}</td></tr>{{end}}</tbody></table></div>
+<div class="table-scroll" tabindex="0" role="region" aria-label="{{t "Estações cadastradas"}}"><table class="records-table"><thead><tr><th>{{t "Indicativo"}}</th><th>{{t "Nome"}}</th><th>{{t "Cidade / UF"}}</th><th>{{t "Observações"}}</th><th>{{t "Ação"}}</th></tr></thead><tbody>{{range .Stations}}<tr><th><a href="/records?callsign={{.Callsign}}">{{.Callsign}}</a></th><td>{{.Name}}</td><td>{{.City}}{{if .State}} / {{.State}}{{end}}</td><td class="notes">{{.Notes}}</td><td><a href="/history?q={{.Callsign}}">{{t "Histórico"}}</a></td></tr>{{else}}<tr><td colspan="5">{{t "Nenhuma estação encontrada."}}</td></tr>{{end}}</tbody></table></div>
 {{end}}
 {{define "location"}}
 <p class="hint">{{t "Use somente cidade, estado e país. A casa no mapa indica uma posição aproximada, sem endereço residencial."}}</p>

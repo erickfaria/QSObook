@@ -42,3 +42,20 @@ func (a *App) countryChoices(language, current string) []SelectOption {
 	sort.Slice(options, func(i, j int) bool { return options[i].Label < options[j].Label })
 	return options
 }
+
+func mapBandChoices(cities []ContactCity) []SelectOption {
+	values := append([]string(nil), bandChoices...)
+	seen := map[string]bool{}
+	for _, value := range values {
+		seen[value] = true
+	}
+	for _, city := range cities {
+		for _, group := range city.Groups {
+			if group.Band != "" && !seen[group.Band] {
+				seen[group.Band] = true
+				values = append(values, group.Band)
+			}
+		}
+	}
+	return choices(values, "")
+}

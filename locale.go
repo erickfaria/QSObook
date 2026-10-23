@@ -56,6 +56,7 @@ func (a *App) localizedTemplates(loc *time.Location) (map[string]*template.Templ
 		t, err := template.New("layout.html").Funcs(template.FuncMap{
 			"countries": func(current string) []SelectOption { return a.countryChoices(language, current) },
 			"modes":     func(current string) []SelectOption { return choices(modeChoices, current) },
+			"mapBands":  mapBandChoices,
 			"bands":     func(current string) []SelectOption { return choices(bandChoices, current) },
 			"t":         func(message string) string { return a.translate(language, message) },
 			"localTime": func(t time.Time) string {

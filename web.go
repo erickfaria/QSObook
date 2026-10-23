@@ -297,7 +297,7 @@ func (a *App) saveStation(w http.ResponseWriter, r *http.Request) {
 	redirect(w, r, "/station?id="+strconv.FormatInt(id, 10))
 }
 func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, validationErr error) {
-	p := Page{Title: "Revise os dados", View: "form", Action: r.URL.Path, Station: st, Mode: r.PostForm.Get("mode"), Notes: r.PostForm.Get("notes"), Message: validationErr.Error(), Back: "/", IsContact: r.URL.Path == "/contact"}
+	p := Page{Title: "Revise os dados", View: "form", Action: r.URL.Path, Station: st, Mode: r.PostForm.Get("mode"), Band: recordChoice(r, "band"), RoundName: r.PostForm.Get("round_name"), Notes: r.PostForm.Get("notes"), Message: validationErr.Error(), Back: "/", IsContact: r.URL.Path == "/contact"}
 	if r.PostForm.Get("id") != "" {
 		id, err := identifier(r, "id")
 		if err != nil {
