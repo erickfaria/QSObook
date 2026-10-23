@@ -75,6 +75,7 @@ jobs:
           node --check static/app.js
           node --check static/theme.js
           node --check static/map.js
+          node --check static/locale.js
           node --test tests/*.test.cjs
 
       - name: Build native executable

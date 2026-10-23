@@ -4,6 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const localeSource = fs.readFileSync(path.join(__dirname, '../static/locale.js'), 'utf8');
 const source = fs.readFileSync(path.join(__dirname, '../static/app.js'), 'utf8');
 
 class Element {
@@ -45,10 +46,11 @@ function setup(action = '/participant') {
   const requests = [];
   const timers = new Map();
   let timerID = 0;
-  vm.runInNewContext(source, {
+  vm.runInNewContext(localeSource + source, {
     AbortController,
     window,
     document: {
+      documentElement: {dataset: {}},
       querySelectorAll(selector) {
         if (selector === '[data-lookup]') return [input];
         if (selector === '[data-edit-participant]') return [link];

@@ -411,3 +411,45 @@ button:disabled { cursor:wait; opacity:.65 }
 .leaflet-popup-content-wrapper,.leaflet-popup-tip,.leaflet-bar a,.leaflet-control-attribution { background:var(--paper); color:var(--ink) }
 .leaflet-container a { color:var(--accent) }
 @media(max-width:700px) { #contact-map { height:300px } }
+
+/* Keep preferences compact, with explicit submission to avoid losing drafts. */
+.preferences { display:flex; align-items:center; gap:.9rem; flex-wrap:wrap }
+.language-picker { display:flex; align-items:center; gap:.4rem; flex-wrap:wrap }
+.language-picker label,.language-picker button { font-size:.8rem }
+.language-picker button { padding:.35rem .55rem }
+input,textarea,select { min-width:0 }
+[hidden] { display:none !important }
+
+@media(max-width:700px) {
+  header { gap:.65rem; padding:1rem 4% }
+  nav { width:100%; gap:.3rem 1.15rem }
+  nav a { min-height:44px; display:flex; align-items:center }
+  .preferences { width:100%; gap:.6rem 1rem }
+  .language-picker { flex:1 }
+  .language-picker select { flex:1; max-width:10rem }
+  input,textarea,select { font-size:1rem }
+  button,.button,select,summary { min-height:44px }
+  summary { align-content:center }
+  .language-picker button { min-height:44px }
+  .theme-picker { margin-left:auto }
+  .start-round label { width:100% }
+  .start-round button,.quick-add>form>button { width:100% }
+  .map-placeholder { padding:1rem }
+  .participant-editor form { max-width:100% }
+  .qso-table,.qso-table tbody { display:block }
+  .qso-table caption { display:block }
+  .qso-table thead { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%) }
+  .qso-table tbody>tr { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); border-bottom:1px solid var(--line); padding:.5rem }
+  .qso-table tbody>tr:last-child { border-bottom:0 }
+  .qso-table th,.qso-table td { border:0; min-width:0; overflow-wrap:anywhere; padding:.45rem }
+  .qso-table th:first-child { white-space:normal; grid-row:span 2 }
+  .qso-table td:nth-child(3) { grid-column:2 }
+  .qso-table .round-notes { grid-column:1/-1; min-width:0; max-width:none }
+  .qso-table td:last-child { grid-column:1/-1 }
+  .qso-table .row-actions { max-width:none; min-width:0; gap:.5rem }
+  .row-actions button,.row-actions a { min-height:44px; display:inline-flex; align-items:center; font-size:.9rem }
+  .participant-options { flex-basis:auto; margin-left:auto }
+  .participant-options[open] { flex-basis:100%; margin-left:0 }
+  .qso-table .participant-editor { grid-template-columns:minmax(0,1fr) }
+  .qso-table .participant-editor td { grid-column:1; padding:.5rem }
+}
