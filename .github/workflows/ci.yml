@@ -81,6 +81,9 @@ jobs:
       - name: Build native executable
         run: go build -mod=readonly -trimpath -o bin/qsobook-linux-${{ matrix.arch }} .
 
+      - name: Build container and verify persistent local deployment
+        run: python3 tests/container_smoke.py
+
       - name: Check source remains unchanged
         run: |
           git diff --check

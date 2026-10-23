@@ -1,0 +1,16 @@
+# Allow only build inputs. Never send databases, backups, .env, Git or caches.
+**
+!go.mod
+!go.sum
+!*.go
+!LICENSE
+!templates/
+!templates/**
+!static/
+!static/**
+!locales/
+!locales/**
+!migrations/
+!migrations/**
+!docs/
+!docs/THIRD_PARTY_NOTICES.txt
