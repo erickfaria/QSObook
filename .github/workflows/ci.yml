@@ -87,7 +87,12 @@ jobs:
         run: go build -mod=readonly -trimpath -o bin/qsobook-linux-${{ matrix.arch }} .
 
       - name: Build container and verify persistent local deployment
-        run: python3 tests/container_smoke.py
+        run: |
+          docker compose config --quiet
+          image="qsobook-ci:$GITHUB_SHA"
+          docker build --tag "$image" .
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.release.yaml python3 tests/container_smoke.py
+          QSOBOOK_IMAGE="$image" QSOBOOK_COMPOSE_FILE=compose.lan.yaml python3 tests/container_smoke.py
 
       - name: Check source remains unchanged
         run: |
