@@ -1,4 +1,4 @@
-{{define "country"}}<select name="country"><option value="">{{t "Selecione"}}</option>{{range countries .}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}</select>{{end}}
+{{define "country"}}<select name="country" autocomplete="off"><option value="">{{t "Selecione"}}</option>{{range countries .}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}</select>{{end}}
 {{define "radio-fields"}}
 <label>{{t "Modo"}}<select name="mode" data-other="mode_other"><option value="">{{t "Selecione"}}</option>{{range modes .Mode}}<option value="{{.Value}}" {{if .Selected}}selected{{end}}>{{.Label}}</option>{{end}}<option value="__other">{{t "Outro"}}</option></select></label>
 <label data-other-field="mode_other">{{t "Outro modo"}}<input name="mode_other" maxlength="40"></label>
@@ -6,7 +6,7 @@
 <label data-other-field="band_other">{{t "Outra faixa"}}<input name="band_other" maxlength="40"></label>
 {{end}}
 {{define "records"}}
-<form method="post" action="/records" class="record-form">
+<form method="post" action="/records" class="record-form" autocomplete="off">
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="submission_key" value="{{.SubmissionKey}}">
 <div class="fields record-fields">
 <label>{{t "Indicativo"}}<input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" data-lookup aria-describedby="lookup-status" autofocus></label>

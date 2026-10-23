@@ -41,7 +41,7 @@
       const latitude = Number(city.dataset.lat), longitude = Number(city.dataset.lon);
       if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
       const groups = city.dataset.groups ? JSON.parse(city.dataset.groups) : [{mode: '', band: '', count: Number(city.dataset.count)}];
-      const visible = groups.filter(group => (!selectedMode || (selectedMode === 'digital' ? digital.has(group.mode.toUpperCase()) : selectedMode === 'other' ? !known.has(group.mode.toUpperCase()) : group.mode === selectedMode)) && (!selectedBand || group.band === selectedBand));
+      const visible = groups.filter(group => (!selectedMode || (selectedMode === 'digital' ? digital.has(group.mode.toUpperCase()) : selectedMode === 'other' ? !known.has(group.mode.toUpperCase()) : group.mode.toUpperCase() === selectedMode.toUpperCase())) && (!selectedBand || group.band === selectedBand));
       if (!visible.length) continue;
       const link = city.querySelector('[data-city-link]');
       const popup = document.createElement('div');

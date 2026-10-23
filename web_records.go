@@ -80,7 +80,7 @@ func (a *App) saveRecord(w http.ResponseWriter, r *http.Request) {
 	}
 	if confirmed {
 		c, e := a.store.contact(r.Context(), qid)
-		if e == nil && a.autoLocate(r.Context(), ContactCity{City: c.City, State: c.State, Country: c.Country}) != nil {
+		if e != nil || a.autoLocate(r.Context(), ContactCity{City: c.City, State: c.State, Country: c.Country}) != nil {
 			message = "Registro salvo. Cidade pendente de localização no mapa."
 		}
 	}

@@ -1,94 +1,56 @@
 # QSObook
 
+<img src="static/logo.svg" alt="QSObook original notebook and radio mark" width="64">
+
 [![CI](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml)
 
-A small, free, self-hosted amateur radio notebook. Keep track of operators during a roundtable and record only the contacts you actually confirm.
+A small, free, self-hosted amateur radio notebook. Register an operator and confirm a contact on one compact screen; roundtables are optional.
 
 Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English.
 
-## A calm home screen
+## One record screen
 
-The home screen shows the number of confirmed contacts, an optional city map and a direct way to start or resume a roundtable. There are no timers, charts or extra dashboard indicators. **Modo QSO** opens the conversation workspace; **Caderno** opens confirmed history; **Estações** opens reusable operator records.
+Open **Registros** (Records), enter a callsign and fill in the operator's details. Existing callsigns retrieve name, city, state, country and permanent notes entirely from SQLite. Country is a local dropdown with no default; labels follow the selected UI language. Existing free-text country values remain available without conversion.
 
-![Home screen with a contact total, a current roundtable and the map awaiting opt-in](docs/screenshots/dashboard.png)
+**QSO realizado** (QSO completed) starts unchecked. Save without it to register only the operator. Check it to save a confirmed contact with an automatic timestamp. Choose a mode and optional band; **Outro/Outra** lets you enter a custom value. Band labels include wavelength and HF/VHF/UHF categories. **Contato em rodada** reveals an optional roundtable name; no session has to be opened or closed.
 
-## QSO mode: follow the conversation
+![The unified Records screen with country/mode/band selectors and explicit confirmation](docs/screenshots/records-desktop.png)
 
-Choose **Iniciar QSO** (Start QSO), optionally name the roundtable, and add participants. The start action opens a roundtable; it does not confirm a contact. Only one roundtable can be open at a time, and it survives browser/server restarts.
+Confirmation is transactional and carries a random form key. Retrying the same form, including simultaneous requests, produces one confirmed contact. A retry cannot overwrite a newer operator or historical contact. Open a new form to intentionally record another conversation. A key reused for another callsign is rejected.
 
-Add a callsign, name and city without leaving the current roundtable. Known callsigns recover their operator details from the local database. The table puts callsign, name, city/state and notes first; mode and country stay secondary.
+Permanent **Observações do operador** belong to the registration. Optional **Observações da conversa** belong only to a confirmed QSO; submitting conversation notes without confirming returns a validation message and preserves the draft. New records complete missing operator fields; use **Editar cadastros** to replace existing values. Operator edits never rewrite historical contact snapshots. The operator table remains below the form, with search and local history links.
 
-![QSO mode showing participants, separate operator and conversation notes, and explicit QSO confirmation](docs/screenshots/qso-mode.png)
+## Compact on a phone
 
-Screenshots use demonstration data with fictitious operators and callsigns. The desktop example includes two confirmed contacts and one participant marked QRT without a confirmed contact. The phone example below uses two participants and one confirmed contact. No personal database is included.
+Two-column entry, rounded controls, 44px mobile touch targets and scrollable tables keep the page focused. Light, dark and system themes remain available under Preferences, along with Portuguese, English, Spanish and French. Contact data is not sent to translation services or saved in browser storage.
 
-**Adding a participant does not record a QSO.** Click **Registrar QSO** (Record QSO) once you have actually made contact. Repeated or simultaneous confirmations create at most one QSO for that participation. Adding someone already in the list preserves their mode, conversation notes and confirmation status.
+<img src="docs/screenshots/records-mobile.png" alt="Compact phone layout with unchecked QSO confirmation and a country selector" width="396">
 
-Use **Mais → Editar** (More → Edit) to open an editor in the table. Country and conversation notes are available in an expandable section. Without JavaScript, the same edit link opens a separate page and the forms remain usable.
+The original SVG logo and home marker are project artwork. **Atkinson Hyperlegible**, bundled locally in regular and bold under SIL OFL 1.1, supplies application and map-control typography. Both font files total about 47 KB. There are no remote font requests, proprietary font files or new runtime packages. Country labels are embedded Unicode CLDR data under Unicode License V3; no country table is added to SQLite. Sources, pinned revisions and licenses are in [third-party notices](docs/THIRD_PARTY_NOTICES.txt).
 
-Click **QRT** when someone leaves. They remain in the table, after active participants; **Voltou** (Returned) makes them active again. Neither action records a QSO or resets its confirmation. **Encerrar QSO** (End QSO) closes the roundtable and preserves participants, notes and confirmed contacts. Closed roundtables can be consulted from the home screen and cannot be changed through old forms.
+## A small home screen and a cached map
 
-The current roundtable is shared by browser tabs. Removing someone from the list retains their participation in storage, operator record and confirmed contacts. A new roundtable reuses known operators with a fresh participation and an independent confirmation. For an additional contact within the same roundtable, remove and add the operator again. Participation IDs are never reused; old actions cannot reach the new participation. Start and end actions also handle repeated submissions safely.
+The home screen shows confirmed contacts for the current calendar month in the configured time zone, the notebook total and the number of recorded cities. **Novo registro** opens the entry screen directly. The optional map groups confirmed historical contact locations; later operator edits do not move earlier contacts.
 
-## Light and dark, without clutter
+![Home screen with monthly totals, cached city markers and the approximate home marker; tile background may be unavailable offline](docs/screenshots/home-records.png)
 
-A muted pastel palette, clear typography and compact controls keep the conversation table central. Choose **Claro** (Light), **Escuro** (Dark) or **Automático** (System) using the theme selector. The preference stays in the current browser, without an account or network request. If browser storage is blocked, switching still works for the current page.
+Open **Preferências → Meu local**, save your city, state and country, and explicitly enable the map and **Localizar cidades ao salvar** if wanted. No street address or device GPS is requested. Once located, your approximate city appears as a small house. After enabling, the map draws saved points whenever the home screen opens; it does not geocode them again.
 
-![QSO mode in the dark theme, with active participants and one QRT participant](docs/screenshots/qso-dark.png)
+Saving a confirmed record can locate its city automatically after the contact transaction commits. The service receives **only city, state and country**, never callsigns, operator names or notes. Coordinates and no-match results stay in the existing local SQLite cache. A failed/offline/busy provider leaves the contact saved and reports a pending location; use the city list's **Localizar cidade** action later. Existing unmapped historical cities are not geocoded in a startup batch.
 
-## Local callsign lookup and safe notes
+FM markers are blue, AM amber and digital modes red (DMR, EchoLink, D-Star and C4FM). SSB/CW have separate muted colors; mixed cities are neutral until filtered. Mode and band filters run locally. Selecting a point opens the matching city history; the house remains visible while filtering. Tiles need internet; the notebook, history, local lookup and stored coordinates remain available offline.
 
-Typing a known callsign retrieves the operator name, city, state and country, plus the number of earlier QSOs. No callsign data is sent to an external service. Lookups ignore stale responses, including A → B → A changes, and preserve edits made while a request is pending. Drafts remain separate by callsign while the page is open. Clearing the callsign clears the previous operator fields.
+The [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/) requires user-triggered queries, application identification, attribution, caching and at most one request per second. There is **no external autocomplete, background batch, periodic geocoding or retry loop**. A database lease and cooldown serialize requests; saving quickly can leave a city pending. Independent instances must manage their aggregate provider usage. Map tiles follow the [OSM tile policy](https://operations.osmfoundation.org/policies/tiles/), without scraping, prefetching or offline downloads. Providers can be changed with deployment flags.
 
-New participant, manual QSO and operator registration forms preserve fields already saved for a known callsign and only fill missing values. To replace existing data, use **Editar**. Empty fields in a conversation edit preserve the current registration. To intentionally clear an operator field, use **Estações → Editar** (Stations → Edit).
+## History and optional roundtables
 
-- **Operator notes** are permanent and edited in Stations.
-- **Conversation notes** belong to a participation and are copied into the QSO when it is confirmed. They never replace permanent operator notes.
-- Each QSO keeps its own historical copy. Later operator or participation edits do not change earlier contacts. Editing a QSO changes only that contact; its callsign and timestamp stay fixed.
+**Caderno** (Notebook) lists confirmed contacts, automatic date/time, mode, band, optional roundtable name and conversation notes. Search by callsign/name or open a city/mode/band selection from the map. Dates are stored in UTC and displayed in the configured time zone. Listings return up to 200 results; name search distinguishes accented characters.
 
-Explicit edits in different tabs still use the last saved values; there is no edit-version conflict detection. Reload a record before editing it if another tab has changed it. A manual QSO submission is intentionally a new contact each time.
+The earlier live roundtable workspace remains under **Preferências → Rodadas**. Existing rounds, participants, QRT state, notes, IDs and contact links are preserved. Participation still does not confirm a QSO; confirm explicitly in that optional workspace. Closed roundtables remain read-only. The new roundtable-name field is contact metadata and does not create a live session.
 
-## Notebook: confirmed contacts
+Screenshots use fictitious operators and demonstration contacts only. Explicit concurrent edits still use the last saved values. The replay protection applies to the new Records form and the existing participant-confirmation action; older direct `POST /contact` clients retain their previous new-contact semantics.
 
-The **Caderno** (Notebook) lists confirmed contacts with their automatic date/time, mode and conversation notes. Search by callsign or name, open contact details or register a contact manually. Clicking a callsign in QSO mode opens its history search.
-
-![Notebook containing only the two confirmed contacts and their conversation notes](docs/screenshots/notebook.png)
-
-Timestamps are stored in UTC and displayed in the configured time zone. Searches return up to 200 records, with the newest contacts first. Name searches ignore ASCII letter case but distinguish accented characters; refine the term to find older records.
-
-## Operators: reusable local records
-
-The **Estações** (Stations) page keeps operator details separate from contact history. Callsigns are unique and normalized to uppercase. Edit names, locations and permanent notes here without rewriting past contacts.
-
-![Local operator registry with the three fictitious callsigns and their locations](docs/screenshots/operators.png)
-
-## Optional map of confirmed contacts
-
-Enable the map explicitly on the home screen. It groups **confirmed QSO locations**, using the historical city/state/country from each contact rather than a later operator registration edit. Each point represents an approximate city location; selecting it opens the contacts for that city. Contacts without a city are counted in the total but have no map point. The city list and history remain usable offline and without JavaScript.
-
-Expand the city list and choose **Localizar cidade** (Locate city) once for each unmapped city. This sends only the saved city, state and country to the configured geocoder. Callsigns, names and notes stay local. Coordinates and not-found results are cached in SQLite, so reopening the map or repeating a submission does not repeat the lookup. A cached not-found result currently has no retry/reset editor; check the contact location before the first lookup.
-
-![Optional map with a city point for a fictitious contact in São Paulo](docs/screenshots/contact-map.png)
-
-The default providers are OpenStreetMap tiles and Nominatim. Enabling the map permits the tile provider to receive the browser IP, viewed area, browser headers and the application origin as its Referer. The geocoder sees the server IP and geographic query. Disabling the map removes it on reload, blocks new geocoding requests and retains cached coordinates. Reload any other already-open map tabs as well. The preference applies to this local notebook and its browser tabs.
-
-Follow the [Nominatim usage policy](https://operations.osmfoundation.org/policies/nominatim/): deliberate user-triggered searches only, no autocomplete or periodic batch work, an identifying User-Agent, local caching and at most one request per second. QSObook serializes requests through a database lease, enforces a gap after completion, bounds provider timeouts and respects retry delays. Operators running multiple independent instances must consider their combined usage and switch providers if required. The [tile policy](https://operations.osmfoundation.org/policies/tiles/) requires attribution, normal viewport use and normal HTTP caching; no bulk/offline tile download is offered. Provider availability is not guaranteed.
-
-Provider URLs can be changed without updating the application, for example to use self-hosted services:
-
-```sh
-./bin/qsobook -map-tiles-url 'https://tiles.example.org/{z}/{x}/{y}.png' -geocoder-url 'https://geo.example.org/search'
-```
-
-Tiles must be compatible with Leaflet's XYZ format and geocoding must accept Nominatim's structured query and JSON format. URLs require HTTPS, with HTTP allowed for loopback services. Review a provider's privacy and usage terms before enabling it. Leaflet 1.9.4 and its assets are embedded locally under BSD-2-Clause; no runtime CDN, npm toolchain or Leaflet plugin is used.
-
-## Languages and phone layout
-
-Open **Preferências / Preferences / Preferencias / Préférences** in the header. Choose **Português**, **English**, **Español** or **Français** and apply. Portuguese is the default. The choice is saved in a local browser cookie for future visits; no external service or account is used. Save drafts first: applying changes the current page language and reloads it. Names, places, notes, callsigns and historical snapshots are never translated or rewritten.
-
-Light, dark and system themes are available in the same preferences area. On phones, participants appear as compact rows with notes and touch-sized actions; the normal table remains on desktop. Registration and language selection also work without JavaScript.
-
-<img src="docs/screenshots/qso-mobile.png" alt="Phone layout with two fictitious participants, one confirmed QSO and one QRT" width="390">
+![Approximate home city and explicit map/geocoding consent](docs/screenshots/location-settings.png)
 
 ## Ready-made beta image
 
@@ -187,28 +149,23 @@ export GOTMPDIR="$PWD/.cache/tmp"
 export TMPDIR="$PWD/.cache/tmp"
 ```
 
-The UI uses labels, visible keyboard focus, responsive forms and compact QSO rows on phones. Other wide tables keep horizontal scrolling inside their own regions. Desktop layout, local lookup, theme selection/persistence and phone/tablet widths have been checked in the browser. A real geographic-only Nominatim request, loaded OpenStreetMap tiles, a city marker and its filtered-history link were also checked with fictitious contact data. POSTs in the integrated browser were blocked by its mediated origin; writes were checked through HTTP tests and valid-origin local requests. Full testing on a physical phone and with assistive technology remains pending. Security controls were kept in place.
+## Manual record checklist
 
-## Manual QSO checklist
-
-Use a separate database for fictitious test records:
+Use a separate test database, never a personal notebook:
 
 ```sh
 ./bin/qsobook -db .cache/manual-test.db -addr 127.0.0.1:8081
 ```
 
-1. Open `http://127.0.0.1:8081`, choose **Iniciar QSO**, optionally name the roundtable and start it. Add `ZZ0TEST`, a name and city. The participant should appear in QSO mode without a new contact in the Notebook.
-2. Use **Mais → Editar**, expand the conversation notes section, add a note and save in place.
-3. In Stations, save a different permanent operator note. QSO mode should label the permanent and conversation notes separately.
-4. Enter `zz0test` again. Name and location should fill locally while conversation notes stay empty. An immediate submission, empty fields or a stale inclusion form must not replace saved operator data or duplicate the participation.
-5. Click **Registrar QSO**. Check for one contact in the Notebook with the conversation note. Reloading must not create another QSO.
-6. Edit the operator and roundtable notes. The confirmed contact should keep its historical values.
-7. Switch rapidly between callsigns and clear the callsign field. Check that drafts and asynchronous responses never mix operators.
-8. In a second tab, keep an old record/remove form open. Remove that participant and add another in the first tab. The old action should return not found and leave the new participant untouched.
-9. Mark a participant **QRT**, then **Voltou**. Confirm that presence changes without a new QSO. End the roundtable, consult it from the home screen and start a new one with the same operator. The old roundtable and contacts should remain intact.
-10. Choose light, dark and system themes, then navigate/reload. Stop and restart with the same database. Check persistence, keyboard navigation and the fallback without JavaScript.
-11. Open Preferences, apply each of the four languages and navigate/reload. Check validation and known-callsign lookup in each language; saved names, notes and confirmed contacts must stay unchanged. Try QSO mode at phone widths, including the inline editor and light/dark themes.
-12. The map starts disabled. Enable it after reading the disclosure, locate a city with a confirmed contact, reload and open its marker/history. Disable it and confirm the local notebook remains usable without map requests. Public providers must only be exercised manually and sparingly; use fake local providers for automated tests.
+1. Open `/records`; country and **QSO realizado** should have no default. Save a fictitious callsign without confirmation. It should appear in the operator table with no contact in the notebook.
+2. Type that callsign again. Check local autofill and independent operator/conversation notes. Confirm a QSO with mode, band and an optional roundtable name. Verify the timestamp and fields in history.
+3. Retry the same confirmation form: only one contact should exist. Open a new form to record a separate conversation intentionally.
+4. Submit incomplete/invalid fields and verify drafts remain visible. Change operators quickly to exercise stale lookup protection. Edit a registration and check that earlier QSOs remain unchanged.
+5. In **Meu local**, first save without map consent: no geographic service should be contacted. Opt in, save a city, then confirm a contact in that city. Reload the home screen and verify cache reuse, the house and local mode/band filters. Test offline/provider failure without losing a saved contact.
+6. Try all four languages, dark/light/system themes and phone widths. Test basic forms without JavaScript. Native country and band selectors should remain usable.
+7. Consult old roundtables under Preferences. Existing participants, QRT statuses, notes and confirmed contacts should remain intact after the version-5 migration.
+
+Automated geographic tests use fake local providers. Public map services should only be exercised manually and sparingly in accordance with their policies. Hosted ARM64 CI does not replace physical Raspberry Pi testing.
 
 ## Structure and maintenance
 
@@ -216,6 +173,10 @@ Use a separate database for fictitious test records:
 main.go                 configuration and HTTP lifecycle
 access.go               optional shared-password access and explicit network hosts
 store.go                SQLite operations and validation
+records.go              replay-safe registration and optional confirmation
+web_records.go          unified record form
+location.go             approximate home city and opt-in geocoding
+options.go              local country/mode/band selectors
 rounds.go               saved roundtables, presence and lifecycle
 map.go                  optional providers and local coordinate cache
 web_rounds.go           home screen and roundtable HTTP workflows

@@ -77,7 +77,7 @@
 </label>
 <label>{{t "País"}} {{template "country" .Station.Country}}
 </label>
-{{if or .IsContact (eq .Action "/participant")}}{{template "radio-fields" .}}{{end}}
+{{if or .IsContact (eq .Action "/participant")}}{{template "radio-fields" .}}{{if .IsContact}}<label>{{t "Nome da rodada"}}<input name="round_name" maxlength="120" value="{{.RoundName}}"></label>{{end}}{{end}}
 <label class="wide">{{if or .IsContact (eq .Action "/participant")}}{{t "Observações da conversa"}}{{else}}{{t "Observações do operador"}}{{end}} <textarea name="notes" maxlength="4000" rows="2">{{if or .IsContact (eq .Action "/participant")}}{{.Notes}}{{else}}{{.Station.Notes}}{{end}}</textarea>
 </label>
 </div>
