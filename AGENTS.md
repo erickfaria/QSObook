@@ -1,60 +1,62 @@
-# Instruções para agentes de IA
+# Instructions for AI agents
 
-Estas instruções se aplicam a todo o repositório QSObook. Leia os arquivos existentes e examine o estado do Git antes de editar. Preserve alterações prévias do usuário, inclusive as já preparadas no índice.
+These instructions apply to the entire QSObook repository. Read existing files and inspect Git before editing. Preserve prior user changes, including staged changes.
 
-## Escopo e arquitetura
+## Scope and architecture
 
-- Mantenha Go, SQLite e HTML/CSS/JavaScript puro. Prefira `net/http`, `html/template` e outras bibliotecas padrão.
-- Preserve o módulo `github.com/erickfaria/QSObook`. Não altere a versão Go sem necessidade discutida com o mantenedor.
-- Priorize simplicidade, legibilidade, manutenção e funcionamento em Linux ARM64, especialmente Raspberry Pi com Debian.
-- Crie pacotes e diretórios apenas quando contiverem código necessário. Evite camadas genéricas, frameworks pesados e abstrações especulativas.
-- Justifique novas dependências, verificando licença, manutenção, necessidade, suporte ARM64 e implicações de CGO. A biblioteca padrão não inclui driver SQLite.
-- Diferencie decisões confirmadas de propostas e funcionalidades planejadas de funcionalidades implementadas.
+- Keep Go, SQLite and plain HTML/CSS/JavaScript. Prefer `net/http`, `html/template` and the standard library.
+- Preserve the module `github.com/erickfaria/QSObook`. Do not change the Go version without a demonstrated need discussed with the maintainer.
+- Prioritize simplicity, readability, maintenance and Linux ARM64, especially Raspberry Pi running Debian.
+- Create packages/directories only for code that is needed. Avoid generic layers, heavy frameworks and speculative abstractions.
+- Justify dependencies by reviewing licensing, maintenance, need, ARM64 support and CGO implications. The standard library has no SQLite driver.
+- Distinguish confirmed decisions from proposals and implemented features from plans.
+- Write public documentation and new commit messages in English. Do not change the UI language as a side effect of documentation work.
 
-## Go e interface
+## Go and UI
 
-- Use `gofmt`, nomes idiomáticos, pacotes pequenos e funções com responsabilidades claras.
-- Trate e propague erros com contexto; não silencie falhas nem use panic para erros esperados.
-- Use `context.Context` quando houver cancelamento ou limites de execução. Feche recursos e delimite transações.
-- Evite estado global mutável e interfaces sem consumidor real.
-- Mantenha interface minimalista, responsiva e acessível, com HTML semântico, rótulos e navegação por teclado.
+- Use `gofmt`, idiomatic names, small packages and focused functions.
+- Handle and propagate errors with context; do not silence failures or panic for expected errors.
+- Use `context.Context` for cancellation or execution limits. Close resources and bound transactions.
+- Avoid mutable global state and interfaces without a real consumer.
+- Keep the UI minimal, responsive and accessible, with semantic HTML, labels and keyboard navigation.
 
-## Privacidade e segurança
+## Privacy and security
 
-- Telemetria, analytics, rastreamento e envio de dados de uso são proibidos.
-- O núcleo deve funcionar sem internet; sirva recursos essenciais localmente, sem dependências de CDN, fontes externas ou APIs remotas.
-- Dados devem permanecer no SQLite local. Não registre contatos, observações, credenciais ou conteúdo de formulários em logs desnecessariamente.
-- Mapas/geocodificação externos só poderão ser opcionais, desativados por padrão e com informação clara sobre dados enviados e ativação consciente.
-- Use SQL parametrizado, validação no servidor, escape de templates e limites de entrada. Não transforme entrada de usuário em HTML confiável.
-- Planeje proteção contra CSRF e alterações via GET, timeouts HTTP e tratamento de erros sem detalhes internos na interface.
-- Não exponha banco, backups ou configurações como arquivos estáticos. Não inclua dados pessoais reais em exemplos ou testes.
-- Não publique o servidor na rede nem decida autenticação ou exposição pública sem discutir o modelo de acesso.
-- Preserve a AGPL v3 e os avisos de licença; não acrescente restrições incompatíveis.
+- Telemetry, analytics, tracking and transmission of usage data are prohibited.
+- Core functionality must work offline; serve essential assets locally without CDNs, external fonts or remote APIs.
+- Keep data in local SQLite. Do not unnecessarily log contacts, notes, credentials or form contents.
+- External maps/geocoding must be optional, disabled by default, with clear disclosure and conscious opt-in. Send geographic information only, never personal operator data.
+- Use parameterized SQL, server validation, template escaping and input limits. Never treat user input as trusted HTML.
+- Preserve CSRF protection, rejection of writes through GET, HTTP timeouts and error messages without internals.
+- Never serve databases, backups or configuration as static files. Do not put real personal data in examples, tests or screenshots.
+- Do not expose the server on the network or decide authentication/public access without discussing the access model.
+- Preserve AGPL v3 and license notices; do not add incompatible restrictions.
+- Do not weaken iframe, CSP, Host or Origin protections merely to make a test browser work.
 
-## Testes e documentação
+## Tests and documentation
 
-- Para código novo ou alterado, faça testes proporcionais ao risco usando preferencialmente `testing`, `httptest` e bancos temporários isolados.
-- Cubra comportamentos relevantes: validação, persistência, busca, erros e integridade. Nunca use o banco real do usuário em testes.
-- Quando houver pacotes Go, execute `go test ./...` e `go vet ./...` se o ambiente permitir; informe impedimentos e não anuncie checks não executados.
-- Valide build e funcionamento ARM64 ao introduzir código ou dependências que possam afetá-los; não presuma que cross-compilation resolve exigências de CGO.
-- Para mudanças só de documentação, revise links, coerência e `git diff --check`; não crie testes artificiais.
-- Atualize documentos afetados, mantendo instruções reproduzíveis e sem promessas de recursos inexistentes.
+- Test new/changed code proportionally to risk, preferably with `testing`, `httptest` and isolated temporary databases.
+- Cover relevant validation, persistence, lookup, errors and integrity. Never use the user's real database in tests.
+- For Go packages, run `go test ./...` and `go vet ./...` when possible. Report blockers and do not claim checks that were not run.
+- Verify build and ARM64 behavior when code/dependencies can affect them; cross-compilation alone does not resolve CGO requirements or prove hardware execution.
+- For documentation-only changes, check links, screenshots, consistency and `git diff --check`; do not create artificial tests.
+- Keep affected documentation reproducible and avoid promising unavailable features.
 
-## Limites operacionais
+## Operational limits
 
-- Trabalhe exclusivamente no repositório. Não acesse credenciais nem arquivos pessoais fora do projeto.
-- O host executa outros serviços: não instale pacotes nem altere sistema operacional, serviços, Docker, rede, firewall, DNS ou Tailscale.
-- Não execute operações destrutivas, apague dados, reescreva histórico ou reverta trabalho alheio sem autorização explícita. Pergunte antes de decisões importantes indefinidas.
-- Não faça commit, push, merge nem altere configurações remotas sem instrução explícita do usuário.
-- Alterações devem seguir o fluxo de pull request e revisão do mantenedor; não contorne proteções da `main`.
-- Ao terminar, apresente resumo das alterações, arquivos afetados, verificações executadas e pontos de atenção. Informe claramente o que ficou pendente.
+- Work inside the repository. Do not inspect credentials or unrelated personal files outside the project.
+- The host runs other services: do not install packages or change the OS, services, Docker, network, firewall, DNS or Tailscale.
+- Do not perform destructive operations, delete user data, rewrite history or revert another person's work without explicit authorization. Ask before important undefined decisions.
+- Use small, focused commits. Commit, push or merge only with user authorization; existing authorization in the conversation applies. Verify the relevant checks before an authorized push.
+- Do not alter remote configuration without authorization. Use the pull request and maintainer review workflow; never bypass `main` protections.
+- Finish with changed files, verification results, limitations and remaining work.
 
+## Current implementation
 
-## Implementação atual
-
-- Um pacote Go na raiz: `main.go`, `store.go`, `web.go` e testes correspondentes. Templates, estáticos, migração SQL e licença são incorporados ao executável.
-- Driver `modernc.org/sqlite` sem CGO; preserve alinhamento com a versão transitiva de `modernc.org/libc`. Mudanças exigem revalidar ARM64 e licenças.
-- Preserve a separação entre cadastro (`stations`), cópia histórica (`qsos`) e rodada (`participants`). Não propague edições de cadastro para QSOs antigos.
-- Evolua o esquema com migrações transacionais versionadas por `PRAGMA user_version`, preservando dados e recusando versões futuras.
-- Execute `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` e `CGO_ENABLED=0 go build -o bin/qsobook .`. Mantenha caches/temporários em `.cache/` quando o ambiente exigir trabalho exclusivo no repositório; instruções no README.
-- Não use banco padrão do usuário para desenvolvimento/testes nem inicie servidor persistente. O endereço deve permanecer em loopback até discussão de outro modelo de acesso.
+- One root Go package: `main.go`, `store.go`, `web.go` and tests. Templates, assets, migrations and license notices are embedded.
+- `modernc.org/sqlite` runs without CGO. Keep its required `modernc.org/libc` version aligned; changes require ARM64 and license checks.
+- Preserve the distinction between current registrations (`stations`), historical contact copies (`qsos`) and roundtable participation (`participants`). Do not propagate registration edits into old QSOs.
+- Use transactional migrations versioned by `PRAGMA user_version`, preserving records and rejecting future versions. Version 2 keeps participant IDs non-reusable across removals and restarts.
+- Run `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` and `CGO_ENABLED=0 go build -o bin/qsobook .`. Keep caches/temporary files in `.cache/` when required; see the README.
+- Optional JavaScript regressions use `node --test tests/app.test.cjs`, without npm packages.
+- Never develop/test using the default personal database or start a persistent server. Temporary preview servers must use an isolated database, stay on loopback and be stopped after use.

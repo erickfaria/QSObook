@@ -1,35 +1,34 @@
-# Política de segurança
+# Security policy
 
-## Estado e suporte
+## Status and support
 
-O QSObook possui uma primeira implementação funcional para uso pessoal local. Ainda não há linha de releases com suporte ou prazo garantido para correções. Não há autenticação ou isolamento entre usuários locais. Não exponha diretamente à internet. A opção de endereço aceita somente loopback; não contorne isso com proxy antes de discutir autenticação, TLS e controle de acesso.
+QSObook has an initial functional implementation for personal local use. There is no supported release line or guaranteed response time yet. There is no authentication or isolation between local users. Do not expose it directly to the internet. The listen address is restricted to loopback; do not bypass that restriction with a proxy before discussing authentication, TLS and access control.
 
-## Comunicação de vulnerabilidades
+## Reporting a vulnerability
 
-Não publique dados pessoais, credenciais, bancos reais ou detalhes de exploração em issues ou pull requests públicos.
+Do not publish personal data, credentials, real databases or exploitation details in public issues or pull requests.
 
-Na [aba Security do repositório](https://github.com/erickfaria/QSObook/security), procure **Advisories → Report a vulnerability**. Use esse formulário privado **se estiver disponível**. A disponibilidade depende de o proprietário ativar o recurso; esta documentação não confirma que ele esteja habilitado.
+In the repository [Security tab](https://github.com/erickfaria/QSObook/security), look for **Advisories → Report a vulnerability**. Use that private form **if available**. Availability depends on the owner enabling it; this document does not confirm that it is enabled.
 
-Se o formulário privado não estiver disponível, não há outro canal privado confirmado por este projeto. Abra uma issue apenas solicitando um canal privado para relato de segurança, sem detalhes técnicos sensíveis, e aguarde orientação do mantenedor antes de enviar o relato completo. Nenhum endereço de e-mail é presumido.
+If the private form is unavailable, the project has no other confirmed private reporting channel. Open an issue requesting a private channel only, without sensitive technical details, and wait for the maintainer before sending the full report. No email address is presumed.
 
-No canal privado disponibilizado, informe versão ou commit afetado, ambiente, passos mínimos para reprodução com dados fictícios, impacto esperado e eventual mitigação. Combine a divulgação pública com o mantenedor após avaliação e correção. Por se tratar de um projeto pessoal, não há prazo de resposta garantido nem programa de recompensa anunciado.
+Through the agreed private channel, include the affected version/commit, environment, minimal reproduction using fictitious data, expected impact and possible mitigation. Coordinate public disclosure after the maintainer has evaluated and addressed the report. This personal project offers no response-time commitment or announced bug bounty.
 
-## Diretrizes para o projeto
+The owner may enable private reports manually under **Settings → Advanced Security → Private vulnerability reporting**. See the [official GitHub instructions](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository). Application changes do not modify these remote settings.
 
-Manter dados locais, evitar exposição desnecessária à rede e nunca introduzir telemetria. Corrigir falhas com testes proporcionais ao risco e documentar eventuais ações necessárias para atualização, sem expor dados dos usuários.
+## Project requirements
 
-O mantenedor pode habilitar relatos privados manualmente em **Settings → Advanced Security → Private vulnerability reporting**. Consulte as [instruções oficiais do GitHub](https://docs.github.com/en/code-security/how-tos/report-and-fix-vulnerabilities/configure-vulnerability-reporting/configure-for-a-repository). Nenhuma configuração remota foi alterada nesta etapa.
+Keep data local, avoid unnecessary exposure and never introduce telemetry. Fix defects with tests proportional to their risk and document upgrade actions without exposing user records.
 
+## Implemented controls and limits
 
-## Controles implementados e limites
+- Parameterized SQL, server-side validation and automatically escaped templates.
+- Writes restricted to POST, a per-run CSRF token, Origin verification and rejection of external Host values.
+- Form bodies limited to 32 KiB, bounded headers and HTTP timeouts, and errors without internal details.
+- CSP for local resources, frame blocking, `nosniff`, `no-referrer` and no-store responses.
+- A local database file with `0600` permissions and new directories with `0700`; databases, configuration and backups are never static assets.
+- No automatic transmission to third parties, external callsign lookup or telemetry.
 
-- SQL parametrizado, validação no servidor e templates com escape automático.
-- Operações mutáveis somente por POST, token CSRF por execução, verificação de origem e rejeição de Host externo.
-- Requisições de formulário limitadas a 32 KiB, cabeçalhos e tempos HTTP limitados; erros sem detalhes internos.
-- CSP para recursos locais, bloqueio de frames, `nosniff`, `no-referrer` e respostas sem cache.
-- Banco local `0600`, novos diretórios `0700`; banco, configurações e backups nunca são recursos estáticos.
-- Nenhum envio automático a terceiros, consulta externa de indicativo ou telemetria.
+The CSRF token does not authenticate users. Processes and people with access to the OS account or local port can access contacts. Reload old forms after restarting the server. Use a private directory: existing directory permissions are not changed. There is no database encryption or in-app backup. Stop every database user before manual copies and test restoration separately. The source-code link is only requested when a user opens it.
 
-O token CSRF não autentica usuários. Processos e pessoas com acesso à conta do sistema ou à porta local podem acessar os contatos. Após reiniciar, recarregue formulários antigos. Use diretório privado: diretórios preexistentes não têm permissões alteradas. Não há criptografia do banco ou backup automatizado. Encerre os processos que usam o banco antes de cópias manuais e teste restauração separadamente. O link para o código só é acessado se o usuário o abrir.
-
-As dependências são fixadas em `go.mod`/`go.sum`; isso não substitui revisão de avisos e atualizações de segurança. Esta entrega não inclui auditoria externa nem scanner de vulnerabilidades. Consulte a arquitetura para a versão SQLite incorporada e seus limites.
+Dependencies are pinned in `go.mod`/`go.sum`; this does not replace security notice review and updates. There is no external audit or configured vulnerability scanner. See [architecture](docs/ARCHITECTURE.md) for the embedded SQLite version and storage limits.

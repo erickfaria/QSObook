@@ -1,7 +1,7 @@
-QSObook — avisos das dependências de runtime
+QSObook — runtime dependency notices
 
-A licença do QSObook é AGPL-3.0 (LICENSE). Os textos abaixo preservam
-os avisos das dependências incorporadas; não substituem a licença do projeto.
+QSObook is licensed under AGPL-3.0 (LICENSE). The following texts retain
+notices for embedded dependencies; they do not replace the project license.
 
 
 ========================================================================
