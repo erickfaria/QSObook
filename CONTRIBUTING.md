@@ -70,3 +70,9 @@ Official references:
 ## Continuous integration
 
 Pull requests to `main` and pushes to `main` run `.github/workflows/ci.yml` on native Linux AMD64 and ARM64 runners. Both jobs must pass before merging: Go formatting, module verification, Go tests/vet, JavaScript syntax/tests and the native build. Use the Go version in `go.mod`; Node.js 24 is only a test tool and requires no npm packages. Keep tests isolated and use fake local geographic providers. Do not call public map/geocoding services from CI.
+
+## Protected main branch
+
+Changes reach `main` through pull requests with both native CI checks passing against the current base. Direct pushes, force pushes and branch deletion are blocked. These integrity rules have no bypass actors.
+
+The repository-wide CODEOWNER is `@erickfaria`. Contributor pull requests require the maintainer's approval; new reviewable commits dismiss stale approvals. Only the maintainer may dismiss reviews. The maintainer's account has a pull-request-only exception to the separate review ruleset, intended for merging their own pull requests without another reviewer. GitHub scopes this exception to the account, not to the PR author, so the maintainer must reserve it for their own work. This exception never skips CI or permits direct pushes to `main`.
