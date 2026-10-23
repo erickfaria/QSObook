@@ -33,6 +33,7 @@ Current checks run on Linux AMD64 with Go 1.27.3 and CGO disabled, including an 
 - Optional Leaflet/OpenStreetMap city points from confirmed historical contacts, grouped by location with links to city history.
 - Map opt-in, locally vendored assets, geographic-only manual geocoding, coordinate/negative caches, bounded requests and provider switching.
 - Tests for lifecycle, migration rollback, QRT, map privacy, caching, rate limits and provider failures; screenshots for the current UI.
+- GitHub Actions for pull requests and `main`: formatting, module verification, Go/JavaScript tests, vet and native Linux AMD64/ARM64 builds.
 
 ## Data preservation and portability — planned
 

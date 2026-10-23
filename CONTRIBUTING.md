@@ -66,3 +66,7 @@ Official references:
 - [Creating a branch protection rule](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/managing-a-branch-protection-rule).
 - [Approvals and reviewing your own PR](https://docs.github.com/en/pull-requests/how-tos/review-pull-requests/approving-a-pull-request-with-required-reviews).
 - [Code owners and required reviews](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners).
+
+## Continuous integration
+
+Pull requests to `main` and pushes to `main` run `.github/workflows/ci.yml` on native Linux AMD64 and ARM64 runners. Both jobs must pass before merging: Go formatting, module verification, Go tests/vet, JavaScript syntax/tests and the native build. Use the Go version in `go.mod`; Node.js 24 is only a test tool and requires no npm packages. Keep tests isolated and use fake local geographic providers. Do not call public map/geocoding services from CI.

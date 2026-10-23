@@ -1,5 +1,7 @@
 # QSObook
 
+[![CI](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml)
+
 A small, free, self-hosted amateur radio notebook. Keep track of operators during a roundtable and record only the contacts you actually confirm.
 
 Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. The interface is currently in Brazilian Portuguese; this documentation is in English.
@@ -124,6 +126,12 @@ Stop the application and every other process using its database before making a 
 Database migrations run in a transaction and retain operator, contact and participation records. Schema version 4 includes persistent non-reusable participation IDs, named roundtables, presence status, optional map preferences and cached city coordinates. The previous live list becomes “Rodada anterior” during migration, retaining IDs and QSO links; an empty database waits for an explicit start. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
 
 There is no in-app backup/restore, import/export or ADIF feature yet. The application does not permanently delete operators or QSOs. See the [roadmap](docs/ROADMAP.md).
+
+## Continuous integration
+
+[GitHub Actions](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml) validates pull requests targeting `main`, pushes to `main` and manual runs. The workflow checks Go formatting, pinned module integrity, Go tests, `go vet`, JavaScript syntax/regressions and native Linux AMD64/ARM64 builds with CGO disabled. It also checks that validation does not modify tracked sources.
+
+CI uses the Go version declared in `go.mod` and Node.js 24 solely for the built-in JavaScript test runner, without npm packages. Official setup actions are pinned to full commit IDs; the workflow token has read-only repository contents access and checkout credentials are not persisted. CI uses temporary test databases and fake map providers, never personal data or public geocoding requests. Native ARM64 CI does not replace testing on a Raspberry Pi with Debian.
 
 ## Tests
 
