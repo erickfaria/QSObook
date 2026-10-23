@@ -19,7 +19,7 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
     if (request) request.abort();
     const callsign = input.value.trim().toUpperCase();
     if (callsign !== current) {
-      drafts.set(current, {
+      if (current) drafts.set(current, {
         values: Object.fromEntries(draftFields.map(name => [name, form.elements[name].value])),
         edited: new Set(edited)
       });
@@ -46,7 +46,7 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
             form.elements[name].value = station[name];
           }
         }
-        status.textContent = `Operador conhecido · ${station.contacts} QSO(s) anteriores.`;
+        status.textContent = `Operador conhecido · ${station.contacts} QSO(s) anteriores. Para corrigir dados salvos, use Editar.`;
       } catch (error) {
         if (version === sequence && error.name !== 'AbortError') {
           status.textContent = 'Não foi possível consultar. Você pode preencher os dados manualmente.';

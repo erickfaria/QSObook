@@ -166,6 +166,26 @@ test('keeps separate drafts when switching operators', async () => {
   assert.equal(h.form.elements.notes.value, 'Conversa A');
 });
 
+test('clearing a callsign does not restore unassigned fields from an earlier operator', async () => {
+  const h = setup();
+  h.edit('name', 'Nome informado antes do primeiro indicativo');
+  h.edit('notes', 'Conversa do primeiro operador');
+  h.input('ZZ0A');
+  await h.tick();
+  await h.respond(0, {name: 'Nome A', contacts: 0});
+  h.input('');
+  assert.equal(h.form.elements.name.value, '');
+  assert.equal(h.form.elements.notes.value, '');
+  h.input('ZZ0B');
+  await h.tick();
+  await h.respond(1, {name: 'Nome B', contacts: 0});
+  assert.equal(h.form.elements.name.value, 'Nome B');
+  assert.equal(h.form.elements.notes.value, '');
+  h.input('ZZ0A');
+  assert.equal(h.form.elements.name.value, 'Nome informado antes do primeiro indicativo');
+  assert.equal(h.form.elements.notes.value, 'Conversa do primeiro operador');
+});
+
 test('stale errors do not replace current status and new callsigns remain editable', async () => {
   const h = setup();
   h.input('ZZ0OLD');
