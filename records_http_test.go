@@ -130,19 +130,6 @@ func TestGeocodingOnSaveNeedsOptInAndNeverRunsOnDashboard(t *testing.T) {
 		t.Fatal("cooldown duplicated lookup or lost data")
 	}
 }
-func TestNewRoutesKeepForgeryProtection(t *testing.T) {
-	a := testApp(t)
-	before := totalChanges(t, a.store)
-	for _, path := range []string{"/records", "/location"} {
-		if w := request(a, "POST", path, url.Values{"city": {"Changed"}}); w.Code != 403 {
-			t.Fatalf("%s bypassed CSRF", path)
-		}
-	}
-	if totalChanges(t, a.store) != before {
-		t.Fatal("forgery changed data")
-	}
-}
-
 func TestMonthlyCountUsesConfiguredTimeZone(t *testing.T) {
 	for _, zone := range []int{0, -4, 9} {
 		t.Run(strconv.Itoa(zone), func(t *testing.T) {

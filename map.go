@@ -233,29 +233,3 @@ func (a *App) geocodeCity(ctx context.Context, c ContactCity, refresh ...bool) e
 	}
 	return nil
 }
-
-func (s *Store) contactsInCity(ctx context.Context, c ContactCity, query string, filters ...string) ([]Contact, error) {
-	mode, band := "", ""
-	if len(filters) > 0 {
-		mode = filters[0]
-	}
-	if len(filters) > 1 {
-		band = filters[1]
-	}
-	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+` FROM qsos WHERE deleted_at IS NULL AND city=? AND state=? AND country=? AND (instr(callsign,upper(?))>0 OR instr(lower(name),lower(?))>0)
- AND (?='' OR upper(mode)=upper(?) OR (?='digital' AND upper(mode) IN ('DIGITAL','DMR','ECHOLINK','D-STAR','C4FM')) OR (?='other' AND upper(mode) NOT IN ('FM','AM','SSB','CW','DIGITAL','DMR','ECHOLINK','D-STAR','C4FM')))
- AND (?='' OR band=?) ORDER BY occurred_at DESC,id DESC LIMIT 200`, c.City, c.State, c.Country, query, query, mode, mode, mode, mode, band, band)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	list := []Contact{}
-	for rows.Next() {
-		c, err := scanContact(rows)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, c)
-	}
-	return list, rows.Err()
-}

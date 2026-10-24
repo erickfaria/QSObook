@@ -320,36 +320,9 @@ func (s *Store) station(ctx context.Context, id int64) (Station, error) {
 func (s *Store) lookup(ctx context.Context, callsign string) (Station, error) {
 	return scanStation(s.db.QueryRowContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE callsign=? AND deleted_at IS NULL", strings.ToUpper(strings.TrimSpace(callsign))))
 }
-func (s *Store) stations(ctx context.Context, query string) ([]Station, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE deleted_at IS NULL AND (instr(qsobook_fold(callsign),?)>0 OR instr(qsobook_fold(name),?)>0 OR instr(qsobook_fold(city),?)>0) ORDER BY callsign LIMIT 200", foldSearch(query), foldSearch(query), foldSearch(query))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	list := []Station{}
-	for rows.Next() {
-		st, err := scanStation(rows)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, st)
-	}
-	return list, rows.Err()
-}
 
 const insertContactSQL = `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at) SELECT id,callsign,name,city,state,country,?,?,? FROM stations WHERE id=? AND deleted_at IS NULL RETURNING id`
 
-func (s *Store) record(ctx context.Context, stationID int64, mode, notes string) (int64, error) {
-	if err := validateMode(mode); err != nil {
-		return 0, err
-	}
-	if err := validateNotes(notes); err != nil {
-		return 0, err
-	}
-	var id int64
-	err := s.db.QueryRowContext(ctx, insertContactSQL, strings.TrimSpace(mode), notes, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), stationID).Scan(&id)
-	return id, err
-}
 func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 	var c Contact
 	var stamp string
@@ -363,22 +336,6 @@ func scanContact(row interface{ Scan(...any) error }) (Contact, error) {
 
 const contactColumns = `id,station_id,callsign,name,city,state,country,mode,notes,occurred_at,band,round_name`
 
-func (s *Store) contacts(ctx context.Context, q string) ([]Contact, error) {
-	rows, err := s.db.QueryContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE deleted_at IS NULL AND (instr(qsobook_fold(callsign),?)>0 OR instr(qsobook_fold(name),?)>0 OR instr(qsobook_fold(city),?)>0) ORDER BY occurred_at DESC,id DESC LIMIT 200", foldSearch(q), foldSearch(q), foldSearch(q))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	list := []Contact{}
-	for rows.Next() {
-		c, err := scanContact(rows)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, c)
-	}
-	return list, rows.Err()
-}
 func (s *Store) contact(ctx context.Context, id int64) (Contact, error) {
 	return scanContact(s.db.QueryRowContext(ctx, "SELECT "+contactColumns+" FROM qsos WHERE id=? AND deleted_at IS NULL", id))
 }

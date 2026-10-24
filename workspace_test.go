@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
@@ -125,7 +124,7 @@ func TestWorkspaceConcurrentConfirmationAndQRTOrder(t *testing.T) {
 		t.Fatal("stale session created registration")
 	}
 }
-func TestWorkspaceHTTPDefaultsDraftsAndSecurity(t *testing.T) {
+func TestWorkspaceHTTPDefaultsAndDrafts(t *testing.T) {
 	a := testApp(t)
 	ctx := context.Background()
 	home := request(a, "GET", "/", nil)
@@ -161,19 +160,5 @@ func TestWorkspaceHTTPDefaultsDraftsAndSecurity(t *testing.T) {
 	form.Set("notes", "Draft note")
 	if w := request(a, "POST", "/qso/entry", form); w.Code != 400 || !strings.Contains(w.Body.String(), "Draft name") || !strings.Contains(w.Body.String(), "Draft note") {
 		t.Fatal("draft lost", w.Code)
-	}
-	if w := request(a, "POST", "/qso/entry", nil); w.Code != 403 {
-		t.Fatal("no CSRF", w.Code)
-	}
-	if w := request(a, "GET", "/qso/entry", nil); w.Code != 405 {
-		t.Fatal("GET writes")
-	}
-	r := httptest.NewRequest("POST", "http://127.0.0.1:8080/qso/entry", strings.NewReader(form.Encode()))
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.Header.Set("Origin", "http://evil.example")
-	w := httptest.NewRecorder()
-	a.ServeHTTP(w, r)
-	if w.Code != 403 {
-		t.Fatal("foreign origin")
 	}
 }

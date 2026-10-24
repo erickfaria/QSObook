@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"mime/multipart"
 	"net/http/httptest"
 	"net/url"
 	"strings"
@@ -18,34 +20,66 @@ func TestWriteRoutesRejectForgeryWithoutChangingData(t *testing.T) {
 		t.Fatal(err)
 	}
 	before := totalChanges(t, a.store)
-	for _, path := range []string{"/records", "/location", "/station", "/contact", "/participant", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/language"} {
-		for _, attack := range []struct{ origin, token string }{
-			{"http://external.example", a.token},
-			{"null", a.token},
-			{"http://127.0.0.1:8080", "invalid-token"},
-			{"http://127.0.0.1:8080", ""},
+	routes := []string{"/records", "/qso/entry", "/location", "/station", "/contact", "/participant", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/map/edit", "/language", "/trash", "/data/backup", "/data/restore", "/data/import", "/data/recovery", "/data/export", "/data/confirm", "/data/cancel"}
+	for _, path := range routes {
+		for _, attack := range []struct{ origin, token, site string }{
+			{"http://external.example", a.token, ""},
+			{"null", a.token, ""},
+			{"https://127.0.0.1:8080", a.token, ""},
+			{"http://127.0.0.1:9090", a.token, ""},
+			{"http://127.0.0.1:8080", "invalid-token", ""},
+			{"http://127.0.0.1:8080", "", ""},
+			{"", a.token, "cross-site"},
 		} {
-			form := url.Values{"csrf": {attack.token}, "id": {"1"}, "round_id": {"1"}, "previous_round": {"1"}, "callsign": {"ZZ0SAFE"}, "name": {"Overwrite"}, "mode": {"FM"}, "notes": {"Overwrite"}, "active": {"0"}, "enabled": {"1"}, "language": {"fr"}, "return_to": {"/"}}
-			r := httptest.NewRequest("POST", "http://127.0.0.1:8080"+path, strings.NewReader(form.Encode()))
-			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			r.Header.Set("Origin", attack.origin)
+			fields := url.Values{"csrf": {attack.token}, "id": {"1"}, "round_id": {"1"}, "previous_round": {"1"}, "callsign": {"ZZ0SAFE"}, "name": {"Overwrite"}, "mode": {"FM"}, "notes": {"Overwrite"}, "active": {"0"}, "enabled": {"1"}, "language": {"fr"}, "return_to": {"/"}}
+			var body bytes.Buffer
+			contentType := "application/x-www-form-urlencoded"
+			if path == "/data/restore" || path == "/data/import" {
+				multipartBody := multipart.NewWriter(&body)
+				if err := multipartBody.WriteField("csrf", attack.token); err != nil {
+					t.Fatal(err)
+				}
+				file, err := multipartBody.CreateFormFile("file", "fictitious.db")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if _, err = file.Write([]byte("fictitious upload")); err != nil {
+					t.Fatal(err)
+				}
+				if err = multipartBody.Close(); err != nil {
+					t.Fatal(err)
+				}
+				contentType = multipartBody.FormDataContentType()
+			} else {
+				body.WriteString(fields.Encode())
+			}
+			r := httptest.NewRequest("POST", "http://127.0.0.1:8080"+path, &body)
+			r.Header.Set("Content-Type", contentType)
+			if attack.origin != "" {
+				r.Header.Set("Origin", attack.origin)
+			}
+			if attack.site != "" {
+				r.Header.Set("Sec-Fetch-Site", attack.site)
+			}
 			w := httptest.NewRecorder()
 			a.ServeHTTP(w, r)
 			if w.Code != 403 || len(w.Result().Cookies()) != 0 {
-				t.Fatalf("%s accepted forged form: %d %s", path, w.Code, w.Body)
+				t.Fatalf("%s accepted forged request: %d %s", path, w.Code, w.Body)
 			}
 		}
 	}
-	for _, path := range []string{"/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/language"} {
+	for _, path := range []string{"/qso/entry", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/language", "/data/backup", "/data/restore", "/data/import", "/data/recovery", "/data/export", "/data/confirm", "/data/cancel"} {
 		for _, method := range []string{"GET", "HEAD"} {
-			w := request(a, method, path+"?id=1&enabled=1&active=0&language=fr&return_to=/", nil)
-			if w.Code != 405 {
-				t.Errorf("%s %s: got %d, want 405", method, path, w.Code)
+			if w := request(a, method, path+"?id=1&enabled=1&active=0&language=fr&return_to=/", nil); w.Code != 405 {
+				t.Errorf("%s %s: %d, want 405", method, path, w.Code)
 			}
 		}
 	}
 	if after := totalChanges(t, a.store); after != before {
 		t.Fatal("rejected requests changed the notebook")
+	}
+	if a.transfers.Pending != nil {
+		t.Fatal("forged upload created a transfer preview")
 	}
 }
 
@@ -142,5 +176,13 @@ func TestWriteTargetsComeFromPostBody(t *testing.T) {
 	participants, err := a.store.participants(ctx)
 	if err != nil || len(participants) != 1 || participants[0].Active {
 		t.Fatal("body target not updated", participants, err)
+	}
+}
+
+func TestAboutShowsLocalVersionAndSecurityHeaders(t *testing.T) {
+	a := testApp(t)
+	w := request(a, "GET", "/about", nil)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "<strong>"+appVersion+"</strong>") || w.Header().Get("X-Frame-Options") != "DENY" {
+		t.Fatal("about version or headers", w.Code, w.Body)
 	}
 }

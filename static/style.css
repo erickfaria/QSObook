@@ -389,14 +389,11 @@ button:disabled { cursor:wait; opacity:.65 }
 .qrt-row .cell-detail,.qrt-row .note-kind { color:var(--ink) }
 .participant-options { flex-basis:100% }
 .participant-options .row-actions { margin-top:.5rem }
-.dashboard-intro { display:flex; justify-content:space-between; align-items:center; gap:2rem; flex-wrap:wrap; padding:1rem 0 2rem; border-bottom:1px solid var(--line) }
-.contact-total { font-size:3rem; line-height:1.15; font-weight:600; margin:.5rem 0; font-variant-numeric:tabular-nums }
 .start-round { display:flex; gap:.8rem; align-items:end; flex-wrap:wrap }
 .start-round label { width:min(100%,22rem) }
 .round-list { list-style:none; margin:0; padding:0 }
 .round-list li { display:flex; gap:1rem; justify-content:space-between; flex-wrap:wrap; padding:.8rem 0; border-bottom:1px solid var(--line) }
 @media(max-width:700px) {
-  .dashboard-intro { gap:1rem; align-items:start }
   .round-list li { gap:.25rem }
   .start-round { width:100% }
 }
@@ -505,7 +502,6 @@ th,td { padding:.6rem .7rem }
 #contact-map { height:420px; border-radius:16px }
 .map-placeholder { border-radius:16px; padding:1rem }
 .home-pin { background:none; border:0 }.home-pin img { width:28px; height:28px }
-.records-table { font-size:.9rem }
 @media(max-width:700px) {
  header { padding:.5rem 4%; gap:.2rem .7rem }
  nav { gap:.2rem 1.1rem }
@@ -521,7 +517,6 @@ th,td { padding:.6rem .7rem }
  #contact-map { height:330px }
  .map-legend { flex-basis:100%; padding:0 }
  .map-filters label { flex:1; min-width:0 }
- .records-table td,.records-table th { padding:.5rem; min-width:7rem }
  input,textarea,select,button,.button { min-height:44px }
 }
 .leaflet-container .leaflet-control-zoom-in,.leaflet-container .leaflet-control-zoom-out,.leaflet-container a.leaflet-popup-close-button { font-family:"Atkinson Hyperlegible",sans-serif }
