@@ -1,7 +1,7 @@
 name: qsobook
 services:
   qsobook:
-    image: ${QSOBOOK_IMAGE:-ghcr.io/erickfaria/qsobook:beta}
+    image: ${QSOBOOK_IMAGE:-ghcr.io/erickfaria/qsobook:stable}
     ports:
       - "${QSOBOOK_BIND_ADDRESS:?Set the LAN or VPN IPv4 address}:${QSOBOOK_PORT:-8088}:8080"
     command:

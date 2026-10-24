@@ -1,46 +1,40 @@
-# Security review — 2026-10-23
+# Security review — 2026-10-24
 
-Reviewed application source: `79f254a479705b15fda499219243949114c307d3` (beta 3).
+Scope: preparation of stable **v0.1.0**, based on beta-5 source `1fe52c33901f486740e44c745a8a853247292eea`. Reviewed the HTTP/access boundary, registration/QSO transactions, local lookup, backup/restoration and ADIF paths, optional geographic requests, embedded assets, container profiles and release workflow. This is a source review with automated checks, not an independent external audit or a guarantee against all vulnerabilities.
 
-## Result and changes
+## Confirmed corrections
 
-This source review and the checks below found no newly confirmed exploitable application vulnerability. No production code, database schema, runtime dependencies, access settings or GitHub protection settings were changed.
+- Some POST handlers accepted a missing record identifier or map city from URL parameters through `FormValue`. Identifiers and editable cities now come only from the POST body for writes. GET links retain query parameters. The regression reproduced unintended writes before the fix and now verifies rejection without database changes, plus legitimate body-targeted updates. CSRF was still required before this fix; this finding did not establish an unauthenticated write bypass.
+- Monthly totals compared raw timestamp strings. Compatible older backups can contain offsets or omit fractional seconds, producing incorrect calendar-month counts. The dashboard now shares the UTC-second conversion used by history/ADIF. Tests reproduced errors for negative and positive offsets, then passed after correction.
+- Invalid map-edit locations now consistently return a validation response rather than an internal-error response.
 
-Three security regression tests were added in `security_test.go`:
+No database schema, runtime dependency, authentication model, Host/Origin policy, CSP/frame policy or GitHub branch-protection change was required. Stable v0.1.0 retains schema 7 from beta 5.
 
-- Every current write route rejects external/null Origins and missing/invalid CSRF tokens without writing to SQLite or setting preference cookies. Action-only routes reject GET and HEAD.
-- SQL-like names and stored HTML remain data: registration, participation and contact writes preserve the input; rendered pages escape markup and searches do not modify tables.
-- Private database, configuration, credential and source paths remain unavailable through the HTTP/static routes, including after path-cleaning redirects.
+## Cleanup and retained coverage
 
-`CONTRIBUTING.md` contained obsolete classic branch-protection instructions that contradicted the active rulesets and CODEOWNERS file. Those instructions were removed, and the documented languages and CI compiler guidance were corrected. `ROADMAP.md` incorrectly said no vulnerability scanner was configured; it now describes the existing govulncheck and native CI jobs.
+Removed unused city-history and legacy list/contact queries and unused dashboard/table styles. Test fixture helpers now use the production paginated readers and contact transaction. Consolidated duplicated route-security checks and equivalent lookup-note tests; retained upgrade/rollback tests for old notebooks, because older data still needs safe migration.
+
+The central security matrix covers all 23 POST routes, including streamed restore/import uploads, with foreign/null/HTTPS/wrong-port Origins, invalid/missing CSRF and cross-site fetch metadata. Sixteen action-only routes reject GET and HEAD. Rejected requests must not alter SQLite, set preference cookies or create transfer previews.
 
 ## Verified controls
 
-- SQL parameters and escaped templates; no user-controlled SQL statements or trusted HTML conversion.
-- Explicit Host allowlist, unchanged Origin/CSRF checks, frame blocking, CSP, body/header/time limits and no-store responses.
-- Optional password applies before every application route; invalid configured password files fail startup. Password-free access remains an intentional LAN/VPN deployment option.
-- Transactions and preserved registration/contact snapshots; repeated participant confirmation is tested separately from participation.
-- Maps remain opt-in. Geographic-only geocoding uses fixed deployment-configured providers, bounded requests, redirect rejection, local caches and cooldowns; tests use local fake providers.
-- Container build context excludes databases, backups, secrets, `.env`, caches and Git. Runtime remains non-root with a read-only root filesystem and a persistent data volume.
-- Active GitHub rulesets require PRs and both native checks against an up-to-date base. Integrity rules have no bypass actors. The separate maintainer review exception is described in `CONTRIBUTING.md`.
-- Workflow actions are pinned, PR tokens have read-only contents permission, checkout credentials are not persisted and publishing uses separate manually dispatched jobs.
-- Checked tracked runtime filenames and private-key/GitHub-token/AWS-key patterns: no matches. This was a limited current-tree check, not a full-history secret-scanner audit.
+- Parameterized SQL, normalized/validated callsigns, bounded fields and automatically escaped HTML. Lookup handles stale responses and keeps permanent/listening notes independent.
+- Explicit allowed host:port entries, unchanged CSRF/Origin checks, POST-only writes, bounded body/header/time limits, frame blocking, local-resource CSP and no-store responses.
+- Optional shared-password access precedes every route. Password-free trusted LAN/VPN access remains the maintainer's explicit deployment choice; all connected users share the notebook.
+- Transactional participation/confirmation, replay keys and historical snapshots; adding a station and marking QRT do not confirm contacts.
+- Streamed private upload staging after the first CSRF part, exact-schema read-only validation, explicit transfer preview, durable validated recovery snapshots, transactional replacement and expiration of old forms. Uploaded SQL/schema extensions are rejected.
+- Maps/geocoding remain opt-in with geographic fields only, fixed deployment-configured providers, bounded requests, redirect rejection, local caches and persistent cooldowns. Tests use fake local providers.
+- Embedded local assets/fonts; no telemetry, external callsign service or new dependency. Docker runtime remains non-root, read-only, capability-restricted and backed by a named local volume.
+- Read-only PR workflow token, pinned actions, separate manual publication, native AMD64/ARM64 and exact-image checks, digest-pinned assets and provenance. Stable/latest channels are separate from beta; published versions are not reused.
 
-## Local validation
+## Validation record
 
-Using Go 1.27.3 on Linux AMD64:
+Local Go 1.27.3/Linux AMD64 checks: Go tests and race detector, vet, module verification, AMD64 build and ARM64 cross-build. JavaScript: 18 regressions with built-in Node modules and syntax checks. Workflow lint, formatting, Markdown links and whitespace checks are included. Go statement coverage after cleanup: **76.6%** (76.1% before this review). Native hosted AMD64/ARM64/container checks are required before merge/publication; exact release-image checks run again before pushing.
 
-- `CGO_ENABLED=0 go test -mod=readonly -count=1 -cover ./...`: passed; statement coverage 74.1%.
-- `CGO_ENABLED=1 go test -mod=readonly -race -count=1 ./...`: passed. CGO was enabled only for the race detector; production builds remain CGO-free.
-- `go vet ./...`, module verification and AMD64/ARM64 builds: passed.
-- JavaScript regressions: 15 passed, no npm packages required.
-- Pinned workflow lint and whitespace checks: passed.
-- `govulncheck v1.9.0`: no reachable vulnerability or imported-package finding. It reports [GO-2026-5024](https://pkg.go.dev/vuln/GO-2026-5024) at module level in `golang.org/x/sys/windows.NewNTUnicodeString`; this package is not used by the Linux application. Dependencies were not changed for an unused Windows-only path.
+Pinned govulncheck v1.9.0 reported **zero reachable vulnerabilities and zero findings in imported packages**. It also reports [GO-2026-5024](https://pkg.go.dev/vuln/GO-2026-5024) in the required `golang.org/x/sys` module: the affected `windows.NewNTUnicodeString` API is not imported or reachable in the supported Linux builds. This module-only advisory remains documented; no unrelated dependency change was made.
 
-The PR's GitHub Actions checks run the tests and container smoke tests natively on Linux AMD64 and ARM64. Local cross-compilation alone is not reported as physical Raspberry Pi validation.
+A limited tracked-tree filename/pattern check covers runtime database/secret files and recognizable private-key/GitHub/AWS token patterns. It is not a full-history or external secret-scanner audit. Final execution results and native jobs are recorded in the release PR and Actions run; this document does not replace those records.
 
-## Remaining limits
+## Operational limits
 
-This is a source review with automated regressions, not an external penetration test or an assessment of a user's host, router, VPN rules or other containers. Govulncheck does not cover every embedded upstream component or unknown vulnerability. Physical deployment testing remains part of the beta.
-
-Without a password, everyone who can reach the published port can read and modify the notebook. Network/VPN access rules must restrict that port. Plain HTTP does not encrypt notebook traffic outside the VPN. Individual accounts, database encryption, automatic updates and in-app backup/restore remain unavailable. Explicit concurrent edits still use last-write-wins behavior, and manual new-contact submissions do not have server-side replay deduplication. Preserve offline backups before upgrades and avoid exposing the service directly to the internet.
+Private LAN/VPN access and private host storage remain necessary. HTTP is not encrypted, and the optional shared password is not a multi-user permission system. Backups contain unencrypted personal data and must be stored privately. Explicit concurrent registration edits retain last-write-wins behavior. Local file access by the same OS account is trusted. A participant link to a trashed QSO requires restoration before opening that QSO. ADIF is interchange, not a complete backup. Successful beta-5 use on the maintainer's Raspberry Pi is reported by the maintainer; automated ARM64 checks use hosted runners, and each installation still needs its own smoke test after updating.

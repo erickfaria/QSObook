@@ -294,7 +294,11 @@ func (a *App) fail(w http.ResponseWriter, r *http.Request, err error) {
 	a.httpError(w, r, "Não foi possível concluir a operação. Tente novamente.", 500)
 }
 func identifier(r *http.Request, key string) (int64, error) {
-	id, err := strconv.ParseInt(r.FormValue(key), 10, 64)
+	value := r.URL.Query().Get(key)
+	if r.Method == http.MethodPost {
+		value = r.PostForm.Get(key)
+	}
+	id, err := strconv.ParseInt(value, 10, 64)
 	if err != nil || id <= 0 {
 		return 0, errors.New("identificador inválido")
 	}
@@ -321,7 +325,7 @@ func (a *App) stations(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) stationForm(w http.ResponseWriter, r *http.Request) {
 	p := Page{Title: "Cadastrar estação", View: "form", Action: "/station", Back: "/stations"}
-	if r.FormValue("id") != "" {
+	if r.URL.Query().Get("id") != "" {
 		id, err := identifier(r, "id")
 		if err != nil {
 			a.httpError(w, r, err.Error(), 400)
@@ -433,12 +437,12 @@ func (a *App) history(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, Page{Title: "Caderno de contatos", View: "history", Contacts: list, Query: f.Query, Filter: f, CityFilter: ContactCity{City: f.City, State: f.State, Country: f.Country}, Pagination: pagination(r, f.Page, total)})
 }
 func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
-	if r.FormValue("id") == "" {
+	if r.URL.Query().Get("id") == "" {
 		a.records(w, r)
 		return
 	}
 	p := Page{Title: "Registrar QSO", View: "form", IsContact: true, Mode: "FM", Action: "/contact", Back: "/history"}
-	if r.FormValue("id") != "" {
+	if r.URL.Query().Get("id") != "" {
 		id, err := identifier(r, "id")
 		if err != nil {
 			a.httpError(w, r, err.Error(), 400)

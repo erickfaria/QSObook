@@ -1,4 +1,6 @@
-# QSObook test beta 5
+# Historical release notes — QSObook beta 5
+
+These notes describe the earlier beta. See [RELEASE_NOTES.md](RELEASE_NOTES.md) for the current stable release.
 
 This beta unifies the live QSO workflow and adds data recovery and portability while preserving Go, SQLite and the compact browser interface. Linux AMD64 and ARM64 images are published after native tests and real container integration checks.
 

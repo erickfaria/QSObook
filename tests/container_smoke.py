@@ -135,6 +135,12 @@ try:
     assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 1
     assert json.loads(get("/lookup?callsign=zz1docker"))["notes"] == "Permanent note"
     post("/participant/status", id="1", active="0")
+    # A URL parameter cannot supply a missing write target, even with valid CSRF.
+    try:
+        post("/round/end?id=1")
+        raise AssertionError("Query-only write target accepted")
+    except urllib.error.HTTPError as error:
+        assert error.code == 400
     post("/language", language="fr", return_to="/round")
     assert '<html lang="fr"' in get("/round")
     # Exercise the transfer UI with the real image and a read-only root filesystem.

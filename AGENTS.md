@@ -56,7 +56,7 @@ These instructions apply to the entire QSObook repository. Read existing files a
 - One root Go package: `main.go`, `store.go`, `rounds.go`, `map.go`, `web.go`, `web_rounds.go` and tests. Templates, assets, migrations and license notices are embedded.
 - `modernc.org/sqlite` runs without CGO. Keep its required `modernc.org/libc` version aligned; changes require ARM64 and license checks.
 - Preserve the distinction between current registrations (`stations`), historical contact copies (`qsos`) and roundtable participation (`participants`). Do not propagate registration edits into old QSOs.
-- Use transactional migrations versioned by `PRAGMA user_version`, preserving records and rejecting future versions. Version 7 adds optional round editions and remembered names on top of recoverable station/QSO deletion to the record bands, optional round labels, replay keys and home/geocoding preferences; keep legacy participants, QSO links and ID high-water marks intact. Exclude trashed QSOs from active counts/history/maps, retain replay keys and never cascade a station deletion into historical contacts.
+- Use transactional migrations versioned by `PRAGMA user_version`, preserving records and rejecting future versions. Stable v0.1.0 retains schema 7 from beta 5: optional round editions and remembered names, recoverable station/QSO deletion, bands, replay keys and map preferences; keep legacy participants, QSO links and ID high-water marks intact. Exclude trashed QSOs from active counts/history/maps, retain replay keys and never cascade a station deletion into historical contacts.
 - Run `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` and `CGO_ENABLED=0 go build -o bin/qsobook .`. Keep caches/temporary files in `.cache/` when required; see the README.
 - Optional JavaScript regressions use `node --test tests/*.test.cjs`, without npm packages.
 - Never develop/test using the default personal database or start a persistent server. Temporary preview servers must use an isolated database, stay on loopback and be stopped after use.
@@ -67,3 +67,5 @@ These instructions apply to the entire QSObook repository. Read existing files a
 
 - Data restoration must validate an isolated upload against exact known schemas before migration or replacement. Preserve a durable recovery snapshot, use a single transaction for row replacement and invalidate stale forms. Never rename/swap an open SQLite file or execute uploaded SQL. Transfer files are private, bounded and outside static assets.
 - ADIF imports require a preview and explicit confirmation, report unsupported fields and duplicates, preserve current registrations, and must not initiate geocoding. ADIF is not a complete notebook backup.
+
+- Stable releases use versioned tags plus `stable`/`latest` channels; beta versions update only `beta`. Preserve digest-pinned downloads, exact-image checks, provenance and immutable version history. See `docs/INSTALL.md`.

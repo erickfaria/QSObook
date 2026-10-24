@@ -238,15 +238,6 @@ test('opens the editor inline while preserving modified-click navigation', () =>
   assert.equal(h.editor.hidden, true);
 });
 
-test('records lookup keeps permanent and conversation notes independent', async () => {
-  const h = setup('/records');
-  h.input('ZZ0RECORD'); await h.tick();
-  h.edit('notes', 'Current conversation');
-  await h.respond(0, {name: 'Example', country: 'Brasil', notes: 'Permanent operator note', contacts: 1});
-  assert.equal(h.form.elements.operator_notes.value, 'Permanent operator note');
-  assert.equal(h.form.elements.notes.value, 'Current conversation');
-});
-
 test('attachment downloads remain usable without a page navigation', () => {
   const h = setup('/data/backup');
   h.form.setAttribute('data-download', 'true');
@@ -258,12 +249,14 @@ test('attachment downloads remain usable without a page navigation', () => {
   }
 });
 
-test('QSO workspace autofill keeps permanent notes separate from listening notes', async () => {
-  const h = setup('/qso/entry');
-  h.input('ZZ0QSO');
-  h.edit('notes', 'Listening draft');
-  await h.tick();
-  await h.respond(0, {name: 'Example', city: 'Example city', notes: 'Permanent', contacts: 1});
-  assert.equal(h.form.elements.operator_notes.value, 'Permanent');
-  assert.equal(h.form.elements.notes.value, 'Listening draft');
+test('entry forms keep permanent notes separate from listening notes', async () => {
+  for (const action of ['/records', '/qso/entry']) {
+    const h = setup(action);
+    h.input('ZZ0QSO');
+    h.edit('notes', 'Listening draft');
+    await h.tick();
+    await h.respond(0, {name: 'Example', city: 'Example city', notes: 'Permanent', contacts: 1});
+    assert.equal(h.form.elements.operator_notes.value, 'Permanent');
+    assert.equal(h.form.elements.notes.value, 'Listening draft');
+  }
 });

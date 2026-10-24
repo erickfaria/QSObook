@@ -6,7 +6,7 @@
 
 A small, free, self-hosted amateur radio notebook. Register an operator and confirm a contact on one compact screen; roundtables are optional.
 
-Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English. Start with the [Wiki](https://github.com/erickfaria/QSObook/wiki) or [beta installation guide](docs/BETA.md).
+Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English. [Release notes](docs/RELEASE_NOTES.md) describe the stable version. Start with the [Wiki](https://github.com/erickfaria/QSObook/wiki) or [installation guide](docs/INSTALL.md).
 
 ## One QSO workspace
 
@@ -72,9 +72,9 @@ ADIF export covers every non-trashed QSO. Import previews new contacts, duplicat
 
 Correct a map point through the city's **Correct location** link or **My location**. Coordinates can be saved offline; an explicit provider retry also works for no-match caches, obeys cooldowns and preserves an existing point if the provider fails. These actions never change historical location text. **Preferences → About** shows the installed app/source/schema version and update links, without checking the internet automatically.
 
-## Ready-made beta image
+## Stable release and ready-made image
 
-The beta release workflow publishes tested Linux ARM64/AMD64 images to **GitHub Container Registry**, with digest-pinned Compose downloads and provenance attestations. No Docker Hub account or local compilation is needed. See the [beta installation guide](docs/BETA.md) for the release files, Tortuga/private-LAN or VPN access with an optional password, backups and manual updates. A new GitHub commit does not automatically deploy to your server.
+**v0.1.0** is the first stable release. The release workflow publishes tested Linux ARM64/AMD64 images to **GitHub Container Registry**, with digest-pinned Compose downloads and provenance attestations. No Docker Hub account or local compilation is needed. See the [installation guide](docs/INSTALL.md) for v0.1.0 release files, Tortuga/private-LAN or VPN access with an optional password, backups and manual updates. A new GitHub commit does not automatically deploy to your server.
 
 The network option is for a trusted home LAN; HTTP does not encrypt traffic. Use HTTPS/VPN for untrusted networks or internet access. Standalone/local-only defaults remain unchanged. Do not expose the unauthenticated local configuration.
 
@@ -107,7 +107,7 @@ These commands also build natively on Linux ARM64, including Raspberry Pi with D
 CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o bin/qsobook-linux-arm64 .
 ```
 
-Cross-compilation does not replace testing on the target hardware. The current changes have been tested on Linux AMD64 with Go 1.27.3, with CGO disabled, and cross-compiled for ARM64. Running this revision on a Raspberry Pi remains pending.
+Cross-compilation does not replace target-hardware testing. Release checks run natively on hosted Linux AMD64 and ARM64, including containers. The maintainer reported successful beta-5 use on a Raspberry Pi; verify each updated deployment manually.
 
 ## Run locally
 
@@ -125,7 +125,7 @@ Choose another database, loopback port and time zone with:
 ./bin/qsobook -db "$HOME/.local/share/qsobook/my-notebook.db" -addr 127.0.0.1:8081 -timezone America/Sao_Paulo
 ```
 
-The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC display. Time comes from the host clock, without an external time service. In standalone mode, `-addr` accepts loopback IPs only. The explicit `-container` flag additionally permits `0.0.0.0` inside the container network; the supplied Compose file publishes only on host loopback. Host, Origin and CSRF restrictions stay in place. Local-only mode assumes trusted local users. Private-LAN/VPN access requires explicit allowed host:port entries; a shared password file is optional; see the [beta guide](docs/BETA.md). Without a password, network/VPN rules control access. Do not expose it to the internet. See [SECURITY.md](SECURITY.md).
+The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC display. Time comes from the host clock, without an external time service. In standalone mode, `-addr` accepts loopback IPs only. The explicit `-container` flag additionally permits `0.0.0.0` inside the container network; the supplied Compose file publishes only on host loopback. Host, Origin and CSRF restrictions stay in place. Local-only mode assumes trusted local users. Private-LAN/VPN access requires explicit allowed host:port entries; a shared password file is optional; see the [installation guide](docs/INSTALL.md). Without a password, network/VPN rules control access. Do not expose it to the internet. See [SECURITY.md](SECURITY.md).
 
 ## Upgrading and preserving data
 
@@ -139,7 +139,7 @@ Open **Preferences → Data** for consistent SQLite backups, validated restorati
 
 [GitHub Actions](https://github.com/erickfaria/QSObook/actions/workflows/ci.yml) validates pull requests targeting `main`, pushes to `main` and manual runs. The workflow checks Go formatting, pinned module integrity, Go tests, `go vet`, JavaScript syntax/regressions and native Linux AMD64/ARM64 builds with CGO disabled. It also builds the Docker image and smoke-tests Compose on each architecture, including non-root execution, local port binding, writes, repeated submissions and persistence after container recreation. It also checks that validation does not modify tracked sources.
 
-CI and Docker use the security-patched Go 1.27.3 compiler, while `go.mod` retains its Go 1.24.4 minimum. CI checks reachable vulnerabilities with pinned `govulncheck` v1.9.0 and uses Node.js 24 solely for the built-in JavaScript test runner, without npm packages. Official setup actions are pinned to full commit IDs; the workflow token has read-only repository contents access and checkout credentials are not persisted. CI uses temporary test databases and fake map providers, never personal data or public geocoding requests. Native ARM64 CI does not replace testing on a Raspberry Pi with Debian.
+CI and Docker use the security-patched Go 1.27.3 compiler, while `go.mod` retains its Go 1.24.4 minimum. CI checks reachable vulnerabilities with pinned `govulncheck` v1.9.0 and uses Node.js 24 solely for the built-in JavaScript test runner, without npm packages. Official setup actions are pinned to full commit IDs; the workflow token has read-only repository contents access and checkout credentials are not persisted. CI uses temporary test databases and fake map providers, never personal data or public geocoding requests. Native ARM64 CI complements deployment testing on a Raspberry Pi with Debian.
 
 ## Tests
 
@@ -185,7 +185,7 @@ Use a separate test database, never a personal notebook:
 6. In **My location**, save without map consent: no provider should be contacted. Opt in, save a city and confirm a contact there. Reload Home to check cache reuse, the house and local mode/band filters. Test offline/provider failure without losing contacts.
 7. Download a backup, validate its restoration preview, cancel, and test Trash/restore plus ADIF preview on the disposable notebook. Existing sessions, QRT, links and historical notes should survive the schema-7 migration.
 
-Automated geographic tests use fake local providers. Public map services should only be exercised manually and sparingly in accordance with their policies. Hosted ARM64 CI does not replace physical Raspberry Pi testing.
+Automated geographic tests use fake local providers. Public map services should only be exercised manually and sparingly in accordance with their policies. Hosted ARM64 CI complements physical Raspberry Pi testing.
 
 ## Structure and maintenance
 

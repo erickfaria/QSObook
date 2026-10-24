@@ -1,6 +1,6 @@
 # Backups, recovery and ADIF
 
-These features are available from beta 5 (database schema 7). Open **Preferences → Data**. The interface is available in Portuguese, English, Spanish and French. All transfer operations are local and require an explicit action. Nothing is synchronized or uploaded to another service.
+These features are included in stable v0.1.0 (database schema 7), following their introduction in beta 5. Open **Preferences → Data**. The interface is available in Portuguese, English, Spanish and French. All transfer operations are local and require an explicit action. Nothing is synchronized or uploaded to another service.
 
 ## Download a complete backup
 
@@ -22,7 +22,7 @@ The validator checks schema definitions, SQLite integrity, foreign keys and appl
 
 After restoration, previously open forms expire, preventing stale IDs from modifying the restored notebook. Refresh other tabs. Run a single QSObook process per notebook; direct writes by other programs during maintenance are unsupported. Explicit ordinary edits still use last-write-wins behavior.
 
-Do not upload a raw `.db` copied while SQLite is active: its WAL/journal may contain required data. Use the application backup or the stopped full-directory procedure in the [beta guide](BETA.md). Restoration is deliberately strict and bounded; retain your original backup if it is refused. There is no automatic schema downgrade. Before upgrading beta 4 to beta 5, retain a pre-upgrade schema-5 copy: beta 4 cannot open schema 7.
+Do not upload a raw `.db` copied while SQLite is active: its WAL/journal may contain required data. Use the application backup or the stopped full-directory procedure in the [installation guide](INSTALL.md). Restoration is deliberately strict and bounded; retain your original backup if it is refused. There is no automatic schema downgrade. Before upgrading beta 4 to schema 7, retain a pre-upgrade schema-5 copy: beta 4 cannot open schema 7. Beta 5 and stable v0.1.0 share schema 7, with no new migration between them.
 
 ## Recoverable deletion
 

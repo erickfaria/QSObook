@@ -67,7 +67,7 @@ func (a *App) trash(w http.ResponseWriter, r *http.Request) {
 	a.render(w, r, Page{Title: "Lixeira", View: "trash", Trash: items, Message: r.URL.Query().Get("message")})
 }
 func (a *App) trashConfirm(w http.ResponseWriter, r *http.Request) {
-	kind := r.FormValue("kind")
+	kind := r.URL.Query().Get("kind")
 	table, err := trashTable(kind)
 	if err != nil {
 		a.httpError(w, r, err.Error(), 400)

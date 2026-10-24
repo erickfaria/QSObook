@@ -21,6 +21,24 @@ func testStore(t *testing.T) *Store {
 	return s
 }
 
+// Small fixture readers use the production pagination and contact transaction.
+// Fixtures below fit within one page; pagination itself has separate coverage.
+func (s *Store) stations(ctx context.Context, query string) ([]Station, error) {
+	list, _, err := s.stationPage(ctx, ListFilter{Query: query, Page: 1})
+	return list, err
+}
+func (s *Store) contacts(ctx context.Context, query string) ([]Contact, error) {
+	list, _, err := s.contactPage(ctx, ListFilter{Query: query, Page: 1})
+	return list, err
+}
+func (s *Store) record(ctx context.Context, id int64, mode, notes string) (int64, error) {
+	st, err := s.station(ctx, id)
+	if err != nil {
+		return 0, err
+	}
+	return s.createContact(ctx, st, mode, notes)
+}
+
 func TestNewFormsPreserveCurrentRegistration(t *testing.T) {
 	for _, operation := range []string{"station", "participant", "contact"} {
 		t.Run(operation, func(t *testing.T) {
