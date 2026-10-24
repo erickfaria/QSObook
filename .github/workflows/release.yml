@@ -1,20 +1,20 @@
-name: Publish beta
+name: Publish release
 
 'on':
   workflow_dispatch:
     inputs:
       version:
-        description: 'New beta version, e.g. v0.1.0-beta.1 (never reuse a version)'
+        description: 'New version, e.g. v0.1.0 or v0.2.0-beta.1 (never reuse a version)'
         required: true
         type: string
-        default: v0.1.0-beta.5
+        default: v0.1.0
 
 permissions:
   contents: read
 
 # Never cancel an image/release publication halfway through.
 concurrency:
-  group: qsobook-beta-publication
+  group: qsobook-release-publication
   cancel-in-progress: false
 
 env:
@@ -31,9 +31,9 @@ jobs:
           VERSION: ${{ inputs.version }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+-beta\.[0-9]+$ ]]
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?$ ]]
           if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$VERSION" >/dev/null 2>&1; then
-            echo 'This tag already exists. Choose a new beta version.' >&2
+            echo 'This tag already exists. Choose a new version.' >&2
             exit 1
           fi
 
@@ -166,7 +166,7 @@ jobs:
           from pathlib import Path
           image = f"{os.environ['IMAGE']}:{os.environ['VERSION']}@{os.environ['DIGEST']}"
           for source, destination in [('compose.release.yaml', 'compose.yaml'), ('compose.lan.yaml', 'compose.lan.yaml'), ('compose.auth.yaml', 'compose.auth.yaml')]:
-              text = Path(source).read_text().replace('ghcr.io/erickfaria/qsobook:beta', image)
+              text = Path(source).read_text().replace('ghcr.io/erickfaria/qsobook:stable', image)
               Path('release-assets', destination).write_text(text)
           Path('release-assets/image-digest.txt').write_text(image + '\n')
           PY
@@ -174,14 +174,23 @@ jobs:
           cd release-assets
           sha256sum compose.yaml compose.lan.yaml compose.auth.yaml image-digest.txt image-manifest.json > SHA256SUMS
 
-      - name: Publish the beta release and update the opt-in beta channel
+      - name: Publish the release and update its channel
         run: |
+          channel=stable
+          release_flags=(--latest=true)
+          if [[ "$VERSION" == *-beta.* ]]; then
+            channel=beta
+            release_flags=(--prerelease --latest=false)
+          fi
           gh release create "$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
-            --title "QSObook $VERSION" --prerelease --latest=false \
-            --notes-file docs/BETA_RELEASE.md release-assets/*
-          docker buildx imagetools create --tag "$IMAGE:beta" "$IMAGE@${{ steps.manifest.outputs.digest }}"
-          printf '### Beta published\n\nVersion: `%s`\n\nImage: `%s@%s`\n' \
-            "$VERSION" "$IMAGE" '${{ steps.manifest.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
+            --title "QSObook $VERSION" "${release_flags[@]}" \
+            --notes-file docs/RELEASE_NOTES.md release-assets/*
+          docker buildx imagetools create --tag "$IMAGE:$channel" "$IMAGE@${{ steps.manifest.outputs.digest }}"
+          if [[ "$channel" == stable ]]; then
+            docker buildx imagetools create --tag "$IMAGE:latest" "$IMAGE@${{ steps.manifest.outputs.digest }}"
+          fi
+          printf '### Release published\n\nVersion: `%s`\n\nChannel: `%s`\n\nImage: `%s@%s`\n' \
+            "$VERSION" "$channel" "$IMAGE" '${{ steps.manifest.outputs.digest }}' >> "$GITHUB_STEP_SUMMARY"
 
       - name: Remove registry credentials
         if: always()
