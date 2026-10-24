@@ -52,6 +52,13 @@ CI runs native Linux AMD64 and ARM64 checks using Go 1.27.3 with CGO disabled, i
 - Offline map coordinate correction and explicit cached/no-match retry under existing provider controls.
 - Installed app/source/schema version display and manual update guidance without remote update checks.
 
+## Stable v0.1.0
+
+- Maintainer-reported successful beta-5 use on Raspberry Pi; stable publication keeps database schema 7.
+- Strict POST-body write targets and timezone-normalized monthly counts.
+- Removed unused queries/styles and consolidated duplicate tests; retained all migration/recovery regressions.
+- Separate stable/latest and beta Docker channels, versioned assets and current installation/security documentation.
+
 ## Maintenance and possible improvements
 
 - Periodic review of driver and transitive dependency versions.
