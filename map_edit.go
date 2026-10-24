@@ -11,11 +11,17 @@ import (
 	"time"
 )
 
+var errInvalidLocation = errors.New("Localização inválida")
+
 func (a *App) editableCity(r *http.Request) (ContactCity, error) {
-	c := ContactCity{City: r.FormValue("city"), State: r.FormValue("state"), Country: r.FormValue("country")}
+	values := r.URL.Query()
+	if r.Method == http.MethodPost {
+		values = r.PostForm
+	}
+	c := ContactCity{City: values.Get("city"), State: values.Get("state"), Country: values.Get("country")}
 	st := Station{Callsign: "MAP", City: c.City, State: c.State, Country: c.Country}
 	if err := st.validate(); err != nil || strings.TrimSpace(c.City) == "" {
-		return c, errors.New("Localização inválida")
+		return c, errInvalidLocation
 	}
 	var count int
 	if err := a.store.db.QueryRowContext(r.Context(), `SELECT (SELECT count(*) FROM qsos WHERE deleted_at IS NULL AND city=? AND state=? AND country=?)+(SELECT count(*) FROM app_settings WHERE home_city=? AND home_state=? AND home_country=?)`, c.City, c.State, c.Country, c.City, c.State, c.Country).Scan(&count); err != nil {
@@ -33,7 +39,7 @@ func (a *App) editableCity(r *http.Request) (ContactCity, error) {
 func (a *App) mapEdit(w http.ResponseWriter, r *http.Request) {
 	c, err := a.editableCity(r)
 	if err != nil {
-		if err.Error() == "Localização inválida" {
+		if errors.Is(err, errInvalidLocation) {
 			a.httpError(w, r, err.Error(), 400)
 		} else {
 			a.fail(w, r, err)
@@ -45,7 +51,11 @@ func (a *App) mapEdit(w http.ResponseWriter, r *http.Request) {
 func (a *App) saveMapEdit(w http.ResponseWriter, r *http.Request) {
 	c, err := a.editableCity(r)
 	if err != nil {
-		a.fail(w, r, err)
+		if errors.Is(err, errInvalidLocation) {
+			a.httpError(w, r, err.Error(), 400)
+		} else {
+			a.fail(w, r, err)
+		}
 		return
 	}
 	action := r.PostForm.Get("action")

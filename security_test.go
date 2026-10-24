@@ -101,3 +101,46 @@ func totalChanges(t *testing.T, store *Store) int64 {
 	}
 	return changes
 }
+
+func TestWriteTargetsComeFromPostBody(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0TARGET", City: "Example city"}, "FM", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.store.recordParticipant(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	before := totalChanges(t, a.store)
+	for _, tc := range []struct {
+		path   string
+		fields url.Values
+	}{
+		{"/participant/status?id=1", url.Values{"active": {"0"}}},
+		{"/participant/remove?id=1", url.Values{}},
+		{"/participant/record?id=1", url.Values{}},
+		{"/round/end?id=1", url.Values{}},
+		{"/trash?id=1", url.Values{"kind": {"contact"}, "action": {"delete"}}},
+		{"/map/edit?city=Example+city", url.Values{"action": {"save"}, "latitude": {"1"}, "longitude": {"2"}}},
+		{"/qso/entry?round_id=1", url.Values{"callsign": {"ZZ0UNEXPECTED"}, "mode": {"FM"}, "submission_key": {recordKey(t, a)}}},
+	} {
+		tc.fields.Set("csrf", a.token)
+		if w := request(a, "POST", tc.path, tc.fields); w.Code != 400 {
+			t.Errorf("query supplied write target %s: %d", tc.path, w.Code)
+		}
+	}
+	if totalChanges(t, a.store) != before {
+		t.Fatal("query-only targets modified the notebook")
+	}
+	// Ordinary GET links retain query parameters; explicit POST values win.
+	if w := request(a, "GET", "/trash/confirm?kind=contact&id=1", nil); w.Code != 200 {
+		t.Fatal("GET target rejected", w.Code)
+	}
+	if w := request(a, "POST", "/participant/status?id=999", url.Values{"csrf": {a.token}, "id": {"1"}, "active": {"0"}}); w.Code != 303 {
+		t.Fatal("POST target rejected", w.Code)
+	}
+	participants, err := a.store.participants(ctx)
+	if err != nil || len(participants) != 1 || participants[0].Active {
+		t.Fatal("body target not updated", participants, err)
+	}
+}
