@@ -62,6 +62,7 @@ type Page struct {
 	PreviousRound                                    int64
 	ParticipantID                                    int64
 	RoundID                                          int64
+	LastRoundName, LastRoundEdition                  string
 	ContactCount                                     int64
 	MapEnabled                                       bool
 	MapTilesURL                                      string
@@ -106,6 +107,7 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.HandleFunc("POST /language", a.languagePreference)
 	a.mux.HandleFunc("GET /records", a.records)
 	a.mux.HandleFunc("POST /records", a.saveRecord)
+	a.mux.HandleFunc("POST /qso/entry", a.saveWorkspaceEntry)
 	a.mux.HandleFunc("GET /about", a.about)
 	a.mux.HandleFunc("GET /map/edit", a.mapEdit)
 	a.mux.HandleFunc("POST /map/edit", a.saveMapEdit)
@@ -235,6 +237,10 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p Page) {
 		id := p.Station.ID
 		if p.IsContact {
 			id = p.Contact.ID
+		}
+		if p.Action == "/qso/entry" {
+			p.ReturnTo = "/round"
+			id = 0
 		}
 		if p.Action == "/participant" {
 			id = p.ParticipantID
@@ -397,6 +403,13 @@ func (a *App) invalidForm(w http.ResponseWriter, r *http.Request, st Station, va
 				return
 			}
 			p.Title = "Modo QSO"
+			p.Action = "/qso/entry"
+			p.SubmissionKey, err = newSubmissionKey()
+			if err != nil {
+				a.fail(w, r, err)
+				return
+			}
+			p.Station.Notes = ""
 			p.View = "round"
 		}
 	}
@@ -549,6 +562,16 @@ func (a *App) recordParticipant(w http.ResponseWriter, r *http.Request) {
 	}
 	if err = a.store.recordParticipant(r.Context(), id); err != nil {
 		a.fail(w, r, err)
+		return
+	}
+	var qid int64
+	if err = a.store.db.QueryRowContext(r.Context(), "SELECT qso_id FROM participants WHERE id=?", id).Scan(&qid); err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	c, e := a.store.contact(r.Context(), qid)
+	if e == nil && a.autoLocate(r.Context(), ContactCity{City: c.City, State: c.State, Country: c.Country}) != nil {
+		redirect(w, r, "/round?message=Registro+salvo.+Cidade+pendente+de+localização+no+mapa.")
 		return
 	}
 	redirect(w, r, "/round?message=QSO+registrado+no+caderno")

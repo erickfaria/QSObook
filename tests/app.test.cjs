@@ -257,3 +257,13 @@ test('attachment downloads remain usable without a page navigation', () => {
     assert.equal(h.form.dataset.submitting, undefined);
   }
 });
+
+test('QSO workspace autofill keeps permanent notes separate from listening notes', async () => {
+  const h = setup('/qso/entry');
+  h.input('ZZ0QSO');
+  h.edit('notes', 'Listening draft');
+  await h.tick();
+  await h.respond(0, {name: 'Example', city: 'Example city', notes: 'Permanent', contacts: 1});
+  assert.equal(h.form.elements.operator_notes.value, 'Permanent');
+  assert.equal(h.form.elements.notes.value, 'Listening draft');
+});

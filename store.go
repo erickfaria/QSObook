@@ -35,7 +35,10 @@ var recordsSchema string
 //go:embed migrations/006_data_tools.sql
 var dataToolsSchema string
 
-const schemaVersion = 6
+//go:embed migrations/007_qso_workspace.sql
+var workspaceSchema string
+
+const schemaVersion = 7
 
 type Station struct {
 	ID       int64  `json:"id"`
@@ -120,7 +123,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema, workspaceSchema}
 	if version < 0 || version > len(schemas) {
 		return errors.New("banco criado por versão mais recente")
 	}
@@ -445,7 +448,7 @@ func (s *Store) recordParticipant(ctx context.Context, id int64) error {
 	if existing.Valid {
 		return tx.Commit()
 	}
-	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at,round_id,band,round_name) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,?,p.round_id,p.band,r.name FROM participants p JOIN stations s ON s.id=p.station_id JOIN rounds r ON r.id=p.round_id WHERE p.id=? AND s.deleted_at IS NULL`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
+	result, err := tx.ExecContext(ctx, `INSERT INTO qsos(station_id,callsign,name,city,state,country,mode,notes,occurred_at,round_id,band,round_name) SELECT s.id,s.callsign,s.name,s.city,s.state,s.country,p.mode,p.notes,?,p.round_id,p.band,r.name||CASE WHEN r.edition<>'' THEN ' #'||r.edition ELSE '' END FROM participants p JOIN stations s ON s.id=p.station_id JOIN rounds r ON r.id=p.round_id WHERE p.id=? AND s.deleted_at IS NULL`, time.Now().UTC().Format("2006-01-02T15:04:05.000000000Z"), id)
 	if err != nil {
 		return err
 	}

@@ -4,15 +4,15 @@
   --muted:#57695f;
   --line:#d8dfd7;
   --accent:#3d6551;
-  --paper:#fdfcf9;
-  --back:#f4f3ee;
-  --soft:#e8eee6;
+  --paper:#ffffff;
+  --back:#ffffff;
+  --soft:#edf4ef;
   --button:#d3e4d8;
   --button-ink:#294938;
   --field:#fbfcf8;
   --field-line:#98ab9c;
   --focus:#85642e;
-  --quiet:#eee7d9;
+  --quiet:#f3eadb;
   font:16px/1.55 "Atkinson Hyperlegible",sans-serif
 }
 * {
@@ -384,7 +384,9 @@ button:disabled { cursor:wait; opacity:.65 }
 .round-heading h2,.round-heading p { margin:.2rem 0 }
 .presence { display:inline-block; font-size:.7rem; padding:.1rem .45rem; border-radius:3px; margin-top:.4rem; color:var(--ink); background:var(--soft); font-weight:500 }
 .presence.is-qrt { background:var(--quiet) }
-.qrt-row { background:var(--back) }
+.qrt-row { background:var(--soft) }
+.qrt-row > :not(:last-child) { opacity:.7 }
+.qrt-row .cell-detail,.qrt-row .note-kind { color:var(--ink) }
 .participant-options { flex-basis:100% }
 .participant-options .row-actions { margin-top:.5rem }
 .dashboard-intro { display:flex; justify-content:space-between; align-items:center; gap:2rem; flex-wrap:wrap; padding:1rem 0 2rem; border-bottom:1px solid var(--line) }

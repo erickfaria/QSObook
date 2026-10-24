@@ -4,7 +4,7 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
   const status = form.querySelector('[data-lookup-status]');
   const fields = ['name', 'city', 'state', 'country'];
   if (form.getAttribute('action') === '/station') fields.push('notes');
-  if (form.getAttribute('action') === '/records') fields.push('operator_notes');
+  if (['/records', '/qso/entry'].includes(form.getAttribute('action'))) fields.push('operator_notes');
   const draftFields = [...new Set([...fields, 'notes'])];
   const drafts = new Map();
   let current = input.value.trim().toUpperCase();

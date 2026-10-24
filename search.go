@@ -49,6 +49,9 @@ type Pagination struct {
 
 const pageSize = 50
 
+// Truncate fractions before timezone conversion; SQLite rounds submilliseconds.
+const utcContactSecond = `strftime('%Y-%m-%dT%H:%M:%S',substr(occurred_at,1,19)||CASE WHEN substr(occurred_at,-1)='Z' THEN 'Z' ELSE substr(occurred_at,-6) END)`
+
 func (a *App) listFilter(r *http.Request) (ListFilter, error) {
 	q := r.URL.Query()
 	f := ListFilter{Query: q.Get("q"), City: q.Get("city"), State: q.Get("state"), Country: q.Get("country"), Mode: q.Get("mode"), Band: q.Get("band"), From: q.Get("from"), To: q.Get("to"), Page: 1}
@@ -115,12 +118,12 @@ func searchWhere(f ListFilter, contact bool) (string, []any) {
 		where += ` AND (?='' OR upper(mode)=upper(?) OR (?='digital' AND upper(mode) IN ('DIGITAL','DMR','ECHOLINK','D-STAR','C4FM')) OR (?='other' AND upper(mode) NOT IN ('FM','AM','SSB','CW','DIGITAL','DMR','ECHOLINK','D-STAR','C4FM'))) AND (?='' OR band=?)`
 		args = append(args, f.Mode, f.Mode, f.Mode, f.Mode, f.Band, f.Band)
 		if f.Start != "" {
-			where += " AND julianday(occurred_at)>=julianday(?)"
-			args = append(args, f.Start)
+			where += " AND " + utcContactSecond + ">=?"
+			args = append(args, strings.TrimSuffix(f.Start, "Z"))
 		}
 		if f.End != "" {
-			where += " AND julianday(occurred_at)<julianday(?)"
-			args = append(args, f.End)
+			where += " AND " + utcContactSecond + "<?"
+			args = append(args, strings.TrimSuffix(f.End, "Z"))
 		}
 	}
 	return where, args

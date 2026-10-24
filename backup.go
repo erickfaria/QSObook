@@ -67,7 +67,7 @@ func expectedSignature(ctx context.Context, version int) (string, error) {
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema, workspaceSchema}
 	for _, schema := range schemas[:version] {
 		if _, err = db.ExecContext(ctx, schema); err != nil {
 			return "", err
@@ -77,7 +77,7 @@ func expectedSignature(ctx context.Context, version int) (string, error) {
 }
 
 // Inspect without executing uploaded SQL, before allowing known migrations.
-// Only exact application schemas 5 and 6 are supported by the restore UI.
+// Only exact application schemas 5 through 7 are supported by the restore UI.
 func validateBackup(ctx context.Context, path string) error {
 	db, err := sql.Open("sqlite", sqliteFileURI(path)+"?mode=ro&_pragma=query_only(1)&_pragma=trusted_schema(0)")
 	if err != nil {
@@ -156,7 +156,7 @@ func validateBackup(ctx context.Context, path string) error {
 	if err = db.QueryRowContext(ctx, "SELECT count(*) FROM app_settings WHERE id=1").Scan(&settings); err != nil || settings != 1 {
 		return errBackupInvalid
 	}
-	return validateBackupMetadata(ctx, db)
+	return validateBackupMetadata(ctx, db, version)
 }
 
 // Replace rows in the existing database, never swap an open database file.
@@ -224,14 +224,18 @@ func (s *Store) dataDirectory() string {
 	return os.TempDir()
 }
 
-func validateBackupMetadata(ctx context.Context, db *sql.DB) error {
-	rows, err := db.QueryContext(ctx, "SELECT id,name,started_at,ended_at FROM rounds")
+func validateBackupMetadata(ctx context.Context, db *sql.DB, version int) error {
+	columns := "id,name,started_at,ended_at,''"
+	if version >= 7 {
+		columns = "id,name,started_at,ended_at,edition"
+	}
+	rows, err := db.QueryContext(ctx, "SELECT "+columns+" FROM rounds")
 	if err != nil {
 		return errBackupInvalid
 	}
 	for rows.Next() {
 		r, e := scanRound(rows)
-		if e != nil || r.ID <= 0 || validateRoundName(r.Name) != nil {
+		if e != nil || r.ID <= 0 || validateRoundEdition(r.Name, r.Edition) != nil {
 			rows.Close()
 			return errBackupInvalid
 		}
@@ -273,6 +277,12 @@ func validateBackupMetadata(ctx context.Context, db *sql.DB) error {
 	}
 	if err = db.QueryRowContext(ctx, `SELECT count(*) FROM (SELECT name FROM sqlite_sequence GROUP BY name HAVING count(*)>1)`).Scan(&invalid); err != nil || invalid > 0 {
 		return errBackupInvalid
+	}
+	if version >= 7 {
+		var name, edition string
+		if err = db.QueryRowContext(ctx, "SELECT last_round_name,last_round_edition FROM app_settings WHERE id=1").Scan(&name, &edition); err != nil || validateRoundName(name) != nil || validateRoundEdition(name, edition) != nil {
+			return errBackupInvalid
+		}
 	}
 	var st Station
 	st.Callsign = "HOME"

@@ -140,3 +140,66 @@ func TestParticipantIdentityMigrationRollsBackOnFailure(t *testing.T) {
 		t.Fatalf("migration did not roll back: version=%d reference=%d temporary=%d stations=%d contacts=%d", version, stationID, temporaryTables, stationCount, contactCount)
 	}
 }
+
+func TestWorkspaceUpgradePreservesVersionSixNotebook(t *testing.T) {
+	ctx := context.Background()
+	path := legacyDatabase(t)
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, schema := range []string{participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema} {
+		if _, err = db.Exec(schema); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err = db.Exec("UPDATE participants SET active=0; UPDATE qsos SET deleted_at='2026-10-23T13:00:00Z'"); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	s, err := openStore(ctx, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.db.Close()
+	var name, edition, remembered string
+	if err = s.db.QueryRow("SELECT name,edition FROM rounds WHERE id=1").Scan(&name, &edition); err != nil || name != "Rodada anterior" || edition != "" {
+		t.Fatal(name, edition, err)
+	}
+	if err = s.db.QueryRow("SELECT last_round_name||last_round_edition FROM app_settings").Scan(&remembered); err != nil || remembered != "" {
+		t.Fatal(remembered, err)
+	}
+	var participant, qso, active int
+	if err = s.db.QueryRow("SELECT id,qso_id,active FROM participants").Scan(&participant, &qso, &active); err != nil || participant != 23 || qso != 11 || active != 0 {
+		t.Fatal(participant, qso, active, err)
+	}
+	if err = s.moveTrash(ctx, "contact", 11, true); err != nil {
+		t.Fatal(err)
+	}
+	contact, err := s.contact(ctx, 11)
+	if err != nil || contact.Notes != "Contact note" || contact.Name != "Example operator" {
+		t.Fatal(contact, err)
+	}
+	if err = s.endRound(ctx, 1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.startRound(ctx, "Example net", 1, "12"); err != nil {
+		t.Fatal(err)
+	}
+	backup := filepath.Join(t.TempDir(), "workspace.db")
+	if err = s.backup(ctx, backup); err != nil {
+		t.Fatal(err)
+	}
+	if err = validateBackup(ctx, backup); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.db.Exec("UPDATE app_settings SET last_round_edition='99'"); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.restore(ctx, backup); err != nil {
+		t.Fatal(err)
+	}
+	if err = s.db.QueryRow("SELECT last_round_name,last_round_edition FROM app_settings").Scan(&remembered, &edition); err != nil || remembered != "Example net" || edition != "12" {
+		t.Fatal(remembered, edition, err)
+	}
+}

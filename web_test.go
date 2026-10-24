@@ -128,7 +128,7 @@ func TestRoundInlineEditAndValidation(t *testing.T) {
 	form := url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"bad space"}, "name": {"Digitado"}, "mode": {"DMR"}, "notes": {"Rascunho"}}
 	form.Set("band", "70 cm")
 	w = request(a, "POST", "/participant", form)
-	if w.Code != 400 || !strings.Contains(w.Body.String(), "Rodada atual") || !strings.Contains(w.Body.String(), `value="Digitado"`) || !strings.Contains(w.Body.String(), "Rascunho") || !strings.Contains(w.Body.String(), `value="70 cm" selected`) {
+	if w.Code != 400 || !strings.Contains(w.Body.String(), "Estações nesta sessão") || !strings.Contains(w.Body.String(), `value="Digitado"`) || !strings.Contains(w.Body.String(), "Rascunho") || !strings.Contains(w.Body.String(), `value="70 cm" selected`) {
 		t.Fatalf("validation lost round or draft: %d %s", w.Code, w.Body)
 	}
 	form.Set("id", "1")

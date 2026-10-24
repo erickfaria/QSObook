@@ -1,18 +1,18 @@
 # Backups, recovery and ADIF
 
-These features are available from beta 5 (database schema 6). Open **Preferences → Data**. The interface is available in Portuguese, English, Spanish and French. All transfer operations are local and require an explicit action. Nothing is synchronized or uploaded to another service.
+These features are available from beta 5 (database schema 7). Open **Preferences → Data**. The interface is available in Portuguese, English, Spanish and French. All transfer operations are local and require an explicit action. Nothing is synchronized or uploaded to another service.
 
 ## Download a complete backup
 
 Choose **Download backup**. The application uses SQLite's [VACUUM INTO](https://www.sqlite.org/lang_vacuum.html#vacuuminto) to create a consistent standalone `.db` snapshot, including when the live notebook uses WAL. It validates the snapshot before sending it as an attachment. The live database is not copied with ordinary file operations or stopped for this action.
 
-A backup contains operator registrations, historical QSOs, rounds, participation links, trash, map preferences, home city and coordinate caches. It does **not** contain Docker configuration, `.env`, password files or application/browser settings outside SQLite. Preserve deployment files separately. The backup is not encrypted: it contains personal notebook data and must be stored privately. Keep an offline copy outside the Pi; a copy in its Docker volume is not protection against disk failure.
+A backup contains operator registrations, historical QSOs, rounds, participation links, trash, map preferences, home city, remembered roundtable name/edition and coordinate caches. It does **not** contain Docker configuration, `.env`, password files or application/browser settings outside SQLite. Preserve deployment files separately. The backup is not encrypted: it contains personal notebook data and must be stored privately. Keep an offline copy outside the Pi; a copy in its Docker volume is not protection against disk failure.
 
 Downloaded backups and upload staging files are private temporary files alongside the configured database, outside the static file tree. They are removed after transfer/cancellation or preview replacement. Pending previews expire after 15 minutes and are cleared when revisiting Data; graceful shutdown also removes them. An abrupt process or machine crash can leave private `.qsobook-transfer-*`/`.qsobook-backup-*` directories. Do not expose the data directory as a web root. Previewing a second file replaces the first preview for this instance.
 
 ## Restore a backup
 
-1. Choose **Restore backup**, select a consistent SQLite backup and choose **Validate and preview**. The limit is **64 MiB**. Only the exact QSObook schemas **5 and 6** are accepted; earlier/newer versions or foreign/modified schemas are rejected. A schema-5 upload is migrated in its isolated staging copy.
+1. Choose **Restore backup**, select a consistent SQLite backup and choose **Validate and preview**. The limit is **64 MiB**. Only the exact QSObook schemas **5 through 7** are accepted; earlier/newer versions or foreign/modified schemas are rejected. A schema-5/6 upload is migrated in its isolated staging copy.
 2. Review the number of stations, contacts, rounds and trashed items. Restoration replaces the **entire** current notebook, including map preferences and trash. It does not merge two notebooks.
 3. Check the confirmation box and confirm. If the notebook changed since the preview, send the file again. Cancel discards the staged upload.
 4. The app creates and validates a durable **pre-restore recovery snapshot** in `backups/` beside the live database before replacing any rows. If that step fails, restoration stops. Table replacement happens in a single SQLite transaction, with foreign-key checks; the open database file is never renamed or swapped.
@@ -22,7 +22,7 @@ The validator checks schema definitions, SQLite integrity, foreign keys and appl
 
 After restoration, previously open forms expire, preventing stale IDs from modifying the restored notebook. Refresh other tabs. Run a single QSObook process per notebook; direct writes by other programs during maintenance are unsupported. Explicit ordinary edits still use last-write-wins behavior.
 
-Do not upload a raw `.db` copied while SQLite is active: its WAL/journal may contain required data. Use the application backup or the stopped full-directory procedure in the [beta guide](BETA.md). Restoration is deliberately strict and bounded; retain your original backup if it is refused. There is no automatic schema downgrade. Before upgrading beta 4 to beta 5, retain a pre-upgrade schema-5 copy: beta 4 cannot open schema 6.
+Do not upload a raw `.db` copied while SQLite is active: its WAL/journal may contain required data. Use the application backup or the stopped full-directory procedure in the [beta guide](BETA.md). Restoration is deliberately strict and bounded; retain your original backup if it is refused. There is no automatic schema downgrade. Before upgrading beta 4 to beta 5, retain a pre-upgrade schema-5 copy: beta 4 cannot open schema 7.
 
 ## Recoverable deletion
 
@@ -36,7 +36,7 @@ There is no permanent purge or automatic trash expiry. Trashed data remains in f
 
 ## Search and date ranges
 
-Records, Stations and Notebook now show **50 results per page**, with previous/next links that retain filters. Search matches callsign, name or city, ignoring case, common Latin accents and decomposed combining marks. The saved spelling is unchanged. This is not full Unicode normalization or linguistic collation for every alphabet.
+Stations and Notebook show **50 results per page**, with previous/next links that retain filters. Search matches callsign, name or city, ignoring case, common Latin accents and decomposed combining marks. The saved spelling is unchanged. This is not full Unicode normalization or linguistic collation for every alphabet.
 
 Notebook has inclusive **From/To** calendar dates in the configured application time zone. Internally they become UTC boundaries. Existing city/mode/band filters from the map are retained while searching or changing pages. There is no silent 200-result cap in these screens.
 

@@ -27,13 +27,21 @@ CI runs native Linux AMD64 and ARM64 checks using Go 1.27.3 with CGO disabled, i
 ## Implemented conversation workspace and home
 
 - Muted pastel light/dark palettes with a browser-local selector and system mode.
-- An essential home screen with confirmed-contact count and recent saved rounds.
+- An essential home screen with monthly/total confirmed-contact counts and the optional map.
 - Explicit round start/end, optional names, QRT/return state and read-only closed rounds.
 - Legacy participant preservation, non-reusable IDs and rejection of stale cross-round edits/actions.
 - Optional Leaflet/OpenStreetMap city points from confirmed historical contacts, grouped by location with links to city history.
 - Map opt-in, locally vendored assets, geographic-only manual geocoding, coordinate/negative caches, bounded requests and provider switching.
 - Tests for lifecycle, migration rollback, QRT, map privacy, caching, rate limits and provider failures; screenshots for the current UI.
 - GitHub Actions for pull requests and `main`: formatting, module verification, Go/JavaScript tests, vet and native Linux AMD64/ARM64 builds.
+
+## Implemented unified QSO workspace (beta 5)
+
+- QSO mode in primary navigation; listening and optional named roundtables share one entry form and participant list.
+- Remembered roundtable name/edition without automatic roundtable selection; historical labels remain independent.
+- Explicit contact confirmation, separate listening/permanent notes, transactional replay safety and active-first QRT rows.
+- White light mode with restrained pastel accents, dark/system themes and compact responsive controls.
+- English Wiki, updated screenshots and installation/data guides.
 
 ## Implemented data tools (beta 5)
 

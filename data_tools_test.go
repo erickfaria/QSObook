@@ -147,3 +147,30 @@ func TestTrashHTTPRequiresExplicitProtectedWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestHistoryRangeKeepsLastNanosecondOfLocalDay(t *testing.T) {
+	a := testApp(t)
+	ctx := context.Background()
+	var last int64
+	for _, stamp := range []string{"2026-10-24T02:59:59.999999999Z", "2026-10-24T03:00:00.000000000Z"} {
+		id, err := a.store.createContact(ctx, Station{Callsign: "ZZ0DATE"}, "FM", "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.store.db.Exec("UPDATE qsos SET occurred_at=? WHERE id=?", stamp, id)
+		if last == 0 {
+			last = id
+		}
+	}
+	f, err := a.listFilter(httptest.NewRequest("GET", "/history?from=2026-10-23&to=2026-10-23", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, stamp := range []string{"2026-10-24T02:59:59.999999999Z", "2026-10-23T23:59:59.999999999-03:00"} {
+		a.store.db.Exec("UPDATE qsos SET occurred_at=? WHERE id=?", stamp, last)
+		rows, total, err := a.store.contactPage(ctx, f)
+		if err != nil || total != 1 || len(rows) != 1 || rows[0].ID != last {
+			t.Fatal("last nanosecond disappeared from its local day", stamp, total, err)
+		}
+	}
+}
