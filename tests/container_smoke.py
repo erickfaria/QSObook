@@ -111,7 +111,7 @@ try:
     assert info["HostConfig"]["PortBindings"]["8080/tcp"][0]["HostIp"] == "127.0.0.1"
     assert "ALL" in info["HostConfig"]["CapDrop"]
     assert any(m["Destination"] == "/data" and m["Type"] == "volume" for m in info["Mounts"])
-    post("/round/start", previous_round="0", name="Container smoke test")
+    post("/round/start", previous_round="0", workspace="1", in_round="1", name="Container smoke test", edition="7")
     for _ in range(2):
         post("/participant", round_id="1", callsign="zz0docker", name="Example operator",
              city="Example city", country="Example country", mode="DMR", notes="Example conversation")
@@ -120,15 +120,20 @@ try:
         post("/participant/record", id="1")
     data = json.loads(get("/lookup?callsign=zz0docker"))
     assert data["contacts"] == 1 and data["name"] == "Example operator", data
-    # The primary record form does not require a round, and replays do not
-    # duplicate confirmations or registrations.
-    key = re.search(r'name="submission_key" value="([a-f0-9]+)"', get("/records"))[1]
-    post("/records", submission_key=key, callsign="zz1docker", name="Record example", country="Brasil")
+    # The primary QSO workspace adds an unconfirmed participant first and
+    # confirms explicitly. Replays never duplicate contacts or registrations.
+    page = get("/round")
+    assert 'href="/round"' in page and 'href="/records"' not in page
+    key = re.search(r'name="submission_key" value="([a-f0-9]+)"', page)[1]
+    post("/qso/entry", round_id="1", submission_key=key, callsign="zz1docker",
+         name="Record example", country="Brasil", mode="DMR", band="70 cm",
+         operator_notes="Permanent note", notes="Record conversation")
     assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 0
-    key = re.search(r'name="submission_key" value="([a-f0-9]+)"', get("/records"))[1]
+    key = re.search(r'name="submission_key" value="([a-f0-9]+)"', get("/round"))[1]
     for _ in range(2):
-        post("/records", submission_key=key, callsign="zz1docker", confirmed="1", mode="DMR", band="70 cm", in_round="1", round_name="Example net", notes="Record conversation")
+        post("/qso/entry", round_id="1", submission_key=key, callsign="zz1docker", confirmed="1", mode="DMR", band="70 cm")
     assert json.loads(get("/lookup?callsign=zz1docker"))["contacts"] == 1
+    assert json.loads(get("/lookup?callsign=zz1docker"))["notes"] == "Permanent note"
     post("/participant/status", id="1", active="0")
     post("/language", language="fr", return_to="/round")
     assert '<html lang="fr"' in get("/round")
@@ -173,8 +178,9 @@ try:
         assert connection.execute("PRAGMA integrity_check").fetchone() == ("ok",)
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("SELECT count(*) FROM qsos").fetchone() == (2,)
-        assert connection.execute("SELECT band,round_name FROM qsos WHERE callsign='ZZ1DOCKER'").fetchone() == ("70 cm", "Example net")
-        assert connection.execute("PRAGMA user_version").fetchone() == (6,)
+        assert connection.execute("SELECT band,round_name FROM qsos WHERE callsign='ZZ1DOCKER'").fetchone() == ("70 cm", "Container smoke test #7")
+        assert connection.execute("PRAGMA user_version").fetchone() == (7,)
+        assert connection.execute("SELECT last_round_name,last_round_edition FROM app_settings").fetchone() == ("Container smoke test", "7")
     run("up", "--detach", "--force-recreate", "--no-build")
     ready()
     assert json.loads(get("/lookup?callsign=zz0docker")) == data

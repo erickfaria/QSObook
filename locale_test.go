@@ -41,7 +41,7 @@ func TestTranslationCatalogsCoverUI(t *testing.T) {
 		}
 		data = append(data, part...)
 	}
-	keys := browserMessages()
+	keys := append(browserMessages(), errADIFInvalid.Error(), errBackupInvalid.Error(), errStationInTrash.Error())
 	for _, match := range regexp.MustCompile(`{{t "([^"]+)"}}`).FindAllStringSubmatch(string(data), -1) {
 		keys = append(keys, match[1])
 	}

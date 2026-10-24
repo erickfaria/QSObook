@@ -7,36 +7,8 @@ import (
 	"strings"
 )
 
-func (a *App) records(w http.ResponseWriter, r *http.Request) {
-	key, err := newSubmissionKey()
-	if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	p := Page{Title: "Registros", View: "records", Action: "/records", SubmissionKey: key, Message: r.URL.Query().Get("message")}
-	f, err := a.listFilter(r)
-	if err != nil {
-		a.httpError(w, r, err.Error(), 400)
-		return
-	}
-	p.Query = f.Query
-	p.Filter = f
-	var total int64
-	p.Stations, total, err = a.store.stationPage(r.Context(), f)
-	if err != nil {
-		a.fail(w, r, err)
-		return
-	}
-	p.Pagination = pagination(r, f.Page, total)
-	if callsign := r.URL.Query().Get("callsign"); callsign != "" {
-		p.Station, err = a.store.lookup(r.Context(), callsign)
-		if err != nil {
-			a.fail(w, r, err)
-			return
-		}
-	}
-	a.render(w, r, p)
-}
+// Compatibility URL: render the same workspace, not a second entry panel.
+func (a *App) records(w http.ResponseWriter, r *http.Request) { a.round(w, r) }
 func recordChoice(r *http.Request, name string) string {
 	value := strings.TrimSpace(r.PostForm.Get(name))
 	if value == "__other" {
