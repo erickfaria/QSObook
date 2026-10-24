@@ -14,7 +14,7 @@ func (a *App) dashboard(w http.ResponseWriter, r *http.Request) {
 	var err error
 	now := time.Now().In(a.location)
 	month := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, a.location)
-	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*),coalesce(sum(occurred_at>=? AND occurred_at<?),0) FROM qsos WHERE deleted_at IS NULL", month.UTC().Format("2006-01-02T15:04:05.000000000Z"), month.AddDate(0, 1, 0).UTC().Format("2006-01-02T15:04:05.000000000Z")).Scan(&p.ContactCount, &p.MonthCount); err != nil {
+	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*),coalesce(sum("+utcContactSecond+">=? AND "+utcContactSecond+"<?),0) FROM qsos WHERE deleted_at IS NULL", month.UTC().Format("2006-01-02T15:04:05"), month.AddDate(0, 1, 0).UTC().Format("2006-01-02T15:04:05")).Scan(&p.ContactCount, &p.MonthCount); err != nil {
 		a.fail(w, r, err)
 		return
 	}

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -143,22 +144,28 @@ func TestNewRoutesKeepForgeryProtection(t *testing.T) {
 }
 
 func TestMonthlyCountUsesConfiguredTimeZone(t *testing.T) {
-	a := testApp(t)
-	ctx := context.Background()
-	now := time.Now().In(a.location)
-	start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, a.location)
-	for _, stamp := range []time.Time{start.Add(-time.Nanosecond), start, start.AddDate(0, 1, 0)} {
-		id, err := a.store.createContact(ctx, Station{Callsign: "ZZ0MONTH"}, "FM", "")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err = a.store.db.Exec("UPDATE qsos SET occurred_at=? WHERE id=?", stamp.UTC().Format("2006-01-02T15:04:05.000000000Z"), id); err != nil {
-			t.Fatal(err)
-		}
-	}
-	w := request(a, "GET", "/", nil)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "<strong>1</strong><span>Contatos neste mês") || !strings.Contains(w.Body.String(), "<strong>3</strong><span>No caderno") {
-		t.Fatal("monthly boundary count incorrect")
+	for _, zone := range []int{0, -4, 9} {
+		t.Run(strconv.Itoa(zone), func(t *testing.T) {
+			a := testApp(t)
+			ctx := context.Background()
+			now := time.Now().In(a.location)
+			start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, a.location)
+			for _, stamp := range []time.Time{start.Add(-time.Nanosecond), start, start.Add(time.Minute), start.AddDate(0, 1, 0)} {
+				id, err := a.store.createContact(ctx, Station{Callsign: "ZZ0MONTH"}, "FM", "")
+				if err != nil {
+					t.Fatal(err)
+				}
+				// Older compatible backups may retain offsets or omit fractions.
+				formatted := stamp.In(time.FixedZone("Example", zone*3600)).Format(time.RFC3339Nano)
+				if _, err = a.store.db.Exec("UPDATE qsos SET occurred_at=? WHERE id=?", formatted, id); err != nil {
+					t.Fatal(err)
+				}
+			}
+			w := request(a, "GET", "/", nil)
+			if w.Code != 200 || !strings.Contains(w.Body.String(), "<strong>2</strong><span>Contatos neste mês") || !strings.Contains(w.Body.String(), "<strong>4</strong><span>No caderno") {
+				t.Fatal("monthly boundary count incorrect", zone, w.Code)
+			}
+		})
 	}
 }
 func TestCountryChoicesPreserveLegacyValuesWithoutDefaults(t *testing.T) {
