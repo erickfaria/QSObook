@@ -52,7 +52,7 @@ docker compose -f compose.lan.yaml up -d
 docker compose -f compose.lan.yaml logs --tail=30 qsobook
 ```
 
-Open **http://tortuga.local:18088** in your computer/phone browser on the same trusted network. No password prompt is shown. Open Records, save a fictitious operator without confirmation, then enter it again and explicitly confirm a QSO with a mode/band. Reload and check the notebook. Test the flow before entering records you want to keep.
+Open **http://tortuga.local:18088** in your computer/phone browser on the same trusted network. No password prompt is shown. Open QSO mode in the main navigation, start without a roundtable and save a fictitious station without confirmation. Confirm a contact through its row action or the explicit checkbox, with a mode/band. Reload and check the notebook. Test the flow before entering records you want to keep.
 
 The container runs without root, drops capabilities and uses a read-only root filesystem. SQLite is in the named `qsobook_data` volume. Changing the image or recreating the container keeps that volume. Map requests remain disabled until explicit opt-in.
 
@@ -117,13 +117,13 @@ Continue to updating only after all copies succeed. Keep this backup private and
 
 Beta 4 migrates the notebook transactionally from schema 4 to 5, preserving operators, contacts, roundtables, participant IDs/links and coordinate caches. New contacts can store a band and optional roundtable label. Existing bands remain blank because they cannot be inferred safely. The previous map opt-in is preserved; geocoding on save starts disabled and your home city starts empty.
 
-**Make the stopped backup above before installing beta 4.** Beta 3 cannot open a schema-5 notebook. To roll back, keep the schema-5 volume untouched and restore a separate validated copy of the pre-upgrade backup with the earlier image; simply selecting the old image is not a database downgrade. There is no in-app restore wizard.
+**Make the stopped backup above before installing beta 4.** Beta 3 cannot open a schema-5 notebook. To roll back, keep the schema-5 volume untouched and restore a separate validated copy of the pre-upgrade backup with the earlier image; simply selecting the old image is not a database downgrade. Beta 5 provides validated restoration; older versions require the stopped-directory procedure.
 
 ## Beta 5 database upgrade
 
-Beta 5 migrates schema 5 to 6 transactionally, adding nullable trash timestamps and indexes. It does not delete or rewrite existing registrations, QSOs, round links, replay keys or coordinate caches. Existing items remain visible. Beta 4 cannot open schema 6; keep a schema-5 backup before updating. Databases from beta 3 migrate through both steps.
+Beta 5 migrates schema 5 to 7 transactionally, adding nullable trash timestamps/indexes, optional round editions and remembered roundtable names. It does not delete or rewrite existing registrations, QSOs, round links, replay keys or coordinate caches. Existing items remain visible. Beta 4 cannot open schema 7; keep a schema-5 backup before updating. Databases from beta 3 migrate through both steps.
 
-The new app backup/restore UI accepts exact schema-5/6 SQLite snapshots. A restored schema-5 file is upgraded in its isolated staging copy. Restoration replaces the whole current notebook only after explicit preview/confirmation and a validated pre-restore recovery snapshot. It is not a database downgrade or merge. See [backup, trash and ADIF procedures](DATA.md).
+The new app backup/restore UI accepts exact schema-5/6/7 SQLite snapshots. A restored schema-5/6 file is upgraded in its isolated staging copy. Restoration replaces the whole current notebook only after explicit preview/confirmation and a validated pre-restore recovery snapshot. It is not a database downgrade or merge. See [backup, trash and ADIF procedures](DATA.md).
 
 ## Update when you decide
 
