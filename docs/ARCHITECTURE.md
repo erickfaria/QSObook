@@ -12,7 +12,7 @@ The [pinned version documentation](https://pkg.go.dev/modernc.org/sqlite@v1.36.3
 
 Runtime transitive dependencies are listed in `go.mod`: `modernc.org/libc`, `mathutil`, `memory`, `golang.org/x/sys`, `x/exp`, `github.com/google/uuid`, `dustin/go-humanize`, `mattn/go-isatty`, `ncruces/go-strftime` and `remyoudompheng/bigfft`. Their permissive BSD/MIT notices are retained in [THIRD_PARTY_NOTICES.txt](THIRD_PARTY_NOTICES.txt), embedded and linked from the footer alongside the project AGPL. Original SQLite is public domain. `go.sum` also records dependencies used by upstream tests/tools. Keep `modernc.org/libc` aligned with the driver; do not update it independently.
 
-Native Linux ARM64 builds and tests are supported without CGO. Local validation runs on Linux AMD64 with an ARM64 cross-build. GitHub Actions also tests and builds natively on hosted Linux AMD64/ARM64 runners using the supported CI compiler while preserving the minimum Go version declared in `go.mod`; execution on Raspberry Pi remains pending.
+Native Linux ARM64 builds and tests are supported without CGO. Local validation runs on Linux AMD64 with an ARM64 cross-build. GitHub Actions also tests and builds natively on hosted Linux AMD64/ARM64 runners using the supported CI compiler while preserving the minimum Go version declared in `go.mod`. The maintainer reported successful beta-5 use on a Raspberry Pi before v0.1.0; each updated deployment still needs its own manual check.
 
 ## Data model
 

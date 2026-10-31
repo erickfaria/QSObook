@@ -14,7 +14,7 @@ No database schema, runtime dependency, authentication model, Host/Origin policy
 
 Removed unused city-history and legacy list/contact queries and unused dashboard/table styles. Test fixture helpers now use the production paginated readers and contact transaction. Consolidated duplicated route-security checks and equivalent lookup-note tests; retained upgrade/rollback tests for old notebooks, because older data still needs safe migration.
 
-The central security matrix covers all 23 POST routes, including streamed restore/import uploads, with foreign/null/HTTPS/wrong-port Origins, invalid/missing CSRF and cross-site fetch metadata. Sixteen action-only routes reject GET and HEAD. Rejected requests must not alter SQLite, set preference cookies or create transfer previews.
+The central security matrix covers all 23 POST routes, including streamed restore/import uploads, with eight request-forgery cases for both loopback and explicitly allowed LAN hosts: foreign/null/HTTPS/wrong-port Origins, invalid/missing CSRF, and cross-site fetch metadata with or without an Origin. Sixteen action-only routes reject GET and HEAD. Rejected requests must not alter SQLite, set preference cookies or create transfer previews. The 2026-10-31 maintenance cleanup consolidated the older browser-origin checks into this matrix without changing the application security policies.
 
 ## Verified controls
 

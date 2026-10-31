@@ -190,36 +190,20 @@ Automated geographic tests use fake local providers. Public map services should 
 ## Structure and maintenance
 
 ```text
-main.go                 configuration and HTTP lifecycle
-access.go               optional shared-password access and explicit network hosts
-store.go                SQLite operations and validation
-records.go              replay-safe registration and optional confirmation
-workspace.go            transactional live QSO entries and optional confirmation
-web_records.go          legacy record endpoint compatibility
-location.go             approximate home city and opt-in geocoding
-options.go              local country/mode/band selectors
-rounds.go               saved roundtables, presence and lifecycle
-map.go / map_edit.go    optional providers, local cache and explicit corrections
-backup.go / web_data.go  consistent snapshots and validated transfer previews
-adif.go / trash.go      contact interchange and recoverable deletion
-search.go / version.go  pagination, local search and installed version
-web_rounds.go           home screen and roundtable HTTP workflows
-web.go                  routes, templates and HTTP protection
-store_test.go           persistence and data integrity tests
-migration_test.go       migration preservation and rollback tests
-web_test.go             HTTP workflows and security tests
-rounds_test.go          lifecycle, QRT and migration regressions
-map_test.go             privacy, cache and provider-failure regressions
-locale.go / locales/    local UI translations and language preference
-locale_test.go          language coverage, security and data-preservation checks
-Dockerfile / compose.yaml  local container build and persistent deployment
-tests/container_smoke.py  disposable container integration checks
-tests/*.test.cjs        JavaScript regressions using built-in modules
-migrations/             versioned SQL schema
-templates/              HTML interface
-static/                 local CSS and JavaScript
-docs/                   architecture, roadmap and screenshots
+*.go                       one Go package: HTTP, SQLite and notebook workflows
+*_test.go                  Go regressions, including historical migrations
+locales/                   local UI translations and country labels
+migrations/                versioned SQL schema
+templates/                 HTML interface
+static/                    CSS, JavaScript and locally licensed assets
+tests/*.test.cjs            JavaScript regressions using built-in modules
+tests/container_smoke.py    disposable container integration checks
+Dockerfile / compose*.yaml  container build and deployment profiles
+.github/workflows/         native CI and manual release publication
+docs/                      installation, data, architecture and current screenshots
 ```
+
+Keep Go tests beside the code they exercise. Tests for older database schemas protect supported upgrades; retain them while those migrations remain supported. Before removing a screenshot or translation, check its references in both the repository and the Wiki. Historical beta notes and screenshots remain available in Git tags and Releases; [INSTALL.md](docs/INSTALL.md) is the maintained deployment guide, with [BETA.md](docs/BETA.md) retained for older links. Go unit tests are excluded from the Docker build context.
 
 The only direct Go dependency is `modernc.org/sqlite v1.36.3`, a BSD-3-Clause SQLite driver without CGO. Transitive dependencies are pinned in `go.mod`/`go.sum`. See [architecture](docs/ARCHITECTURE.md), [CONTRIBUTING.md](CONTRIBUTING.md) and [AGENTS.md](AGENTS.md). Changes use maintainer review; the application itself does not perform Git operations.
 
