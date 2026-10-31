@@ -38,16 +38,21 @@ var dataToolsSchema string
 //go:embed migrations/007_qso_workspace.sql
 var workspaceSchema string
 
-const schemaVersion = 7
+//go:embed migrations/008_radioid.sql
+var radioIDSchema string
+
+const schemaVersion = 8
 
 type Station struct {
-	ID       int64  `json:"id"`
-	Callsign string `json:"callsign"`
-	Name     string `json:"name"`
-	City     string `json:"city"`
-	State    string `json:"state"`
-	Country  string `json:"country"`
-	Notes    string `json:"notes"`
+	ID              int64  `json:"id"`
+	Callsign        string `json:"callsign"`
+	Name            string `json:"name"`
+	City            string `json:"city"`
+	State           string `json:"state"`
+	Country         string `json:"country"`
+	Notes           string `json:"notes"`
+	radioIDRevision string
+	radioIDEdited   int
 }
 type Contact struct {
 	Station
@@ -123,7 +128,7 @@ func (s *Store) migrate(ctx context.Context) error {
 	if err := tx.QueryRowContext(ctx, "PRAGMA user_version").Scan(&version); err != nil {
 		return err
 	}
-	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema, workspaceSchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema, workspaceSchema, radioIDSchema}
 	if version < 0 || version > len(schemas) {
 		return errors.New("banco criado por versão mais recente")
 	}
@@ -171,8 +176,13 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 	if err := st.validate(); err != nil {
 		return 0, err
 	}
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
 	if st.ID > 0 {
-		result, err := s.db.ExecContext(ctx, `UPDATE stations SET name=?,city=?,state=?,country=?,notes=? WHERE id=? AND deleted_at IS NULL`, st.Name, st.City, st.State, st.Country, st.Notes, st.ID)
+		result, err := tx.ExecContext(ctx, `UPDATE stations SET name=?,city=?,state=?,country=?,notes=? WHERE id=? AND deleted_at IS NULL`, st.Name, st.City, st.State, st.Country, st.Notes, st.ID)
 		if err != nil {
 			return 0, err
 		}
@@ -183,17 +193,26 @@ func (s *Store) saveStation(ctx context.Context, st Station) (int64, error) {
 		if n == 0 {
 			return 0, sql.ErrNoRows
 		}
-		return st.ID, nil
+		if err := clearRadioIDOrigin(ctx, tx, st.ID); err != nil {
+			return 0, err
+		}
+		return st.ID, tx.Commit()
 	}
-	if err := stationAvailable(ctx, s.db, st.Callsign); err != nil {
+	if err := stationAvailable(ctx, tx, st.Callsign); err != nil {
+		return 0, err
+	}
+	if err := correctRadioIDFields(ctx, tx, st); err != nil {
 		return 0, err
 	}
 	var id int64
-	err := s.db.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country,notes) VALUES(?,?,?,?,?,?) ON CONFLICT(callsign) DO UPDATE SET
+	err = tx.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country,notes) VALUES(?,?,?,?,?,?) ON CONFLICT(callsign) DO UPDATE SET
 		name=coalesce(nullif(stations.name,''),excluded.name), city=coalesce(nullif(stations.city,''),excluded.city),
 		state=coalesce(nullif(stations.state,''),excluded.state), country=coalesce(nullif(stations.country,''),excluded.country),
 		notes=coalesce(nullif(stations.notes,''),excluded.notes) WHERE stations.deleted_at IS NULL RETURNING id`, st.Callsign, st.Name, st.City, st.State, st.Country, st.Notes).Scan(&id)
-	return id, err
+	if err != nil {
+		return 0, err
+	}
+	return id, tx.Commit()
 }
 
 // New conversations only complete missing registration fields. Replacing an
@@ -208,7 +227,13 @@ func mergeConversationStation(ctx context.Context, tx *sql.Tx, st Station) (int6
 			name=coalesce(nullif(?,''),name), city=coalesce(nullif(?,''),city),
 			state=coalesce(nullif(?,''),state), country=coalesce(nullif(?,''),country)
 			WHERE id=? AND deleted_at IS NULL RETURNING id`, st.Name, st.City, st.State, st.Country, st.ID).Scan(&id)
+		if err == nil {
+			err = clearRadioIDOrigin(ctx, tx, id)
+		}
 		return id, err
+	}
+	if err := correctRadioIDFields(ctx, tx, st); err != nil {
+		return 0, err
 	}
 	err := tx.QueryRowContext(ctx, `INSERT INTO stations(callsign,name,city,state,country) VALUES(?,?,?,?,?)
 		ON CONFLICT(callsign) DO UPDATE SET
@@ -373,7 +398,7 @@ func (s *Store) participants(ctx context.Context) ([]Participant, error) {
 	return s.participantsInRound(ctx, round.ID)
 }
 func (s *Store) participantsInRound(ctx context.Context, roundID int64) ([]Participant, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT p.id,s.id,s.callsign,s.name,s.city,s.state,s.country,s.notes,p.mode,p.notes,p.qso_id,p.round_id,p.active,p.band FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.round_id=? AND p.removed_at IS NULL ORDER BY p.active DESC,p.id`, roundID)
+	rows, err := s.db.QueryContext(ctx, `SELECT p.id,s.id,s.callsign,s.name,s.city,s.state,s.country,s.notes,p.mode,p.notes,p.qso_id,p.round_id,p.active,p.band,p.radioid_snapshot FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.round_id=? AND p.removed_at IS NULL ORDER BY p.active DESC,p.id`, roundID)
 	if err != nil {
 		return nil, err
 	}
@@ -381,11 +406,18 @@ func (s *Store) participantsInRound(ctx context.Context, roundID int64) ([]Parti
 	list := []Participant{}
 	for rows.Next() {
 		var p Participant
-		err := rows.Scan(&p.ID, &p.StationID, &p.Callsign, &p.Name, &p.City, &p.State, &p.Country, &p.Station.Notes, &p.Mode, &p.Notes, &p.QSOID, &p.RoundID, &p.Active, &p.Band)
+		var snapshot sql.NullString
+		err := rows.Scan(&p.ID, &p.StationID, &p.Callsign, &p.Name, &p.City, &p.State, &p.Country, &p.Station.Notes, &p.Mode, &p.Notes, &p.QSOID, &p.RoundID, &p.Active, &p.Band, &snapshot)
 		if err != nil {
 			return nil, err
 		}
 		p.Station.ID = p.StationID
+		if snapshot.Valid {
+			p.Station, err = readRadioIDSnapshot(snapshot.String, p.StationID, p.Callsign)
+			if err != nil {
+				return nil, err
+			}
+		}
 		list = append(list, p)
 	}
 	return list, rows.Err()

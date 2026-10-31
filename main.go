@@ -78,6 +78,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	stopRadioID := app.startRadioID(ctx)
+	defer stopRadioID()
 
 	log.Printf("QSObook disponível em http://%s (fuso %s)", listener.Addr(), loc)
 	serveErr := make(chan error, 1)

@@ -1,19 +1,32 @@
-# QSObook v0.1.0
+# Release notes
+
+## Unreleased — current source
+
+The published stable image remains **v0.1.0 (schema 7)**. The changes below require a current source build and are not yet a new Docker release.
+
+- Optional RadioID autofill, off by default: Enter first reads SQLite, then performs an exact backend lookup only when necessary. The UI stays editable and reports progress/outcomes in all four languages.
+- Missing fields are persisted locally. Manual values, edits made during lookup, and saves before the response arrives take priority. Multiple returned DMR IDs share one station; historical QSOs and closed/removed participations are preserved.
+- Persistent retries for incomplete registered stations: at most ten per daily batch, spaced requests, provider cooldowns, seven-day no-match caching and offline manual entry.
+- Schema 8 adds consent, retry/origin metadata and participant snapshots; validated backups accept exact schemas 5–8. **Back up first: v0.1.0 cannot open schema 8.**
+- Removed obsolete screenshots/beta text, repeated style rules and duplicate security checks. Current screenshots, licenses, migrations and unique integrity/recovery regressions remain.
+- Updated English usage, architecture, security, installation, recovery and contribution guides. No new runtime dependency, authentication model or Host/Origin/CSP policy.
+
+## QSObook v0.1.0
 
 The first stable release of QSObook, following beta-5 use on the maintainer’s Raspberry Pi. It preserves the minimal Go/SQLite/browser architecture, optional maps, four interface languages and password-free trusted LAN/VPN access.
 
-## Reviewed and corrected
+### Reviewed and corrected
 
 - Write targets now come only from the POST body; URL parameters cannot supply a missing record ID or city. Existing CSRF, Host, Origin, CSP and frame controls remain in place.
 - Monthly contact totals now normalize stored timestamp offsets before applying the configured calendar-month boundaries.
 - Removed unused legacy queries and styles. Consolidated duplicate security and lookup tests while preserving migration, historical-snapshot, backup/restore and replay regressions.
 - Stable releases publish to the `stable` and `latest` Docker channels. Beta releases keep a separate `beta` channel. Downloads pin exact image digests, and release versions are never reused.
 
-## Included
+### Included
 
 One QSO workspace for listening or optional named roundtables, remembered round names/editions, explicit QSO confirmation, QRT/return, independent operator/conversation notes, local callsign autofill, responsive white/pastel and dark themes, a Notebook, opt-in cached city maps, recoverable deletion, validated SQLite backup/restoration and previewed ASCII ADIF transfer.
 
-## Update safely
+### Update safely
 
 **Preserve your notebook; do not wipe or reinstall it.** Back up first, then use the checksum-verified Compose files with your existing `.env`, project and `qsobook_data` volume. Beta 5 and v0.1.0 both use schema 7, so this upgrade introduces no new migration or database format. Older betas migrate transactionally. Never use `down -v` to update.
 

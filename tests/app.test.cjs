@@ -28,10 +28,12 @@ class Element {
   focus() { this.focused = true; }
 }
 
-function setup(action = '/participant') {
+function setup(action = '/participant', radioID = false) {
   const form = new Element();
   form.attributes.action = action;
-  form.elements = Object.fromEntries(['callsign', 'name', 'city', 'state', 'country', 'notes', 'operator_notes'].map(name => [name, new Element()]));
+  form.dataset.radioidEnabled = String(radioID);
+  form.elements = Object.fromEntries(['callsign', 'name', 'city', 'state', 'country', 'notes', 'operator_notes', 'csrf', 'radioid_revision', 'radioid_edited'].map(name => [name, new Element()]));
+  form.elements.csrf.value = 'test-token';
   const input = form.elements.callsign;
   input.form = form;
   const status = {textContent: ''};
@@ -47,7 +49,7 @@ function setup(action = '/participant') {
   const timers = new Map();
   let timerID = 0;
   vm.runInNewContext(localeSource + source, {
-    AbortController,
+    AbortController, URLSearchParams,
     window,
     document: {
       documentElement: {dataset: {}},
@@ -70,6 +72,7 @@ function setup(action = '/participant') {
   return {
     form, status, button, link, editor, window, requests,
     input(value) { input.value = value; input.emit('input'); },
+    enter() { return input.emit('keydown', {key: 'Enter'}); },
     edit(name, value) { form.elements[name].value = value; form.elements[name].emit('input'); },
     async tick() {
       const callbacks = [...timers.values()];
@@ -259,4 +262,44 @@ test('entry forms keep permanent notes separate from listening notes', async () 
     assert.equal(h.form.elements.operator_notes.value, 'Permanent');
     assert.equal(h.form.elements.notes.value, 'Listening draft');
   }
+});
+
+test('Enter stays local by default and deduplicates optional RadioID lookup', async () => {
+  const local = setup('/qso/entry');
+  local.input('zz0radio');
+  assert.equal(local.enter().defaultPrevented, true);
+  await local.respond(0, {}, 404);
+  assert.equal(local.form.elements.callsign.value, 'ZZ0RADIO');
+  assert.equal(local.requests.length, 1);
+
+  const h = setup('/qso/entry', true);
+  h.input('zz0radio');
+  h.enter(); h.enter();
+  assert.equal(h.requests.length, 1);
+  await h.respond(0, {}, 404);
+  assert.equal(h.requests[1].url, '/lookup/radioid');
+  assert.equal(h.requests[1].options.method, 'POST');
+  assert.equal(new URLSearchParams(h.requests[1].options.body).get('csrf'), 'test-token');
+  h.edit('name', 'Typed during lookup');
+  assert.equal(h.form.elements.radioid_edited.value, '1');
+  assert.equal(h.form.emit('submit').defaultPrevented, false);
+  await h.respond(1, {id: 1, callsign: 'ZZ0RADIO', name: 'External', city: 'Example', contacts: 2, radioid_status: 'found', radioid_revision: 'revision'});
+  assert.equal(h.form.elements.name.value, 'Typed during lookup');
+  assert.equal(h.form.elements.city.value, 'Example');
+  assert.equal(h.form.elements.radioid_revision.value, 'revision');
+  assert.match(h.status.textContent, /RadioID/);
+  await h.tick();
+  assert.match(h.status.textContent, /2 QSO/);
+});
+
+test('a late RadioID response cannot fill another callsign or restore its revision', async () => {
+  const h = setup('/qso/entry', true);
+  h.input('ZZ0OLD'); h.enter();
+  await h.respond(0, {}, 404);
+  h.input('ZZ0NEW');
+  await h.respond(1, {id: 1, name: 'Old operator', city: 'Old city', radioid_status: 'found', radioid_revision: 'old'});
+  assert.equal(h.form.elements.name.value, '');
+  assert.equal(h.form.elements.city.value, '');
+  assert.equal(h.form.elements.radioid_revision.value, '');
+  assert.equal(h.requests[1].options.signal.aborted, true);
 });

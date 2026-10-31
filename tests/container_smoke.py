@@ -185,7 +185,7 @@ try:
         assert connection.execute("PRAGMA foreign_key_check").fetchall() == []
         assert connection.execute("SELECT count(*) FROM qsos").fetchone() == (2,)
         assert connection.execute("SELECT band,round_name FROM qsos WHERE callsign='ZZ1DOCKER'").fetchone() == ("70 cm", "Container smoke test #7")
-        assert connection.execute("PRAGMA user_version").fetchone() == (7,)
+        assert connection.execute("PRAGMA user_version").fetchone() == (8,)
         assert connection.execute("SELECT last_round_name,last_round_edition FROM app_settings").fetchone() == ("Container smoke test", "7")
     run("up", "--detach", "--force-recreate", "--no-build")
     ready()

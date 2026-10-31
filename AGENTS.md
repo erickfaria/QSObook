@@ -26,6 +26,7 @@ These instructions apply to the entire QSObook repository. Read existing files a
 - Core functionality must work offline; serve essential assets locally without CDNs, external fonts or remote APIs.
 - Keep data in local SQLite. Do not unnecessarily log contacts, notes, credentials or form contents.
 - External maps/geocoding must be optional, disabled by default, with clear disclosure and conscious opt-in. Send geographic information only, never personal operator data.
+- The maintainer explicitly authorizes optional RadioID callsign enrichment: disabled by default, backend-only exact queries after Enter or bounded daily retries, callsigns only, no QSO details/notes. Preserve manual corrections, historical contacts/closed participations, durable pending state and offline operation.
 - Use parameterized SQL, server validation, template escaping and input limits. Never treat user input as trusted HTML.
 - Preserve CSRF protection, rejection of writes through GET, HTTP timeouts and error messages without internals.
 - Never serve databases, backups or configuration as static files. Do not put real personal data in examples, tests or screenshots.
@@ -56,9 +57,9 @@ These instructions apply to the entire QSObook repository. Read existing files a
 - One root Go package: `main.go`, `store.go`, `rounds.go`, `map.go`, `web.go`, `web_rounds.go` and tests. Templates, assets, migrations and license notices are embedded.
 - `modernc.org/sqlite` runs without CGO. Keep its required `modernc.org/libc` version aligned; changes require ARM64 and license checks.
 - Preserve the distinction between current registrations (`stations`), historical contact copies (`qsos`) and roundtable participation (`participants`). Do not propagate registration edits into old QSOs.
-- Use transactional migrations versioned by `PRAGMA user_version`, preserving records and rejecting future versions. Stable v0.1.0 retains schema 7 from beta 5: optional round editions and remembered names, recoverable station/QSO deletion, bands, replay keys and map preferences; keep legacy participants, QSO links and ID high-water marks intact. Exclude trashed QSOs from active counts/history/maps, retain replay keys and never cascade a station deletion into historical contacts.
+- Use transactional migrations versioned by `PRAGMA user_version`, preserving records and rejecting future versions. Current source adds schema 8 for RadioID consent, retry/provenance metadata and pre-enrichment participant snapshots. Stable v0.1.0 retains schema 7 from beta 5: optional round editions and remembered names, recoverable station/QSO deletion, bands, replay keys and map preferences; keep legacy participants, QSO links and ID high-water marks intact. Exclude trashed QSOs from active counts/history/maps, retain replay keys and never cascade a station deletion into historical contacts.
 - Run `CGO_ENABLED=0 go test ./...`, `CGO_ENABLED=0 go vet ./...` and `CGO_ENABLED=0 go build -o bin/qsobook .`. Keep caches/temporary files in `.cache/` when required; see the README.
-- Optional JavaScript regressions use `node --test tests/*.test.cjs`, without npm packages.
+- JavaScript regressions use `node --test tests/*.test.cjs`, without npm packages. Keep geographic and RadioID tests on fictitious local HTTP providers. Preserve supported migration/recovery tests; remove only demonstrated duplication or dead fixtures. Document published v0.1.0/schema 7 separately from current source/schema 8; a main merge does not publish an image.
 - Never develop/test using the default personal database or start a persistent server. Temporary preview servers must use an isolated database, stay on loopback and be stopped after use.
 
 - Keep maps disabled until explicit opt-in. Leaflet 1.9.4 is vendored locally with BSD-2-Clause notices. No external scripts/CDNs or map plugins are needed.

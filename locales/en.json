@@ -1,7 +1,6 @@
 {
   ". Alterações afetam somente este QSO.": ". Changes affect only this QSO.",
   ". Buscas de cidades são manuais. Sem internet, o caderno continua funcionando.": ". City searches are manual. Your notebook still works offline.",
-  "Adicionar à rodada": "Add to round",
   "Afastar": "Zoom out",
   "Alterações no cadastro não modificam os QSOs já registrados.": "Registration changes do not modify recorded QSOs.",
   "Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita.": "Enabling the map shares your IP and the viewed area with the map provider. Locating a city sends only its city, state and country to the geocoding service, never callsigns, names or notes. Searches are manual, never as you type.",
@@ -105,7 +104,7 @@
   "Preferências": "Preferences",
   "Presente ao encerrar": "Present at end",
   "Principal": "Main",
-  "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato.": "QRT marks who has left; it does not record a contact. Ending keeps participants and confirmed QSOs. Current operator details are shown; each QSO keeps the details from the time of contact.",
+  "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O RadioID não altera QSOs nem participações encerradas.": "QRT marks who left; it does not record a contact. Ending keeps participants and confirmed QSOs. RadioID does not change QSOs or closed participations.",
   "QSO registrado": "QSO recorded",
   "QSO registrado no caderno": "QSO recorded in the notebook",
   "QSOs já registrados permanecem como estavam.": "Recorded QSOs remain unchanged.",
@@ -283,5 +282,11 @@
   "Informe o nome da rodada.": "Enter the roundtable name.",
   "Edição inválida: use até 12 dígitos.": "Invalid edition: use up to 12 digits.",
   "Informe o nome da rodada para usar uma edição.": "Enter a roundtable name to use an edition.",
-  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "Invalid ADIF. Use an ASCII ADI file with CALL, QSO_DATE, TIME_ON and MODE. No contacts were imported."
+  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "Invalid ADIF. Use an ASCII ADI file with CALL, QSO_DATE, TIME_ON and MODE. No contacts were imported.",
+  "Preenchimento automático pelo RadioID": "RadioID autofill",
+  "Ao ativar, somente o indicativo e o IP do servidor são enviados ao RadioID. Cadastros incompletos podem ser consultados diariamente. QSOs e observações não são enviados.": "When enabled, only the callsign and server IP are sent to RadioID. Incomplete registrations may be checked daily. QSOs and notes are not sent.",
+  "Consultando RadioID…": "Looking up RadioID…",
+  "Dados encontrados no RadioID.": "Data found on RadioID.",
+  "Indicativo não encontrado no RadioID.": "Callsign not found on RadioID.",
+  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Lookup unavailable. The data can be updated later."
 }

@@ -1,7 +1,6 @@
 {
   ". Alterações afetam somente este QSO.": ". Les modifications concernent uniquement ce QSO.",
   ". Buscas de cidades são manuais. Sem internet, o caderno continua funcionando.": ". La recherche de villes est manuelle. Le carnet fonctionne aussi hors connexion.",
-  "Adicionar à rodada": "Ajouter à la ronde",
   "Afastar": "Zoom arrière",
   "Alterações no cadastro não modificam os QSOs já registrados.": "Les modifications de la fiche ne changent pas les QSO déjà enregistrés.",
   "Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita.": "L’activation transmet votre IP et la zone affichée au fournisseur de cartes. Localiser une ville transmet uniquement la ville, la région et le pays au service de géocodage, jamais les indicatifs, noms ou notes. La recherche est manuelle, jamais pendant la saisie.",
@@ -105,7 +104,7 @@
   "Preferências": "Préférences",
   "Presente ao encerrar": "Présent à la clôture",
   "Principal": "Navigation principale",
-  "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato.": "QRT indique qui est parti ; aucun contact n’est enregistré. La clôture conserve les participants et les QSO confirmés. La fiche affichée est la fiche actuelle ; chaque QSO conserve les données du moment du contact.",
+  "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O RadioID não altera QSOs nem participações encerradas.": "QRT indique qui est parti ; cela n’enregistre pas de contact. La clôture conserve les participants et les QSO confirmés. RadioID ne modifie ni les QSO ni les participations clôturées.",
   "QSO registrado": "QSO enregistré",
   "QSO registrado no caderno": "QSO enregistré dans le carnet",
   "QSOs já registrados permanecem como estavam.": "Les QSO déjà enregistrés restent inchangés.",
@@ -283,5 +282,11 @@
   "Informe o nome da rodada.": "Indiquez le nom de la ronde.",
   "Edição inválida: use até 12 dígitos.": "Édition invalide : utilisez jusqu’à 12 chiffres.",
   "Informe o nome da rodada para usar uma edição.": "Indiquez un nom de ronde pour utiliser une édition.",
-  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "ADIF invalide. Utilisez un fichier ADI ASCII avec CALL, QSO_DATE, TIME_ON et MODE. Aucun contact n’a été importé."
+  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "ADIF invalide. Utilisez un fichier ADI ASCII avec CALL, QSO_DATE, TIME_ON et MODE. Aucun contact n’a été importé.",
+  "Preenchimento automático pelo RadioID": "Remplissage automatique avec RadioID",
+  "Ao ativar, somente o indicativo e o IP do servidor são enviados ao RadioID. Cadastros incompletos podem ser consultados diariamente. QSOs e observações não são enviados.": "Lorsque cette option est activée, seuls l’indicatif et l’adresse IP du serveur sont envoyés à RadioID. Les fiches incomplètes peuvent être consultées chaque jour. Les QSO et les notes ne sont pas envoyés.",
+  "Consultando RadioID…": "Consultation de RadioID…",
+  "Dados encontrados no RadioID.": "Données trouvées sur RadioID.",
+  "Indicativo não encontrado no RadioID.": "Indicatif introuvable sur RadioID.",
+  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Consultation indisponible. Les données pourront être mises à jour ultérieurement."
 }

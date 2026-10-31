@@ -106,6 +106,8 @@ func (a *App) languagePreference(w http.ResponseWriter, r *http.Request) {
 
 func browserMessages() []string {
 	return []string{
+		"Consultando RadioID…", "Dados encontrados no RadioID.", "Indicativo não encontrado no RadioID.",
+		"Consulta indisponível. Os dados poderão ser atualizados posteriormente.",
 		"Aproximar", "Afastar", "Fechar", "Meu local", "Nenhum contato para estes filtros.",
 		"Informe um indicativo.",
 		"Consultando cadastro local…",

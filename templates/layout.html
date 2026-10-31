@@ -44,6 +44,12 @@
 <label class="theme-picker" hidden>{{t "Tema"}}
 <select id="theme"><option value="system">{{t "Automático"}}</option><option value="light">{{t "Claro"}}</option><option value="dark">{{t "Escuro"}}</option></select>
 </label>
+<form method="post" action="/radioid/preference" class="radioid-preference">
+<input type="hidden" name="csrf" value="{{.Token}}">
+<label class="check"><input type="checkbox" name="enabled" value="1" {{if .RadioIDEnabled}}checked{{end}}>{{t "Preenchimento automático pelo RadioID"}}</label>
+<p class="hint">{{t "Ao ativar, somente o indicativo e o IP do servidor são enviados ao RadioID. Cadastros incompletos podem ser consultados diariamente. QSOs e observações não são enviados."}} <a href="https://radioid.net/api/" rel="noreferrer">RadioID</a></p>
+<button class="secondary">{{t "Aplicar"}}</button>
+</form>
 </div>
 </details>
 </header>
@@ -235,7 +241,7 @@
 </form></td></tr>{{end}}
 {{else}}<tr><td colspan="5">{{t "A lista está vazia. Adicione uma estação para começar."}}</td></tr>{{end}}</tbody>
 </table></div>
-<p class="hint">{{t "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato."}}</p>
+<p class="hint">{{t "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O RadioID não altera QSOs nem participações encerradas."}}</p>
 {{end}}
 {{if .Rounds}}<details class="legacy-rounds"><summary>{{t "Sessões anteriores"}}</summary><ul class="round-list">{{range .Rounds}}{{if .EndedAt.Valid}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Label}}{{else}}{{t "Escuta"}}{{end}}</a><span class="hint">{{localTime .StartedAt}}</span></li>{{end}}{{end}}</ul></details>{{end}}
 <p><a href="/stations">{{t "Editar cadastros"}}</a></p>{{end}}

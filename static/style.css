@@ -515,5 +515,11 @@ th,td { padding:.6rem .7rem }
 .data-section details, .data-section form { margin-block: .75rem; }
 .pagination { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-block: 1rem; }
 .revision { overflow-wrap: anywhere; margin-left: 0; }
+.radioid-preference { flex-basis:100%; max-width:32rem }
+[data-lookup-status][data-loading="true"]::before { content:""; display:inline-block; width:.8rem; height:.8rem; margin-right:.4rem; border:2px solid currentColor; border-right-color:transparent; border-radius:50%; vertical-align:middle }
+@media(prefers-reduced-motion:no-preference) {
+  [data-lookup-status][data-loading="true"]::before { animation:lookup-spin .8s linear infinite }
+}
+@keyframes lookup-spin { to { transform:rotate(360deg) } }
 input[type="file"] { max-width: 100%; padding: .5rem; }
 @media (max-width: 600px) { .search label { min-width: 0; } }

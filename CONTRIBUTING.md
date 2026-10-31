@@ -4,7 +4,7 @@ QSObook is a personal, free software project for amateur radio operators. Docume
 
 ## Before starting
 
-Read the [README](README.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md) and applicable [agent instructions](AGENTS.md). The server, SQLite storage, operator registry, notebook and QSO mode already exist. Do not implement something only because it appears in the roadmap: discuss major changes, dependencies, data-model decisions and architecture first.
+Read the [README](README.md), [architecture](docs/ARCHITECTURE.md), [roadmap](docs/ROADMAP.md) and applicable [agent instructions](AGENTS.md). The server, SQLite storage, operator registry, notebook, QSO mode and optional RadioID integration already exist. Do not implement something only because it appears in the roadmap: discuss major changes, dependencies, data-model decisions and architecture first.
 
 Preserve Go, SQLite, a lightweight frontend without frameworks, local/offline operation and Linux ARM64 compatibility. Telemetry and tracking are not accepted. Contributions must use the project AGPL v3 and respect third-party licenses. Write public documentation in English. The UI supports Brazilian Portuguese, English, Spanish and French.
 
@@ -39,7 +39,7 @@ Do not install tools or change host services/configuration without authorization
 
 ## Continuous integration
 
-Pull requests to `main` and pushes to `main` run `.github/workflows/ci.yml` on native Linux AMD64 and ARM64 runners. Both jobs must pass before merging: Go formatting, module verification, Go tests/vet, JavaScript syntax/tests and the native build. Use the supported Go compiler pinned in the workflow; `go.mod` records the minimum supported language/toolchain version, not the CI compiler pin. Node.js 24 is only a test tool and requires no npm packages. Keep tests isolated and use fake local geographic providers. Do not call public map/geocoding services from CI.
+Pull requests to `main` and pushes to `main` run `.github/workflows/ci.yml` on native Linux AMD64 and ARM64 runners. Both jobs must pass before merging: Go formatting, module verification, Go tests/vet, JavaScript syntax/tests and the native build. Use the supported Go compiler pinned in the workflow; `go.mod` records the minimum supported language/toolchain version, not the CI compiler pin. Node.js 24 is only a test tool and requires no npm packages. Keep tests isolated and use fake local geographic providers. Do not call public map, geocoding or RadioID services from tests/CI. RadioID tests inject a local HTTP provider; retain consent, cache, manual-correction, pending-retry and historical-snapshot checks.
 
 ## Protected main branch
 
@@ -50,3 +50,9 @@ The repository-wide CODEOWNER is `@erickfaria`. Contributor pull requests requir
 The integrity and review rules are separate repository rulesets. Do not replace them with the older classic-rule setup or remove CODEOWNERS. Recheck the actual GitHub settings before documenting future changes; the owner can change repository configuration independently of these files.
 
 Official references: [rulesets](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets), [code owners](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) and [required reviews](https://docs.github.com/en/pull-requests/how-tos/review-pull-requests/approving-a-pull-request-with-required-reviews).
+
+## Documentation and releases
+
+Write documentation for the final implemented behavior and distinguish current source from published images. The published v0.1.0 image uses schema 7; current source uses schema 8. Keep README, installation/source-build instructions, data compatibility, security, release notes and the Wiki aligned. Validate relative links, anchors and screenshot references before removing files. Older migration tests protect supported notebook upgrades and are not obsolete by age. Keep third-party files/licenses unchanged unless intentionally updating that dependency.
+
+Record unreleased features in `docs/RELEASE_NOTES.md`. Merging to main runs CI; it does not publish an image or deploy to a user's machine. Publication uses the separate manual release workflow after selecting a new immutable version and reviewing its notes/upgrade instructions. Never overwrite a published release or use volume deletion as an update procedure.
