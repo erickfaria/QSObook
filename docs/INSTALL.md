@@ -1,8 +1,8 @@
 # Install and update QSObook
 
-This guide installs the **published v0.1.0 image (schema 7)**. Current source adds optional RadioID autofill and schema 8; those changes are not yet in a published image. For source builds, use [DOCKER.md](DOCKER.md). Do not point a v0.1.0 container at a schema-8 notebook. A code merge or `docker compose pull` cannot add a feature absent from the selected image.
+This guide installs **v0.2.0 (schema 8)**, including optional RadioID autofill. Back up before upgrading an existing notebook: v0.1.0 cannot open schema 8. For source builds, use [DOCKER.md](DOCKER.md). A code merge does not update your server; digest-pinned Compose files remain on their selected release until you replace them.
 
-QSObook v0.1.0 is the first stable release for personal local/private-network use, including a 64-bit Raspberry Pi running Debian. Ready-made images support **Linux ARM64 and AMD64**. No Go compiler, Node.js or Docker Hub account is needed on the Pi. Public images can be pulled anonymously from GitHub Container Registry.
+QSObook v0.2.0 is a stable release for personal local/private-network use, including a 64-bit Raspberry Pi running Debian. Ready-made images support **Linux ARM64 and AMD64**. No Go compiler, Node.js or Docker Hub account is needed on the Pi. Public images can be pulled anonymously from GitHub Container Registry.
 
 Use the official [Docker Engine installation instructions](https://docs.docker.com/engine/install/debian/) and [Compose plugin guide](https://docs.docker.com/compose/install/) if these tools are missing. Check `docker version` and `docker compose version` first. Use a maintained Docker Engine release 28 or newer. This project does not install host packages, change your firewall or modify other services.
 
@@ -19,7 +19,7 @@ Run these commands on Tortuga. Replace the version below when installing a later
 ```sh
 mkdir qsobook
 cd qsobook
-version=v0.1.0
+version=v0.2.0
 for file in compose.yaml compose.lan.yaml compose.auth.yaml image-digest.txt image-manifest.json SHA256SUMS; do
   curl --fail --location --output "$file" \
     "https://github.com/erickfaria/QSObook/releases/download/$version/$file" || break
@@ -117,11 +117,11 @@ Continue to updating only after all copies succeed. Keep this backup private and
 
 ## Database compatibility
 
-Stable v0.1.0 and beta 5 both use **schema 7**. Upgrading beta 5 requires no new database migration and preserves the current notebook. Older beta notebooks migrate transactionally to schema 7, preserving stations, QSOs, participant IDs/links, QRT status, round labels, replay keys and map caches. No existing data is deleted by this release.
+**v0.2.0 uses schema 8.** v0.1.0 and beta 5 use schema 7. The first v0.2.0 start migrates a supported older notebook transactionally, preserving stations, QSOs, participant IDs/links, QRT status, round labels, replay keys and map caches. RadioID consent starts disabled; enabling it is separate from map consent. No existing data is deleted by this migration.
 
-Back up before updating. Beta 4 and earlier cannot open schema 7; returning to those versions requires a separately preserved pre-upgrade backup, not simply an older image. There is no automatic schema downgrade.
+Back up before updating. **v0.1.0 and all earlier versions cannot open schema 8.** Returning to them requires a separately preserved compatible pre-upgrade backup, not simply an older image. There is no automatic schema downgrade.
 
-The v0.1.0 backup/restore UI accepts exact schema-5/6/7 SQLite snapshots up to 64 MiB. A schema-5/6 upload is upgraded in an isolated staging copy. Restoration replaces the entire notebook only after preview/confirmation and a validated pre-restore recovery snapshot. It is not a notebook merge. See [backup, Trash and ADIF procedures](DATA.md).
+The v0.2.0 backup/restore UI accepts exact schema-5/6/7/8 SQLite snapshots up to 64 MiB. A schema-5/6/7 upload is upgraded in an isolated staging copy. Restoration replaces the entire notebook only after preview/confirmation and a validated pre-restore recovery snapshot. It is not a notebook merge. Schema-8 backups restore their saved RadioID consent and retry state. See [backup, Trash and ADIF procedures](DATA.md).
 
 ## Update when you decide
 
@@ -160,8 +160,8 @@ gh attestation verify "oci://$(cat image-digest.txt)" --repo erickfaria/QSObook
 
 This verifies a recorded build identity; it is not a vulnerability-free guarantee or an external security audit. CI uses supported Go 1.27.3 and pinned `govulncheck` v1.9.0 to reject reachable Go vulnerabilities. Embedded upstream components and operational security still require maintenance. Release validation uses hosted native ARM64 tests and real containers. The maintainer has reported successful beta-5 use on a Raspberry Pi; each deployment should still verify its own records, map and backup flows.
 
-## Moving from the published image to current source
+## Building from source instead
 
-Current source migrates a supported older notebook transactionally to schema 8. Save a consistent backup and retain the stopped deployment files before changing executables/images. Build and test against a separate notebook first; [DOCKER.md](DOCKER.md) describes the source workflow. Keep the original Compose project, volume and access settings when intentionally upgrading the real notebook.
+v0.2.0 and current source both use schema 8. Save a consistent backup and retain the stopped deployment files before changing executables/images. Build and test against a separate notebook first; [DOCKER.md](DOCKER.md) describes the source workflow. Keep the original Compose project, volume and access settings when intentionally upgrading the real notebook. Future source changes may introduce additional migrations; always check their compatibility notes.
 
 RadioID is off after migration. Enable it explicitly in Preferences if wanted. A schema-8 backup includes its consent, pending lookups and origin metadata; see [DATA.md](DATA.md). Rolling back to v0.1.0 requires the preserved schema-7 backup. Do not downgrade the only live copy, delete its volume or edit its schema version.
