@@ -4,8 +4,8 @@ Open **Preferences → Data** for local backups, restore previews and ADIF trans
 
 | Application | Notebook schema | Accepted backup schemas |
 | --- | --- | --- |
-| Published v0.1.0 | 7 | Exact schemas 5–7 |
-| Current source, including RadioID | 8 | Exact schemas 5–8 |
+| Stable v0.2.0 and current source, including RadioID | 8 | Exact schemas 5–8 |
+| Previous v0.1.0 | 7 | Exact schemas 5–7 |
 
 RadioID is optional and off after upgrading an older notebook. Schema-8 backups include its consent, retry schedule, DMR ID metadata, automatic-field origins and pre-enrichment participant snapshots. Restoring a backup with RadioID enabled also restores permission for its scheduled callsign requests. Disable it before exporting if you want that choice disabled in the restored copy.
 
@@ -19,7 +19,7 @@ Downloaded backups and upload staging files are private temporary files alongsid
 
 ## Restore a backup
 
-1. Choose **Restore backup**, select a consistent SQLite backup and choose **Validate and preview**. The limit is **64 MiB**. Current source accepts only the exact QSObook schemas **5 through 8**; v0.1.0 accepts **5 through 7**; earlier/newer versions or foreign/modified schemas are rejected. A schema-5/6/7 upload is migrated in its isolated staging copy.
+1. Choose **Restore backup**, select a consistent SQLite backup and choose **Validate and preview**. The limit is **64 MiB**. v0.2.0 accepts only the exact QSObook schemas **5 through 8**; v0.1.0 accepts **5 through 7**; earlier/newer versions or foreign/modified schemas are rejected. A schema-5/6/7 upload is migrated in its isolated staging copy.
 2. Review the number of stations, contacts, rounds and trashed items. Restoration replaces the **entire** current notebook, including map preferences and trash. It does not merge two notebooks.
 3. Check the confirmation box and confirm. If the notebook changed since the preview, send the file again. Cancel discards the staged upload.
 4. The app creates and validates a durable **pre-restore recovery snapshot** in `backups/` beside the live database before replacing any rows. If that step fails, restoration stops. Table replacement happens in a single SQLite transaction, with foreign-key checks; the open database file is never renamed or swapped.
@@ -29,7 +29,7 @@ The validator checks schema definitions, SQLite integrity, foreign keys and appl
 
 After restoration, previously open forms expire, preventing stale IDs from modifying the restored notebook. Refresh other tabs. Run a single QSObook process per notebook; direct writes by other programs during maintenance are unsupported. Explicit ordinary edits still use last-write-wins behavior.
 
-Do not upload a raw `.db` copied while SQLite is active: its WAL/journal may contain required data. Use the application backup or the stopped full-directory procedure in the [installation guide](INSTALL.md). Restoration is deliberately strict and bounded; retain your original backup if it is refused. There is no automatic schema downgrade. Before upgrading beta 4 to schema 7, retain a pre-upgrade schema-5 copy: beta 4 cannot open schema 7. Beta 5 and stable v0.1.0 share schema 7. Current source upgrades to schema 8; v0.1.0 cannot reopen it. Rollback requires the separately preserved older backup, not a schema-version edit.
+Do not upload a raw `.db` copied while SQLite is active: its WAL/journal may contain required data. Use the application backup or the stopped full-directory procedure in the [installation guide](INSTALL.md). Restoration is deliberately strict and bounded; retain your original backup if it is refused. There is no automatic schema downgrade. Before upgrading beta 4 to schema 7, retain a pre-upgrade schema-5 copy: beta 4 cannot open schema 7. Beta 5 and stable v0.1.0 share schema 7. v0.2.0 upgrades to schema 8; v0.1.0 cannot reopen it. Rollback requires the separately preserved older backup, not a schema-version edit.
 
 ## Recoverable deletion
 

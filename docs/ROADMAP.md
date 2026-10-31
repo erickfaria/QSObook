@@ -1,8 +1,8 @@
 # Incremental roadmap
 
-The latest published image is v0.1.0 (schema 7). Current source additionally implements optional RadioID autofill (schema 8); it requires a source build until a new release is published. This roadmap describes current capabilities and possible next steps; it does not promise dates or unimplemented features. Historical changes are preserved in [Releases](https://github.com/erickfaria/QSObook/releases) and Git tags.
+Stable v0.2.0 includes optional RadioID autofill (schema 8), also present in current source. Previous v0.1.0 uses schema 7 and cannot reopen an upgraded notebook. This roadmap describes current capabilities and possible next steps; it does not promise dates or unimplemented features. Historical changes are preserved in [Releases](https://github.com/erickfaria/QSObook/releases) and Git tags.
 
-## Implemented in current source
+## Implemented in v0.2.0
 
 - A Go/SQLite monolith with embedded HTML, CSS and plain JavaScript. The core notebook works offline, without accounts, telemetry or external callsign services.
 - One QSO workspace for listening or optional named roundtables, remembered roundtable names/editions, an active/QRT list and explicit contact confirmation.
@@ -12,7 +12,7 @@ The latest published image is v0.1.0 (schema 7). Current source additionally imp
 - Portuguese, English, Spanish and French; compact phone controls, white/pastel and dark/system themes, locally bundled open fonts and original SVG branding.
 - Optional Leaflet/OpenStreetMap city points, an approximate home marker, local mode/band filters, geographic-only opt-in geocoding, coordinate/negative caches, provider cooldowns and offline corrections.
 - Recoverable deletion, validated SQLite backup/restoration with pre-restore recovery copies, and previewed ASCII ADIF import/export.
-- Installed app/source/schema information and manual update guidance. Source migrations run through schema 8; v0.1.0 retains schema 7. Migration tests protect older notebooks.
+- Installed app/source/schema information and manual update guidance. v0.2.0 migrations run through schema 8; v0.1.0 retains schema 7. Migration tests protect older notebooks.
 - Docker Compose with persistent local storage, optional passwords for trusted LAN/VPN access, native Linux AMD64/ARM64 checks and separate stable/beta image channels.
 
 See the [README](../README.md) for the workflow and screenshots, [architecture](ARCHITECTURE.md) for implementation/data guarantees, [installation guide](INSTALL.md) for deployment, and [data guide](DATA.md) for recovery and interchange limits.

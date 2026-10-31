@@ -12,10 +12,11 @@ Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICE
 
 | Distribution | Database schema | RadioID |
 | --- | --- | --- |
-| Published [v0.1.0](https://github.com/erickfaria/QSObook/releases/tag/v0.1.0) image | 7 | Not included |
+| Stable [v0.2.0](https://github.com/erickfaria/QSObook/releases/tag/v0.2.0) image | 8 | Optional, disabled by default |
+| Previous v0.1.0 image | 7 | Not included |
 | Current source | 8 | Optional, disabled by default |
 
-Use the [installation guide](docs/INSTALL.md) for the published image or the [source Docker guide](docs/DOCKER.md) for the current code. Merging code does not publish an image or update your Pi. Back up before opening an existing notebook with newer source: v0.1.0 cannot open schema 8.
+Use the [installation guide](docs/INSTALL.md) for the stable image or the [source Docker guide](docs/DOCKER.md) to build the current code. Merging code does not publish an image or update your Pi. Back up before upgrading: v0.1.0 cannot open schema 8.
 
 ## One QSO workspace
 
@@ -39,7 +40,7 @@ Enable **RadioID autofill** under Preferences, then type a callsign in QSO mode 
 
 This option is **off by default**. Enabling it sends the requested callsign and server IP to RadioID, with an identifying client header; no QSO details or notes are sent. A persisted daily schedule retries up to ten incomplete registered stations in a batch at most once per 24 hours, with spaced requests and provider cooldowns. It resumes after restart and does not look up unsaved failed drafts in the background. Failed calls retry after a day; no-result lookups are cached for seven days. The notebook remains usable offline. Anonymous API access is subject to the provider's availability and access policy.
 
-This source feature adds **schema 8** and includes pending lookup/origin metadata in backups. Back up before upgrading: stable v0.1.0 uses schema 7 and cannot open an upgraded notebook. Restore accepts exact schemas 5–8 and migrates older snapshots in isolation. Use a current source build for RadioID until a release containing it is published. A missing RadioID entry does not establish whether a callsign is licensed.
+Included in **v0.2.0**, this feature adds **schema 8** and includes pending lookup/origin metadata in backups. Back up before upgrading: v0.1.0 uses schema 7 and cannot open an upgraded notebook. Restore accepts exact schemas 5–8 and migrates older snapshots in isolation. A missing RadioID entry does not establish whether a callsign is licensed.
 
 ## Compact on a phone
 
@@ -91,7 +92,7 @@ Correct a map point through the city's **Correct location** link or **My locatio
 
 ## Stable release and ready-made image
 
-**v0.1.0** is the first stable release. The release workflow publishes tested Linux ARM64/AMD64 images to **GitHub Container Registry**, with digest-pinned Compose downloads and provenance attestations. No Docker Hub account or local compilation is needed. See the [installation guide](docs/INSTALL.md) for v0.1.0 release files, Tortuga/private-LAN or VPN access with an optional password, backups and manual updates. A new GitHub commit does not automatically deploy to your server.
+**v0.2.0** adds optional RadioID autofill to the first stable v0.1.0 release. The release workflow publishes tested Linux ARM64/AMD64 images to **GitHub Container Registry**, with digest-pinned Compose downloads and provenance attestations. No Docker Hub account or local compilation is needed. See the [installation guide](docs/INSTALL.md) for v0.2.0 release files, Tortuga/private-LAN or VPN access with an optional password, backups and manual updates. A new GitHub commit does not automatically deploy to your server.
 
 The network option is for a trusted home LAN; HTTP does not encrypt traffic. Use HTTPS/VPN for untrusted networks or internet access. Standalone/local-only defaults remain unchanged. Do not expose the unauthenticated local configuration.
 
@@ -202,7 +203,7 @@ Use a separate test database, never a personal notebook:
 6. In **My location**, save without map consent: no provider should be contacted. Opt in, save a city and confirm a contact there. Reload Home to check cache reuse, the house and local mode/band filters. Test offline/provider failure without losing contacts.
 7. Download a backup, validate its restoration preview, cancel, and test Trash/restore plus ADIF preview on the disposable notebook. Existing sessions, QRT, links and historical notes should survive upgrades through schema 8.
 
-8. In a source build, confirm RadioID is initially off. Its automated tests use simulated providers. For a deliberate manual external check, enable it under Preferences and press Enter on a callsign you intend to save. Edit a returned value, save, look up again and verify the correction survives. Disable the option to return to local-only lookup.
+8. Confirm RadioID is initially off. Its automated tests use simulated providers. For a deliberate manual external check, enable it under Preferences and press Enter on a callsign you intend to save. Edit a returned value, save, look up again and verify the correction survives. Disable the option to return to local-only lookup.
 
 Automated geographic and RadioID tests use fake local providers. Public map services should only be exercised manually and sparingly in accordance with their policies. Hosted ARM64 CI complements physical Raspberry Pi testing.
 

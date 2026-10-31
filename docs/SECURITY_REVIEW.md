@@ -1,6 +1,6 @@
 # Source security review
 
-Reviewed on **2026-10-31** for current source, including optional RadioID enrichment and schema 8. The published v0.1.0 image remains schema 7. Scope: HTTP/access controls, local lookup, registration/QSO integrity, RadioID requests/retries, backup/restoration, browser behavior and the existing container/release boundary. This is a source review with automated checks, not an independent audit or a guarantee against all vulnerabilities.
+Reviewed on **2026-10-31** for the v0.2.0 source, including optional RadioID enrichment and schema 8. Previous v0.1.0 uses schema 7. Scope: HTTP/access controls, local lookup, registration/QSO integrity, RadioID requests/retries, backup/restoration, browser behavior and the existing container/release boundary. This is a source review with automated checks, not an independent audit or a guarantee against all vulnerabilities.
 
 ## RadioID and privacy
 
@@ -40,7 +40,7 @@ Pinned govulncheck v1.9.0 reported zero reachable vulnerabilities and zero findi
 
 ## Earlier stable corrections
 
-The v0.1.0 review on 2026-10-24 corrected query-parameter fallback for POST write targets, normalized stored timestamp offsets for monthly totals and returned validation errors for invalid map-edit input. It consolidated unused queries/styles and overlapping tests. That published release retained schema 7; schema 8 belongs to the later RadioID source changes.
+The v0.1.0 review on 2026-10-24 corrected query-parameter fallback for POST write targets, normalized stored timestamp offsets for monthly totals and returned validation errors for invalid map-edit input. It consolidated unused queries/styles and overlapping tests. That published release retained schema 7; schema 8 is introduced by v0.2.0 with optional RadioID enrichment.
 
 ## Operational limits
 
