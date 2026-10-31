@@ -6,7 +6,16 @@
 
 A small, free, self-hosted amateur radio notebook. Register an operator and confirm a contact on one compact screen; roundtables are optional.
 
-Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No required accounts, telemetry, analytics or CDNs. Callsign lookup is local by default. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English. [Release notes](docs/RELEASE_NOTES.md) describe the stable version. Start with the [Wiki](https://github.com/erickfaria/QSObook/wiki) or [installation guide](docs/INSTALL.md).
+Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No required accounts, telemetry, analytics or CDNs. Callsign lookup is local by default. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English. [Release notes](docs/RELEASE_NOTES.md) distinguish current source changes from published versions. Start with the [Wiki](https://github.com/erickfaria/QSObook/wiki) or [installation guide](docs/INSTALL.md).
+
+## Choose a distribution
+
+| Distribution | Database schema | RadioID |
+| --- | --- | --- |
+| Published [v0.1.0](https://github.com/erickfaria/QSObook/releases/tag/v0.1.0) image | 7 | Not included |
+| Current source | 8 | Optional, disabled by default |
+
+Use the [installation guide](docs/INSTALL.md) for the published image or the [source Docker guide](docs/DOCKER.md) for the current code. Merging code does not publish an image or update your Pi. Back up before opening an existing notebook with newer source: v0.1.0 cannot open schema 8.
 
 ## One QSO workspace
 
@@ -22,15 +31,15 @@ Enter a callsign and fill in the operator's details. Existing callsigns retrieve
 
 Confirmation is transactional. Retrying the same form or clicking repeatedly produces one contact for that participation, preserving its snapshot and any newer registration. A key reused for another callsign is rejected. Adding an existing participant preserves their saved mode, notes and QRT state; use **More → Edit** to revise the listening draft before confirmation. To intentionally record another conversation in the same session, remove and add that station again. New sessions create independent participations.
 
-New entries only complete missing registration fields. Use **Edit registrations** to replace saved values or permanent notes. Operator edits never rewrite historical contact snapshots. The former `/records` page opens this same workspace; legacy POST endpoints remain compatible.
+New entries preserve saved manual values and complete missing fields. Explicit edits to RadioID-supplied fields take priority, including when you save while the lookup is in progress. Use **Edit registrations** to replace other saved values or intentionally clear fields and permanent notes. Operator edits never rewrite historical contact snapshots. The former `/records` page opens this same workspace; legacy POST endpoints remain compatible.
 
 ## Optional RadioID autofill
 
 Enable **RadioID autofill** under Preferences, then type a callsign in QSO mode and press **Enter**. Local data appears first. If fields are missing, the backend performs an exact [RadioID API](https://radioid.net/api/) lookup, saves available details locally and fills only untouched empty inputs. Fresh manual corrections take priority; QSOs and closed-session participant details are preserved. The browser remains editable, with brief translated progress/outcome messages.
 
-This option is **off by default**. Enabling it sends the requested callsign and server IP to RadioID, with an identifying client header; no QSO details or notes are sent. A persisted daily schedule retries at most ten incomplete registered stations per batch, with spaced requests and provider cooldowns. Failed calls retry after a day; no-result lookups are cached for seven days. The notebook remains usable offline. Anonymous API access is subject to the provider's availability and access policy.
+This option is **off by default**. Enabling it sends the requested callsign and server IP to RadioID, with an identifying client header; no QSO details or notes are sent. A persisted daily schedule retries up to ten incomplete registered stations in a batch at most once per 24 hours, with spaced requests and provider cooldowns. It resumes after restart and does not look up unsaved failed drafts in the background. Failed calls retry after a day; no-result lookups are cached for seven days. The notebook remains usable offline. Anonymous API access is subject to the provider's availability and access policy.
 
-This source feature adds **schema 8** and includes pending lookup/origin metadata in backups. Back up before upgrading: stable v0.1.0 uses schema 7 and cannot open an upgraded notebook. Restore accepts exact schemas 5–8 and migrates older snapshots in isolation. This branch does not publish a new container image.
+This source feature adds **schema 8** and includes pending lookup/origin metadata in backups. Back up before upgrading: stable v0.1.0 uses schema 7 and cannot open an upgraded notebook. Restore accepts exact schemas 5–8 and migrates older snapshots in isolation. Use a current source build for RadioID until a release containing it is published. A missing RadioID entry does not establish whether a callsign is licensed.
 
 ## Compact on a phone
 
@@ -58,7 +67,7 @@ The [Nominatim usage policy](https://operations.osmfoundation.org/policies/nomin
 
 **Caderno** (Notebook) lists confirmed contacts, automatic date/time, mode, band, optional roundtable name and conversation notes. Search by callsign/name or open a city/mode/band selection from the map. Dates are stored in UTC and displayed in the configured time zone. Stations and Notebook show 50 results per page with previous/next links. Search includes callsign, name and city, ignoring common Latin accents; Notebook adds an inclusive date range in the configured time zone.
 
-QSO mode is a primary navigation item. Existing rounds, participants, QRT state, notes, IDs and contact links remain intact. Closed sessions are read-only and display current registrations; each confirmed QSO retains its historical snapshot. The workspace lists the latest 50 sessions. Station and Notebook searches show 50 results per page.
+QSO mode is a primary navigation item. Existing rounds, participants, QRT state, notes, IDs and contact links remain intact. Closed sessions are read-only. Before RadioID changes a registration, existing closed/removed participations retain their previous displayed details; each confirmed QSO always retains its historical snapshot. The workspace lists the latest 50 sessions. Station and Notebook searches show 50 results per page.
 
 Screenshots use fictitious operators and demonstration contacts only. Explicit concurrent edits still use the last saved values. Replay protection applies to QSO entry and participant confirmation; older direct `POST /contact` clients retain their previous new-contact semantics.
 
@@ -139,7 +148,7 @@ The default time zone is `America/Sao_Paulo`; use `-timezone UTC` for UTC displa
 
 Stop the application and every other process using its database before making a manual copy. Preserve any SQLite journal files. Do not copy only the `.db` file while it is in use. Test a copy at a separate path before relying on it.
 
-Database migrations run in a transaction and retain operator, contact and participation records. Schema version 7 adds optional round editions and remembered round names to the recoverable deletion, band/round-label and map settings schema, retaining persistent participation IDs, roundtables, presence status and cached coordinates. The previous live list becomes “Rodada anterior” during migration, retaining IDs and QSO links; an empty database waits for an explicit start. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
+Database migrations run in a transaction and retain operator, contact and participation records. Current source uses schema 8: migration 8 adds disabled-by-default RadioID consent, retry/origin metadata and historical-participation protection to the existing schema-7 notebook. Existing operators, QSOs, participant IDs/links, sessions, QRT state and coordinates are retained. The previous live list becomes “Rodada anterior” during migration, retaining IDs and QSO links; an empty database waits for an explicit start. Databases with a newer schema are rejected; downgrades are not automatic. Make a stopped-database copy before upgrading.
 
 Open **Preferences → Data** for consistent SQLite backups, validated restoration and ADIF contact transfer. **Trash** provides recoverable deletion. There is no permanent purge. Read the [data and recovery guide](docs/DATA.md) for limits, duplicate handling and recovery procedures.
 
@@ -157,7 +166,7 @@ CGO_ENABLED=0 go vet ./...
 git diff --check
 ```
 
-Tests use temporary databases and fictitious data. They cover persistence, validation, historical snapshots, independent notes, rollback, concurrent confirmation, callsign reuse, round lifecycle/QRT, stale actions, map opt-in, geographic-only requests, local/negative caches, rate limits, provider failures, HTTP security and migrations from earlier schemas. Automated map tests use local HTTP providers, never public geocoding services. Migration tests verify that records and links survive, failures roll back and removed participation IDs stay unused after reopening the database.
+Tests use temporary databases and fictitious data. RadioID and map tests use local HTTP providers, never public lookup services. They cover persistence, validation, historical snapshots, independent notes, rollback, concurrent confirmation, callsign reuse, round lifecycle/QRT, stale actions, map opt-in, geographic-only requests, local/negative caches, rate limits, provider failures, HTTP security and migrations from earlier schemas. Automated map tests use local HTTP providers, never public geocoding services. Migration tests verify that records and links survive, failures roll back and removed participation IDs stay unused after reopening the database.
 
 JavaScript tests optionally use Node.js and its built-in test runner:
 
@@ -165,7 +174,7 @@ JavaScript tests optionally use Node.js and its built-in test runner:
 node --test tests/*.test.cjs
 ```
 
-No npm packages are required. The tests run lookup/form behavior against a simulated DOM with controlled requests and timers, and verify translated browser messages, theme persistence, system changes and unavailable browser storage. They do not replace real browser testing.
+No npm packages are required. The tests run local/RadioID lookup and form behavior against a simulated DOM with controlled requests and timers, and verify translated browser messages, theme persistence, system changes and unavailable browser storage. They do not replace real browser testing.
 
 To keep development caches and temporary files inside the repository:
 
@@ -191,9 +200,11 @@ Use a separate test database, never a personal notebook:
 4. End the session. Start a named roundtable with an edition, confirm a contact and close it. Start again: the name/edition should be prefilled, while roundtable participation remains unchecked. Change the edition and verify older QSO labels remain unchanged.
 5. Submit invalid fields and verify drafts stay visible. Change callsigns quickly to exercise stale lookup protection. Try Portuguese, English, Spanish and French, light/dark/system themes, phone widths and forms without JavaScript.
 6. In **My location**, save without map consent: no provider should be contacted. Opt in, save a city and confirm a contact there. Reload Home to check cache reuse, the house and local mode/band filters. Test offline/provider failure without losing contacts.
-7. Download a backup, validate its restoration preview, cancel, and test Trash/restore plus ADIF preview on the disposable notebook. Existing sessions, QRT, links and historical notes should survive the schema-7 migration.
+7. Download a backup, validate its restoration preview, cancel, and test Trash/restore plus ADIF preview on the disposable notebook. Existing sessions, QRT, links and historical notes should survive upgrades through schema 8.
 
-Automated geographic tests use fake local providers. Public map services should only be exercised manually and sparingly in accordance with their policies. Hosted ARM64 CI complements physical Raspberry Pi testing.
+8. In a source build, confirm RadioID is initially off. Its automated tests use simulated providers. For a deliberate manual external check, enable it under Preferences and press Enter on a callsign you intend to save. Edit a returned value, save, look up again and verify the correction survives. Disable the option to return to local-only lookup.
+
+Automated geographic and RadioID tests use fake local providers. Public map services should only be exercised manually and sparingly in accordance with their policies. Hosted ARM64 CI complements physical Raspberry Pi testing.
 
 ## Structure and maintenance
 

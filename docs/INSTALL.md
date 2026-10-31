@@ -1,5 +1,7 @@
 # Install and update QSObook
 
+This guide installs the **published v0.1.0 image (schema 7)**. Current source adds optional RadioID autofill and schema 8; those changes are not yet in a published image. For source builds, use [DOCKER.md](DOCKER.md). Do not point a v0.1.0 container at a schema-8 notebook. A code merge or `docker compose pull` cannot add a feature absent from the selected image.
+
 QSObook v0.1.0 is the first stable release for personal local/private-network use, including a 64-bit Raspberry Pi running Debian. Ready-made images support **Linux ARM64 and AMD64**. No Go compiler, Node.js or Docker Hub account is needed on the Pi. Public images can be pulled anonymously from GitHub Container Registry.
 
 Use the official [Docker Engine installation instructions](https://docs.docker.com/engine/install/debian/) and [Compose plugin guide](https://docs.docker.com/compose/install/) if these tools are missing. Check `docker version` and `docker compose version` first. Use a maintained Docker Engine release 28 or newer. This project does not install host packages, change your firewall or modify other services.
@@ -119,7 +121,7 @@ Stable v0.1.0 and beta 5 both use **schema 7**. Upgrading beta 5 requires no new
 
 Back up before updating. Beta 4 and earlier cannot open schema 7; returning to those versions requires a separately preserved pre-upgrade backup, not simply an older image. There is no automatic schema downgrade.
 
-The backup/restore UI accepts exact schema-5/6/7 SQLite snapshots up to 64 MiB. A schema-5/6 upload is upgraded in an isolated staging copy. Restoration replaces the entire notebook only after preview/confirmation and a validated pre-restore recovery snapshot. It is not a notebook merge. See [backup, Trash and ADIF procedures](DATA.md).
+The v0.1.0 backup/restore UI accepts exact schema-5/6/7 SQLite snapshots up to 64 MiB. A schema-5/6 upload is upgraded in an isolated staging copy. Restoration replaces the entire notebook only after preview/confirmation and a validated pre-restore recovery snapshot. It is not a notebook merge. See [backup, Trash and ADIF procedures](DATA.md).
 
 ## Update when you decide
 
@@ -157,3 +159,9 @@ gh attestation verify "oci://$(cat image-digest.txt)" --repo erickfaria/QSObook
 ```
 
 This verifies a recorded build identity; it is not a vulnerability-free guarantee or an external security audit. CI uses supported Go 1.27.3 and pinned `govulncheck` v1.9.0 to reject reachable Go vulnerabilities. Embedded upstream components and operational security still require maintenance. Release validation uses hosted native ARM64 tests and real containers. The maintainer has reported successful beta-5 use on a Raspberry Pi; each deployment should still verify its own records, map and backup flows.
+
+## Moving from the published image to current source
+
+Current source migrates a supported older notebook transactionally to schema 8. Save a consistent backup and retain the stopped deployment files before changing executables/images. Build and test against a separate notebook first; [DOCKER.md](DOCKER.md) describes the source workflow. Keep the original Compose project, volume and access settings when intentionally upgrading the real notebook.
+
+RadioID is off after migration. Enable it explicitly in Preferences if wanted. A schema-8 backup includes its consent, pending lookups and origin metadata; see [DATA.md](DATA.md). Rolling back to v0.1.0 requires the preserved schema-7 backup. Do not downgrade the only live copy, delete its volume or edit its schema version.

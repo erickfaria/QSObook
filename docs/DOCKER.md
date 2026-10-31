@@ -1,5 +1,7 @@
 # Install QSObook with Docker Compose
 
+This guide builds **current source**, which uses schema 8 and includes optional RadioID autofill. The published v0.1.0 image uses schema 7; its installation instructions are in [INSTALL.md](INSTALL.md). Back up before replacing that image with a source build: v0.1.0 cannot reopen an upgraded notebook.
+
 For a ready-made stable image and private-LAN access on Tortuga, use the [installation guide](INSTALL.md). This guide builds the image on your own computer. You do **not** need a Docker Hub account or to publish anything. The first build downloads the official Go build image and the pinned Go modules. Subsequent use works offline, except for maps explicitly enabled by you.
 
 ## What the pieces mean
@@ -28,7 +30,7 @@ You do not need Go, Node.js, npm or a system SQLite installation to build and ru
 
 ## 2. Get the source
 
-Once this change has been merged:
+Clone the repository:
 
 ```sh
 git clone https://github.com/erickfaria/QSObook.git
@@ -49,7 +51,7 @@ docker compose logs --tail=30 qsobook
 
 Wait for the startup log, then open **http://127.0.0.1:8080** in your browser on the same computer. The first build can take several minutes, particularly on a Raspberry Pi. Keep the Pi powered and allow enough disk space for the Go builder and build cache. Future starts reuse the image.
 
-The image runs as user `10001:10001`, with a read-only root filesystem and no Linux capabilities. The writable `/data` directory is a named Docker volume. Certificates and Go's embedded time-zone data allow the existing optional map functionality to work without a Linux distribution in the final image. The runtime image contains no shell or package manager.
+The image runs as user `10001:10001`, with a read-only root filesystem and no Linux capabilities. The writable `/data` directory is a named Docker volume. Certificates and Go's embedded time-zone data support HTTPS for optional maps and RadioID lookups without a Linux distribution in the final image. The runtime image contains no shell or package manager.
 
 To use another **local** port, create a `.env` file next to `compose.yaml`:
 
@@ -72,6 +74,10 @@ ssh -N -L 8081:127.0.0.1:8080 your-user@your-pi
 ```
 
 Then open `http://127.0.0.1:8081` on that computer. This uses your existing SSH access; QSObook does not configure SSH. For direct access from phones on a trusted home LAN, use the private-network configuration with optional password in [INSTALL.md](INSTALL.md). Choose the documented LAN/VPN profile to bind to a specific network interface.
+
+RadioID autofill is separate from map consent. In current source, explicitly enable it under Preferences and press Enter on a callsign in QSO mode. Only the backend contacts RadioID. Missing data or internet access never prevents manual entry; see the [lookup and privacy rules](../README.md#optional-radioid-autofill).
+
+For a disposable source test, use a different Compose project and unused port, for example `QSOBOOK_PORT=18089 docker compose -p qsobook-test up -d --build`. Its separate volume must not be confused with the real `qsobook_data` notebook. Keep the project name stable for subsequent starts.
 
 ## 5. Stop and resume
 
@@ -127,6 +133,8 @@ Schema migrations run transactionally at startup, as in the standalone app. Keep
 - **Container stops immediately:** inspect `docker compose logs --tail=50 qsobook`. Check the volume and any custom command before restarting; do not remove the volume to fix a startup error.
 - **Empty notebook after changing project name:** the new project uses a different volume. Stop it and return to the original project name; do not delete either volume while investigating.
 - **`Host not allowed` / Origin rejected:** use the local address or the SSH tunnel described above. These protections are intentional.
+- **RadioID option missing:** the published v0.1.0 image does not contain it. Check About; use current source or a future release that includes schema 8.
+- **RadioID unavailable/not found:** continue manually. Check consent and the provider’s access policy. Failures and no-match results are cached; do not remove the notebook or repeatedly restart to force queries.
 - **Map unavailable:** the notebook works offline. The map requires explicit opt-in, internet access and compliance with provider policies; see the [README](../README.md#a-small-home-screen-and-a-cached-map).
 
 ## Building for another architecture

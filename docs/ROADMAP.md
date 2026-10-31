@@ -1,17 +1,18 @@
 # Incremental roadmap
 
-QSObook v0.1.0 is the current stable release. This roadmap describes current capabilities and possible next steps; it does not promise dates or unimplemented features. Historical changes are preserved in [Releases](https://github.com/erickfaria/QSObook/releases) and Git tags.
+The latest published image is v0.1.0 (schema 7). Current source additionally implements optional RadioID autofill (schema 8); it requires a source build until a new release is published. This roadmap describes current capabilities and possible next steps; it does not promise dates or unimplemented features. Historical changes are preserved in [Releases](https://github.com/erickfaria/QSObook/releases) and Git tags.
 
-## Available now
+## Implemented in current source
 
 - A Go/SQLite monolith with embedded HTML, CSS and plain JavaScript. The core notebook works offline, without accounts, telemetry or external callsign services.
 - One QSO workspace for listening or optional named roundtables, remembered roundtable names/editions, an active/QRT list and explicit contact confirmation.
-- Local callsign autofill, independent operator/conversation notes, historical QSO snapshots, transactional writes and replay protection.
+- Local callsign autofill plus optional exact backend RadioID queries on Enter, protected manual corrections and bounded daily retries of incomplete registrations.
+- Independent operator/conversation notes, historical QSO snapshots, transactional writes and replay protection.
 - Operator registration/editing and a paginated notebook with callsign/name/city search, common Latin accent folding and local-calendar date ranges.
 - Portuguese, English, Spanish and French; compact phone controls, white/pastel and dark/system themes, locally bundled open fonts and original SVG branding.
 - Optional Leaflet/OpenStreetMap city points, an approximate home marker, local mode/band filters, geographic-only opt-in geocoding, coordinate/negative caches, provider cooldowns and offline corrections.
 - Recoverable deletion, validated SQLite backup/restoration with pre-restore recovery copies, and previewed ASCII ADIF import/export.
-- Installed app/source/schema information and manual update guidance. Stable v0.1.0 retains schema 7 from beta 5; migration tests protect older notebooks.
+- Installed app/source/schema information and manual update guidance. Source migrations run through schema 8; v0.1.0 retains schema 7. Migration tests protect older notebooks.
 - Docker Compose with persistent local storage, optional passwords for trusted LAN/VPN access, native Linux AMD64/ARM64 checks and separate stable/beta image channels.
 
 See the [README](../README.md) for the workflow and screenshots, [architecture](ARCHITECTURE.md) for implementation/data guarantees, [installation guide](INSTALL.md) for deployment, and [data guide](DATA.md) for recovery and interchange limits.
