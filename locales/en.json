@@ -1,7 +1,6 @@
 {
   ". Alterações afetam somente este QSO.": ". Changes affect only this QSO.",
   ". Buscas de cidades são manuais. Sem internet, o caderno continua funcionando.": ". City searches are manual. Your notebook still works offline.",
-  "Adicionar à rodada": "Add to round",
   "Afastar": "Zoom out",
   "Alterações no cadastro não modificam os QSOs já registrados.": "Registration changes do not modify recorded QSOs.",
   "Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita.": "Enabling the map shares your IP and the viewed area with the map provider. Locating a city sends only its city, state and country to the geocoding service, never callsigns, names or notes. Searches are manual, never as you type.",

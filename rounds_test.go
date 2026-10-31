@@ -204,7 +204,7 @@ func TestHTTPRoundLifecycle(t *testing.T) {
 		t.Fatalf("end: %d %s", w.Code, w.Body)
 	}
 	closed := request(a, "GET", "/round?id="+strconv.FormatInt(round.ID, 10), nil)
-	if closed.Code != 200 || strings.Contains(closed.Body.String(), "Adicionar à rodada") || strings.Contains(closed.Body.String(), "/participant/status") {
+	if closed.Code != 200 || strings.Contains(closed.Body.String(), `action="/qso/entry"`) || strings.Contains(closed.Body.String(), "/participant/status") {
 		t.Fatal("closed round is editable")
 	}
 	if w := request(a, "POST", "/participant", form); w.Code != 404 {

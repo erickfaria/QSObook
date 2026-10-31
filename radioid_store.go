@@ -13,7 +13,6 @@ import (
 type radioIDMetadata struct {
 	Status   string
 	Next     int64
-	Fields   int
 	Revision string
 	IDs      []int64
 }
@@ -27,7 +26,7 @@ func (s *Store) radioIDEnabled(ctx context.Context) (bool, error) {
 func (s *Store) radioIDMetadata(ctx context.Context, callsign string) (radioIDMetadata, error) {
 	var m radioIDMetadata
 	var ids string
-	err := s.db.QueryRowContext(ctx, "SELECT status,next_attempt,auto_fields,revision,radio_ids FROM radioid_lookups WHERE callsign=?", callsign).Scan(&m.Status, &m.Next, &m.Fields, &m.Revision, &ids)
+	err := s.db.QueryRowContext(ctx, "SELECT status,next_attempt,revision,radio_ids FROM radioid_lookups WHERE callsign=?", callsign).Scan(&m.Status, &m.Next, &m.Revision, &ids)
 	if errors.Is(err, sql.ErrNoRows) {
 		return m, nil
 	}

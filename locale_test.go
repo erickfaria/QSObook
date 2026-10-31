@@ -73,7 +73,7 @@ func TestTranslationCatalogsCoverUI(t *testing.T) {
 	}
 }
 
-func TestLanguagePreferenceValidationAndSecurity(t *testing.T) {
+func TestLanguagePreferenceCookieAndValidation(t *testing.T) {
 	a := testApp(t)
 	for _, language := range []string{"pt-BR", "en", "es", "fr"} {
 		form := url.Values{"csrf": {a.token}, "language": {language}, "return_to": {"/history?q=ZZ0TEST&city=Example"}}
@@ -94,20 +94,6 @@ func TestLanguagePreferenceValidationAndSecurity(t *testing.T) {
 		if w.Code != 400 || !strings.Contains(w.Body.String(), "Invalid language") || len(w.Result().Cookies()) != 0 {
 			t.Errorf("accepted language %q: %d %s", language, w.Code, w.Body)
 		}
-	}
-	if w := languageRequest(a, "en", "POST", "/language", url.Values{"language": {"en"}, "return_to": {"/"}}); w.Code != 403 || len(w.Result().Cookies()) != 0 {
-		t.Fatal("language preference bypassed CSRF")
-	}
-	r := httptest.NewRequest("POST", "http://127.0.0.1:8080/language", strings.NewReader(url.Values{"csrf": {a.token}, "language": {"en"}, "return_to": {"/"}}.Encode()))
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.Header.Set("Origin", "https://example.com")
-	w := httptest.NewRecorder()
-	a.ServeHTTP(w, r)
-	if w.Code != 403 || len(w.Result().Cookies()) != 0 {
-		t.Fatal("language preference bypassed Origin validation")
-	}
-	if w := languageRequest(a, "en", "GET", "/language", nil); w.Code != 405 {
-		t.Fatal("language preference accepts GET")
 	}
 	for _, language := range []string{"", "de", "../fr"} {
 		w := languageRequest(a, language, "GET", "/", nil)

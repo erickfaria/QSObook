@@ -1,7 +1,6 @@
 {
   ". Alterações afetam somente este QSO.": ". Les modifications concernent uniquement ce QSO.",
   ". Buscas de cidades são manuais. Sem internet, o caderno continua funcionando.": ". La recherche de villes est manuelle. Le carnet fonctionne aussi hors connexion.",
-  "Adicionar à rodada": "Ajouter à la ronde",
   "Afastar": "Zoom arrière",
   "Alterações no cadastro não modificam os QSOs já registrados.": "Les modifications de la fiche ne changent pas les QSO déjà enregistrés.",
   "Ao ativar, o provedor de mapas recebe seu IP e a área visualizada. Localizar uma cidade envia apenas cidade, estado e país ao serviço de geocodificação, nunca indicativos, nomes ou observações. A consulta é manual, sem busca enquanto você digita.": "L’activation transmet votre IP et la zone affichée au fournisseur de cartes. Localiser une ville transmet uniquement la ville, la région et le pays au service de géocodage, jamais les indicatifs, noms ou notes. La recherche est manuelle, jamais pendant la saisie.",
