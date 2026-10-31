@@ -39,11 +39,14 @@ type App struct {
 	mux                      *http.ServeMux
 	mapTilesURL, geocoderURL string
 	geoClient                *http.Client
+	radioID                  radioIDService
 }
 type Page struct {
 	Version, Revision                                string
 	Schema                                           int
 	Language, ReturnTo, JSMessages                   string
+	RadioIDRevision                                  string
+	RadioIDEnabled                                   bool
 	Title, View, Token, Query, Message, Action, Back string
 	Stations                                         []Station
 	Contacts                                         []Contact
@@ -87,6 +90,8 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	}
 	a := &App{store: store, location: loc, translations: translations, token: hex.EncodeToString(secret), mux: http.NewServeMux(), mapTilesURL: defaultMapTiles, geocoderURL: defaultGeocoder,
 		geoClient: &http.Client{Timeout: 8 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}}
+	a.radioID.client = newRadioIDClient()
+	a.radioID.wake = make(chan struct{}, 1)
 	countryData, err := assets.ReadFile("locales/countries.json")
 	if err != nil {
 		return nil, err
@@ -142,6 +147,8 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.HandleFunc("POST /participant/remove", a.removeParticipant)
 	a.mux.HandleFunc("POST /participant/record", a.recordParticipant)
 	a.mux.HandleFunc("GET /lookup", a.lookup)
+	a.mux.HandleFunc("POST /lookup/radioid", a.radioIDLookup)
+	a.mux.HandleFunc("POST /radioid/preference", a.radioIDPreference)
 	a.mux.HandleFunc("GET /third-party-licenses", func(w http.ResponseWriter, r *http.Request) {
 		data, err := assets.ReadFile("docs/THIRD_PARTY_NOTICES.txt")
 		if err != nil {
@@ -230,6 +237,13 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.mux.ServeHTTP(w, r)
 }
 func (a *App) render(w http.ResponseWriter, r *http.Request, p Page) {
+	var err error
+	p.RadioIDEnabled, err = a.store.radioIDEnabled(r.Context())
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	p.RadioIDRevision = p.Station.radioIDRevision
 	p.Token = a.token
 	p.Language = requestLanguage(r)
 	p.ReturnTo = r.URL.RequestURI()
@@ -306,7 +320,7 @@ func identifier(r *http.Request, key string) (int64, error) {
 	return id, nil
 }
 func readStation(r *http.Request) Station {
-	return Station{Callsign: r.PostForm.Get("callsign"), Name: r.PostForm.Get("name"), City: r.PostForm.Get("city"), State: r.PostForm.Get("state"), Country: r.PostForm.Get("country"), Notes: r.PostForm.Get("notes")}
+	return Station{Callsign: r.PostForm.Get("callsign"), Name: r.PostForm.Get("name"), City: r.PostForm.Get("city"), State: r.PostForm.Get("state"), Country: r.PostForm.Get("country"), Notes: r.PostForm.Get("notes"), radioIDRevision: r.PostForm.Get("radioid_revision")}
 }
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, path, http.StatusSeeOther)
@@ -579,21 +593,13 @@ func (a *App) lookup(w http.ResponseWriter, r *http.Request) {
 		a.httpError(w, r, "Indicativo muito longo", 400)
 		return
 	}
-	st, err := a.store.lookup(r.Context(), q)
+	result, err := a.stationLookup(r.Context(), q)
 	if err != nil {
 		a.fail(w, r, err)
 		return
 	}
-	var count int
-	if err = a.store.db.QueryRowContext(r.Context(), "SELECT count(*) FROM qsos WHERE deleted_at IS NULL AND station_id=?", st.ID).Scan(&count); err != nil {
-		a.fail(w, r, err)
-		return
-	}
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(struct {
-		Station
-		Contacts int `json:"contacts"`
-	}{st, count})
+	json.NewEncoder(w).Encode(result)
 }
 
 func (a *App) participantForm(w http.ResponseWriter, r *http.Request) {

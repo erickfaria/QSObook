@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-var notebookTables = []string{"stations", "rounds", "qsos", "participants", "app_settings", "city_coordinates", "sqlite_sequence"}
+var notebookTables = []string{"stations", "rounds", "qsos", "participants", "app_settings", "city_coordinates", "radioid_lookups", "sqlite_sequence"}
 var errBackupInvalid = errors.New("Backup inválido ou incompatível. O banco atual não foi alterado.")
 
 type NotebookSummary struct{ Stations, Contacts, Trashed, Rounds int64 }
@@ -67,7 +67,7 @@ func expectedSignature(ctx context.Context, version int) (string, error) {
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema, workspaceSchema}
+	schemas := []string{initialSchema, participantIdentitySchema, roundsSchema, mapSchema, recordsSchema, dataToolsSchema, workspaceSchema, radioIDSchema}
 	for _, schema := range schemas[:version] {
 		if _, err = db.ExecContext(ctx, schema); err != nil {
 			return "", err
@@ -77,7 +77,7 @@ func expectedSignature(ctx context.Context, version int) (string, error) {
 }
 
 // Inspect without executing uploaded SQL, before allowing known migrations.
-// Only exact application schemas 5 through 7 are supported by the restore UI.
+// Only exact application schemas 5 through 8 are supported by the restore UI.
 func validateBackup(ctx context.Context, path string) error {
 	db, err := sql.Open("sqlite", sqliteFileURI(path)+"?mode=ro&_pragma=query_only(1)&_pragma=trusted_schema(0)")
 	if err != nil {
@@ -288,6 +288,27 @@ func validateBackupMetadata(ctx context.Context, db *sql.DB, version int) error 
 	st.Callsign = "HOME"
 	if err = db.QueryRowContext(ctx, "SELECT home_city,home_state,home_country FROM app_settings WHERE id=1").Scan(&st.City, &st.State, &st.Country); err != nil || st.validate() != nil {
 		return errBackupInvalid
+	}
+	if version >= 8 {
+		if err := validateRadioIDBackup(ctx, db); err != nil {
+			return errBackupInvalid
+		}
+		rows, err := db.QueryContext(ctx, "SELECT p.radioid_snapshot,s.id,s.callsign FROM participants p JOIN stations s ON s.id=p.station_id WHERE p.radioid_snapshot IS NOT NULL")
+		if err != nil {
+			return errBackupInvalid
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var data, callsign string
+			var id int64
+			if rows.Scan(&data, &id, &callsign) != nil {
+				return errBackupInvalid
+			}
+			if _, err := readRadioIDSnapshot(data, id, callsign); err != nil {
+				return errBackupInvalid
+			}
+		}
+		return rows.Err()
 	}
 	return nil
 }
