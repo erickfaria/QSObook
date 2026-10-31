@@ -127,7 +127,7 @@ Schema migrations run transactionally at startup, as in the standalone app. Keep
 - **Container stops immediately:** inspect `docker compose logs --tail=50 qsobook`. Check the volume and any custom command before restarting; do not remove the volume to fix a startup error.
 - **Empty notebook after changing project name:** the new project uses a different volume. Stop it and return to the original project name; do not delete either volume while investigating.
 - **`Host not allowed` / Origin rejected:** use the local address or the SSH tunnel described above. These protections are intentional.
-- **Map unavailable:** the notebook works offline. The map requires explicit opt-in, internet access and compliance with provider policies; see the [README](../README.md#optional-map-of-confirmed-contacts).
+- **Map unavailable:** the notebook works offline. The map requires explicit opt-in, internet access and compliance with provider policies; see the [README](../README.md#a-small-home-screen-and-a-cached-map).
 
 ## Building for another architecture
 

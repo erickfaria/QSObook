@@ -1,4 +1,4 @@
-# Binários e saídas locais de build (diretórios na raiz)
+# Local executables and build output (root directories)
 /bin/
 /dist/
 /qsobook
@@ -6,12 +6,12 @@
 *.exe
 *.test
 
-# Cobertura e perfis de desenvolvimento
+# Coverage and development profiles
 /coverage.out
 /coverage.html
 *.prof
 
-# Dados de execução: nunca versionar contatos reais ou backups locais
+# Runtime data: never commit personal contacts or local backups
 /data/
 /backups/
 *.db
@@ -27,18 +27,18 @@
 *.sqlite3-wal
 *.sqlite3-shm
 
-# Reservar fixtures SQLite sintéticas para futuros testes
+# Allow explicitly maintained synthetic SQLite fixtures
 !**/testdata/*.db
 !**/testdata/*.sqlite
 !**/testdata/*.sqlite3
 
-# Configuração privada local; exemplos continuam versionáveis
+# Private local configuration; examples remain trackable
 .env
 .env.*
 !.env.example
 !.env.*.example
 
-# Temporários de desenvolvimento
+# Temporary development files
 /tmp/
 *.tmp
 *.log
@@ -48,9 +48,9 @@
 .DS_Store
 Thumbs.db
 
-# go.mod, go.sum, SQL, fontes e assets NÃO devem ser ignorados.
+# Keep go.mod, go.sum, SQL, fonts and assets trackable.
 
-# Caches locais: manter builds e downloads dentro do projeto
+# Local caches: keep builds and downloads inside the project
 /.cache/
 
 # Private local access password files

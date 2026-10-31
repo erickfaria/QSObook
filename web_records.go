@@ -7,8 +7,6 @@ import (
 	"strings"
 )
 
-// Compatibility URL: render the same workspace, not a second entry panel.
-func (a *App) records(w http.ResponseWriter, r *http.Request) { a.round(w, r) }
 func recordChoice(r *http.Request, name string) string {
 	value := strings.TrimSpace(r.PostForm.Get(name))
 	if value == "__other" {

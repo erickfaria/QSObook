@@ -1,77 +1,33 @@
 # Incremental roadmap
 
-No dates are promised. Planned features are not available until implemented and verified.
+QSObook v0.1.0 is the current stable release. This roadmap describes current capabilities and possible next steps; it does not promise dates or unimplemented features. Historical changes are preserved in [Releases](https://github.com/erickfaria/QSObook/releases) and Git tags.
 
-## Implemented foundation
+## Available now
 
-- Go 1.24.4 module declaration, standard-library HTTP, embedded assets, local configuration and SQLite without CGO.
-- Separate operator registrations, historical QSO copies and current participants, with transactional migrations and relational integrity.
-- Operator registration/editing and a notebook with callsign/name search, contact details and editing.
-- QSO mode with a participant table, local callsign lookup, explicit confirmation, editing and removal.
-- Responsive forms, labels, keyboard focus, CSRF protection, HTTP limits and automated storage/HTTP tests.
+- A Go/SQLite monolith with embedded HTML, CSS and plain JavaScript. The core notebook works offline, without accounts, telemetry or external callsign services.
+- One QSO workspace for listening or optional named roundtables, remembered roundtable names/editions, an active/QRT list and explicit contact confirmation.
+- Local callsign autofill, independent operator/conversation notes, historical QSO snapshots, transactional writes and replay protection.
+- Operator registration/editing and a paginated notebook with callsign/name/city search, common Latin accent folding and local-calendar date ranges.
+- Portuguese, English, Spanish and French; compact phone controls, white/pastel and dark/system themes, locally bundled open fonts and original SVG branding.
+- Optional Leaflet/OpenStreetMap city points, an approximate home marker, local mode/band filters, geographic-only opt-in geocoding, coordinate/negative caches, provider cooldowns and offline corrections.
+- Recoverable deletion, validated SQLite backup/restoration with pre-restore recovery copies, and previewed ASCII ADIF import/export.
+- Installed app/source/schema information and manual update guidance. Stable v0.1.0 retains schema 7 from beta 5; migration tests protect older notebooks.
+- Docker Compose with persistent local storage, optional passwords for trusted LAN/VPN access, native Linux AMD64/ARM64 checks and separate stable/beta image channels.
 
-## Implemented QSO reliability
+See the [README](../README.md) for the workflow and screenshots, [architecture](ARCHITECTURE.md) for implementation/data guarantees, [installation guide](INSTALL.md) for deployment, and [data guide](DATA.md) for recovery and interchange limits.
 
-- Adding a participant stays separate from confirming a contact.
-- Existing operator fields survive blank, repeated and stale inclusion forms; replacements require explicit editing.
-- Permanent notes remain separate from conversation notes and historical contacts.
-- Registration and participation/manual-contact writes are transactional.
-- Repeated or simultaneous confirmation does not duplicate a QSO for the same participation.
-- Schema version 2 preserves existing records and prevents reuse of removed participation IDs.
-- Compact entry, inline editing and working alternatives without JavaScript.
-- Lookup request ordering and isolated drafts are covered by JavaScript tests without external packages.
-- English documentation describing the workflows, setup and data guarantees, with real application screenshots using fictitious data.
+## Maintenance
 
-CI runs native Linux AMD64 and ARM64 checks using Go 1.27.3 with CGO disabled, including container persistence/backup tests. Pinned govulncheck checks reachable Go vulnerabilities. Physical Raspberry Pi and phone feedback remains part of beta testing; hosted ARM64 tests do not replace it. Assistive-technology review is pending. Explicit concurrent edits retain last-write-wins behavior.
+- Review driver and transitive dependency versions, licensing and security notices before updating them.
+- Remove unused assets, obsolete text and duplicate checks while retaining migration, recovery, historical-data, security and replay regressions.
+- Validate changes through Go tests/vet, browser regressions, builds and native AMD64/ARM64 container checks. Keep test data isolated and map providers local/fictitious.
+- Continue physical Raspberry Pi and real-phone checks, including larger notebooks and assistive-technology review. Hosted ARM64 CI complements this work.
 
-## Implemented conversation workspace and home
+## Possible improvements
 
-- Muted pastel light/dark palettes with a browser-local selector and system mode.
-- An essential home screen with monthly/total confirmed-contact counts and the optional map.
-- Explicit round start/end, optional names, QRT/return state and read-only closed rounds.
-- Legacy participant preservation, non-reusable IDs and rejection of stale cross-round edits/actions.
-- Optional Leaflet/OpenStreetMap city points from confirmed historical contacts, grouped by location with links to city history.
-- Map opt-in, locally vendored assets, geographic-only manual geocoding, coordinate/negative caches, bounded requests and provider switching.
-- Tests for lifecycle, migration rollback, QRT, map privacy, caching, rate limits and provider failures; screenshots for the current UI.
-- GitHub Actions for pull requests and `main`: formatting, module verification, Go/JavaScript tests, vet and native Linux AMD64/ARM64 builds.
+- Conflict detection for simultaneous explicit edits; current edits use last-write-wins behavior.
+- Broader Unicode normalization, ADX/international interchange and additional ADIF fields, guided by actual use.
+- Accessibility and mobile refinements based on feedback.
+- Easier updates or Android support after the existing data workflow is stable.
 
-## Implemented unified QSO workspace (beta 5)
-
-- QSO mode in primary navigation; listening and optional named roundtables share one entry form and participant list.
-- Remembered roundtable name/edition without automatic roundtable selection; historical labels remain independent.
-- Explicit contact confirmation, separate listening/permanent notes, transactional replay safety and active-first QRT rows.
-- White light mode with restrained pastel accents, dark/system themes and compact responsive controls.
-- English Wiki, updated screenshots and installation/data guides.
-
-## Implemented data tools (beta 5)
-
-- Recoverable QSO/station deletion with explicit confirmation and independent restoration, preserving historical links and replay protection.
-- Consistent online SQLite snapshots, strict isolated validation, restoration preview, durable pre-restore copies and atomic table replacement.
-- Fifty-row pagination, callsign/name/city search with common Latin accent folding and local-calendar history ranges.
-- ASCII ADIF contact export/import with explicit field mapping, preview, unsupported-field disclosure and transactional duplicate handling.
-- Offline map coordinate correction and explicit cached/no-match retry under existing provider controls.
-- Installed app/source/schema version display and manual update guidance without remote update checks.
-
-## Stable v0.1.0
-
-- Maintainer-reported successful beta-5 use on Raspberry Pi; stable publication keeps database schema 7.
-- Strict POST-body write targets and timezone-normalized monthly counts.
-- Removed unused queries/styles and consolidated duplicate tests; retained all migration/recovery regressions.
-- Separate stable/latest and beta Docker channels, versioned assets and current installation/security documentation.
-
-## Maintenance and possible improvements
-
-- Periodic review of driver and transitive dependency versions.
-- Broader Unicode normalization, ADX/international interchange and additional ADIF fields, based on actual user feedback.
-- Review accessibility and physical Raspberry Pi behavior with larger notebooks and real mobile browsers.
-
-## Possible future work
-
-Android support and easier updates may be evaluated after data handling is stable. Required cloud accounts, telemetry and mandatory external services are outside the product scope.
-
-## Implemented unified records (beta 4)
-
-- One entry screen with explicit confirmation, optional roundtable labels, local country dropdowns, mode/band choices and custom values.
-- Database-backed replay protection for the new form; schema-5 upgrades preserve older notebooks and optional live rounds.
-- Monthly counts in the configured time zone, opt-in city geocoding on save, local coordinate reuse, a home-city marker and local mode/band map filters.
-- Compact rounded mobile controls, original SVG project branding and locally bundled open fonts/country data with license notices.
+Required cloud accounts, telemetry and mandatory external services remain outside the product scope.
