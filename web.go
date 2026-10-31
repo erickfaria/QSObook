@@ -105,7 +105,8 @@ func newApp(store *Store, loc *time.Location) (*App, error) {
 	a.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(static))))
 	a.mux.HandleFunc("GET /{$}", a.dashboard)
 	a.mux.HandleFunc("POST /language", a.languagePreference)
-	a.mux.HandleFunc("GET /records", a.records)
+	// Keep the former entry URL on the shared QSO workspace.
+	a.mux.HandleFunc("GET /records", a.round)
 	a.mux.HandleFunc("POST /records", a.saveRecord)
 	a.mux.HandleFunc("POST /qso/entry", a.saveWorkspaceEntry)
 	a.mux.HandleFunc("GET /about", a.about)
@@ -438,29 +439,21 @@ func (a *App) history(w http.ResponseWriter, r *http.Request) {
 }
 func (a *App) contactForm(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("id") == "" {
-		a.records(w, r)
+		a.round(w, r)
 		return
 	}
-	p := Page{Title: "Registrar QSO", View: "form", IsContact: true, Mode: "FM", Action: "/contact", Back: "/history"}
-	if r.URL.Query().Get("id") != "" {
-		id, err := identifier(r, "id")
-		if err != nil {
-			a.httpError(w, r, err.Error(), 400)
-			return
-		}
-		p.Contact, err = a.store.contact(r.Context(), id)
-		if err != nil {
-			a.fail(w, r, err)
-			return
-		}
-		p.Station = p.Contact.Station
-		p.Mode = p.Contact.Mode
-		p.Band = p.Contact.Band
-		p.RoundName = p.Contact.RoundName
-		p.Notes = p.Contact.Notes
-		p.Title = "Detalhes e edição do QSO"
+	id, err := identifier(r, "id")
+	if err != nil {
+		a.httpError(w, r, err.Error(), 400)
+		return
 	}
-	a.render(w, r, p)
+	contact, err := a.store.contact(r.Context(), id)
+	if err != nil {
+		a.fail(w, r, err)
+		return
+	}
+	a.render(w, r, Page{Title: "Detalhes e edição do QSO", View: "form", IsContact: true, Action: "/contact", Back: "/history",
+		Contact: contact, Station: contact.Station, Mode: contact.Mode, Band: contact.Band, RoundName: contact.RoundName, Notes: contact.Notes})
 }
 func (a *App) saveContact(w http.ResponseWriter, r *http.Request) {
 	st := readStation(r)
