@@ -105,7 +105,7 @@
   "Preferências": "Preferences",
   "Presente ao encerrar": "Present at end",
   "Principal": "Main",
-  "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato.": "QRT marks who has left; it does not record a contact. Ending keeps participants and confirmed QSOs. Current operator details are shown; each QSO keeps the details from the time of contact.",
+  "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O RadioID não altera QSOs nem participações encerradas.": "QRT marks who left; it does not record a contact. Ending keeps participants and confirmed QSOs. RadioID does not change QSOs or closed participations.",
   "QSO registrado": "QSO recorded",
   "QSO registrado no caderno": "QSO recorded in the notebook",
   "QSOs já registrados permanecem como estavam.": "Recorded QSOs remain unchanged.",

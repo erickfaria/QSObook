@@ -241,7 +241,7 @@
 </form></td></tr>{{end}}
 {{else}}<tr><td colspan="5">{{t "A lista está vazia. Adicione uma estação para começar."}}</td></tr>{{end}}</tbody>
 </table></div>
-<p class="hint">{{t "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O cadastro mostrado é o atual; cada QSO conserva os dados do momento do contato."}}</p>
+<p class="hint">{{t "QRT indica quem saiu; não registra um contato. Encerrar mantém os participantes e os QSOs confirmados. O RadioID não altera QSOs nem participações encerradas."}}</p>
 {{end}}
 {{if .Rounds}}<details class="legacy-rounds"><summary>{{t "Sessões anteriores"}}</summary><ul class="round-list">{{range .Rounds}}{{if .EndedAt.Valid}}<li><a href="/round?id={{.ID}}">{{if .Name}}{{.Label}}{{else}}{{t "Escuta"}}{{end}}</a><span class="hint">{{localTime .StartedAt}}</span></li>{{end}}{{end}}</ul></details>{{end}}
 <p><a href="/stations">{{t "Editar cadastros"}}</a></p>{{end}}

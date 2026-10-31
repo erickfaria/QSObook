@@ -35,7 +35,7 @@ func checkForgedWrites(t *testing.T, host, wrongPort string) {
 		t.Fatal(err)
 	}
 	before := totalChanges(t, a.store)
-	routes := []string{"/records", "/qso/entry", "/location", "/station", "/contact", "/participant", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/map/edit", "/language", "/trash", "/data/backup", "/data/restore", "/data/import", "/data/recovery", "/data/export", "/data/confirm", "/data/cancel"}
+	routes := []string{"/records", "/qso/entry", "/location", "/station", "/contact", "/participant", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/map/edit", "/language", "/trash", "/data/backup", "/data/restore", "/data/import", "/data/recovery", "/data/export", "/data/confirm", "/data/cancel", "/lookup/radioid", "/radioid/preference"}
 	for _, path := range routes {
 		for _, attack := range []struct{ origin, token, site string }{
 			{"http://external.example", a.token, ""},
@@ -84,7 +84,7 @@ func checkForgedWrites(t *testing.T, host, wrongPort string) {
 			}
 		}
 	}
-	for _, path := range []string{"/qso/entry", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/language", "/data/backup", "/data/restore", "/data/import", "/data/recovery", "/data/export", "/data/confirm", "/data/cancel"} {
+	for _, path := range []string{"/qso/entry", "/participant/remove", "/participant/record", "/participant/status", "/round/start", "/round/end", "/map/preference", "/map/locate", "/language", "/data/backup", "/data/restore", "/data/import", "/data/recovery", "/data/export", "/data/confirm", "/data/cancel", "/lookup/radioid", "/radioid/preference"} {
 		for _, method := range []string{"GET", "HEAD"} {
 			if w := request(a, method, path+"?id=1&enabled=1&active=0&language=fr&return_to=/", nil); w.Code != 405 {
 				t.Errorf("%s %s: %d, want 405", method, path, w.Code)

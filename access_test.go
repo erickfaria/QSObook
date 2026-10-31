@@ -30,7 +30,7 @@ func TestOptionalPasswordAndExplicitHosts(t *testing.T) {
 	if err := a.configureAccess(file, "Tortuga.local:8088,192.168.1.10:8088"); err != nil {
 		t.Fatal(err)
 	}
-	for _, path := range []string{"/", "/records", "/qso/entry", "/location", "/round", "/lookup?callsign=ZZ0TEST", "/static/app.js", "/license", "/language", "/data", "/data/backup", "/data/restore", "/data/import", "/data/confirm", "/data/export", "/data/recovery", "/data/cancel", "/trash", "/trash/confirm?kind=station&id=1", "/map/edit", "/about"} {
+	for _, path := range []string{"/", "/records", "/qso/entry", "/location", "/round", "/lookup?callsign=ZZ0TEST", "/static/app.js", "/license", "/language", "/data", "/data/backup", "/data/restore", "/data/import", "/data/confirm", "/data/export", "/data/recovery", "/data/cancel", "/trash", "/trash/confirm?kind=station&id=1", "/map/edit", "/about", "/lookup/radioid", "/radioid/preference"} {
 		r := httptest.NewRequest("GET", "http://tortuga.local:8088"+path, nil)
 		w := httptest.NewRecorder()
 		a.ServeHTTP(w, r)

@@ -167,7 +167,11 @@ func validateRadioIDBackup(ctx context.Context, db *sql.DB) error {
 
 func readRadioIDSnapshot(data string, id int64, callsign string) (Station, error) {
 	var st Station
-	if len(data) > 32<<10 || json.Unmarshal([]byte(data), &st) != nil || st.ID != id || st.Callsign != callsign || st.validate() != nil {
+	if len(data) > 32<<10 || json.Unmarshal([]byte(data), &st) != nil || st.ID != id || st.Callsign != callsign {
+		return Station{}, errBackupInvalid
+	}
+	validated := st
+	if validated.validate() != nil {
 		return Station{}, errBackupInvalid
 	}
 	return st, nil
