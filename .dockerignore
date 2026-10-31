@@ -24,3 +24,6 @@
 !static/vendor/atkinson/**
 !static/vendor/countries/
 !static/vendor/countries/**
+
+# Build the runtime executable without sending Go unit tests to the builder.
+/*_test.go
