@@ -6,7 +6,7 @@
 
 A small, free, self-hosted amateur radio notebook. Register an operator and confirm a contact on one compact screen; roundtables are optional.
 
-Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No accounts, telemetry, analytics, CDNs or external callsign lookups. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English. [Release notes](docs/RELEASE_NOTES.md) describe the stable version. Start with the [Wiki](https://github.com/erickfaria/QSObook/wiki) or [installation guide](docs/INSTALL.md).
+Built with **Go, SQLite, HTML, CSS and plain JavaScript**, under [AGPL-3.0](LICENSE). No required accounts, telemetry, analytics or CDNs. Callsign lookup is local by default. The notebook runs offline after compilation. The optional OpenStreetMap map requires internet only when enabled. Choose Portuguese, English, Spanish or French in the interface. Project documentation is in English. [Release notes](docs/RELEASE_NOTES.md) describe the stable version. Start with the [Wiki](https://github.com/erickfaria/QSObook/wiki) or [installation guide](docs/INSTALL.md).
 
 ## One QSO workspace
 
@@ -23,6 +23,14 @@ Enter a callsign and fill in the operator's details. Existing callsigns retrieve
 Confirmation is transactional. Retrying the same form or clicking repeatedly produces one contact for that participation, preserving its snapshot and any newer registration. A key reused for another callsign is rejected. Adding an existing participant preserves their saved mode, notes and QRT state; use **More → Edit** to revise the listening draft before confirmation. To intentionally record another conversation in the same session, remove and add that station again. New sessions create independent participations.
 
 New entries only complete missing registration fields. Use **Edit registrations** to replace saved values or permanent notes. Operator edits never rewrite historical contact snapshots. The former `/records` page opens this same workspace; legacy POST endpoints remain compatible.
+
+## Optional RadioID autofill
+
+Enable **RadioID autofill** under Preferences, then type a callsign in QSO mode and press **Enter**. Local data appears first. If fields are missing, the backend performs an exact [RadioID API](https://radioid.net/api/) lookup, saves available details locally and fills only untouched empty inputs. Fresh manual corrections take priority; QSOs and closed-session participant details are preserved. The browser remains editable, with brief translated progress/outcome messages.
+
+This option is **off by default**. Enabling it sends the requested callsign and server IP to RadioID, with an identifying client header; no QSO details or notes are sent. A persisted daily schedule retries at most ten incomplete registered stations per batch, with spaced requests and provider cooldowns. Failed calls retry after a day; no-result lookups are cached for seven days. The notebook remains usable offline. Anonymous API access is subject to the provider's availability and access policy.
+
+This source feature adds **schema 8** and includes pending lookup/origin metadata in backups. Back up before upgrading: stable v0.1.0 uses schema 7 and cannot open an upgraded notebook. Restore accepts exact schemas 5–8 and migrates older snapshots in isolation. This branch does not publish a new container image.
 
 ## Compact on a phone
 
@@ -58,7 +66,7 @@ Screenshots use fictitious operators and demonstration contacts only. Explicit c
 
 ## Keep and recover your notebook
 
-**Preferences → Data** downloads a consistent SQLite `.db` backup while the app is running. Restore validates a separately staged file and shows a preview before you confirm replacement of the whole notebook. It preserves a validated pre-restore recovery copy first, replaces related data atomically and expires old forms. Backups include the trash, preferences and coordinate cache; Docker settings and password files stay separate. Uploaded backups are limited to 64 MiB and exact schema versions 5 through 7. Keep a private offline copy outside the Pi.
+**Preferences → Data** downloads a consistent SQLite `.db` backup while the app is running. Restore validates a separately staged file and shows a preview before you confirm replacement of the whole notebook. It preserves a validated pre-restore recovery copy first, replaces related data atomically and expires old forms. Backups include the trash, preferences and coordinate cache; Docker settings and password files stay separate. Uploaded backups are limited to 64 MiB and exact schema versions 5 through 8. Keep a private offline copy outside the Pi.
 
 ![Data tools with explicit backup and transfer controls](docs/screenshots/data-desktop.png)
 

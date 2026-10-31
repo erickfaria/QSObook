@@ -1,6 +1,6 @@
 # Backups, recovery and ADIF
 
-These features are included in stable v0.1.0 (database schema 7), following their introduction in beta 5. Open **Preferences → Data**. The interface is available in Portuguese, English, Spanish and French. All transfer operations are local and require an explicit action. Nothing is synchronized or uploaded to another service.
+These features are included in stable v0.1.0 (database schema 7), following their introduction in beta 5. Open **Preferences → Data**. The interface is available in Portuguese, English, Spanish and French. All transfer operations are local and require an explicit action. Backup and transfer files are never uploaded to another service. The optional RadioID source feature uses schema 8, includes its retry/origin metadata in backups, and sends only individually requested callsigns when explicitly enabled.
 
 ## Download a complete backup
 
@@ -12,7 +12,7 @@ Downloaded backups and upload staging files are private temporary files alongsid
 
 ## Restore a backup
 
-1. Choose **Restore backup**, select a consistent SQLite backup and choose **Validate and preview**. The limit is **64 MiB**. Only the exact QSObook schemas **5 through 7** are accepted; earlier/newer versions or foreign/modified schemas are rejected. A schema-5/6 upload is migrated in its isolated staging copy.
+1. Choose **Restore backup**, select a consistent SQLite backup and choose **Validate and preview**. The limit is **64 MiB**. Only the exact QSObook schemas **5 through 8** are accepted; earlier/newer versions or foreign/modified schemas are rejected. A schema-5/6/7 upload is migrated in its isolated staging copy.
 2. Review the number of stations, contacts, rounds and trashed items. Restoration replaces the **entire** current notebook, including map preferences and trash. It does not merge two notebooks.
 3. Check the confirmation box and confirm. If the notebook changed since the preview, send the file again. Cancel discards the staged upload.
 4. The app creates and validates a durable **pre-restore recovery snapshot** in `backups/` beside the live database before replacing any rows. If that step fails, restoration stops. Table replacement happens in a single SQLite transaction, with foreign-key checks; the open database file is never renamed or swapped.

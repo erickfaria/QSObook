@@ -44,6 +44,12 @@
 <label class="theme-picker" hidden>{{t "Tema"}}
 <select id="theme"><option value="system">{{t "Automático"}}</option><option value="light">{{t "Claro"}}</option><option value="dark">{{t "Escuro"}}</option></select>
 </label>
+<form method="post" action="/radioid/preference" class="radioid-preference">
+<input type="hidden" name="csrf" value="{{.Token}}">
+<label class="check"><input type="checkbox" name="enabled" value="1" {{if .RadioIDEnabled}}checked{{end}}>{{t "Preenchimento automático pelo RadioID"}}</label>
+<p class="hint">{{t "Ao ativar, somente o indicativo e o IP do servidor são enviados ao RadioID. Cadastros incompletos podem ser consultados diariamente. QSOs e observações não são enviados."}} <a href="https://radioid.net/api/" rel="noreferrer">RadioID</a></p>
+<button class="secondary">{{t "Aplicar"}}</button>
+</form>
 </div>
 </details>
 </header>

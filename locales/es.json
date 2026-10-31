@@ -283,5 +283,11 @@
   "Informe o nome da rodada.": "Indique el nombre de la ronda.",
   "Edição inválida: use até 12 dígitos.": "Edición inválida: use hasta 12 dígitos.",
   "Informe o nome da rodada para usar uma edição.": "Indique un nombre de ronda para usar una edición.",
-  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "ADIF inválido. Use un archivo ADI ASCII con CALL, QSO_DATE, TIME_ON y MODE. No se importó ningún contacto."
+  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "ADIF inválido. Use un archivo ADI ASCII con CALL, QSO_DATE, TIME_ON y MODE. No se importó ningún contacto.",
+  "Preenchimento automático pelo RadioID": "Autocompletado con RadioID",
+  "Ao ativar, somente o indicativo e o IP do servidor são enviados ao RadioID. Cadastros incompletos podem ser consultados diariamente. QSOs e observações não são enviados.": "Al activarlo, solo se envían el indicativo y la IP del servidor a RadioID. Los registros incompletos pueden consultarse a diario. No se envían QSO ni notas.",
+  "Consultando RadioID…": "Consultando RadioID…",
+  "Dados encontrados no RadioID.": "Datos encontrados en RadioID.",
+  "Indicativo não encontrado no RadioID.": "Indicativo no encontrado en RadioID.",
+  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Consulta no disponible. Los datos podrán actualizarse más adelante."
 }

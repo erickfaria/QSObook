@@ -4,61 +4,125 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
   const status = form.querySelector('[data-lookup-status]');
   const fields = ['name', 'city', 'state', 'country'];
   if (form.getAttribute('action') === '/station') fields.push('notes');
-  if (['/records', '/qso/entry'].includes(form.getAttribute('action'))) fields.push('operator_notes');
+  const qsoEntry = ['/records', '/qso/entry'].includes(form.getAttribute('action'));
+  if (qsoEntry) fields.push('operator_notes');
+  const revision = form.elements.radioid_revision;
+  const setRevision = value => { if (revision) revision.value = value || ''; };
+  const busy = value => {
+    status.setAttribute?.('data-loading', String(value));
+    status.setAttribute?.('aria-busy', String(value));
+  };
   const draftFields = [...new Set([...fields, 'notes'])];
   const drafts = new Map();
   let current = input.value.trim().toUpperCase();
   let edited = new Set(draftFields.filter(name => form.elements[name].value !== ''));
-  let timer, request;
+  let timer, request, messageTimer, enterLookup;
   let sequence = 0;
+  const fill = (station, onlyEmpty = false) => {
+    for (const name of fields) {
+      const value = station[name === 'operator_notes' ? 'notes' : name];
+      const field = form.elements[name];
+      if (edited.has(name) || (onlyEmpty && field.value.trim()) || typeof value !== 'string' || !value.trim()) continue;
+      if (name === 'country' && field.tagName === 'SELECT' && !Array.from(field.options).some(option => option.value === value)) {
+        const option = document.createElement('option'); option.value = value; option.textContent = value; field.append(option);
+      }
+      field.value = value;
+    }
+  };
+  const known = station => window.qsobookText("Operador conhecido · {count} QSO(s) anteriores. Para corrigir dados salvos, use Editar.", {count: station.contacts});
+  const feedback = (message, version, fallback) => {
+    status.textContent = window.qsobookText(message);
+    messageTimer = setTimeout(() => { if (version === sequence) status.textContent = fallback; }, 5000);
+  };
+  const lookup = async (callsign, version, external = false) => {
+    request = new AbortController();
+    const signal = request.signal;
+    try {
+      const response = await fetch('/lookup?callsign=' + encodeURIComponent(callsign), {signal});
+      if (version !== sequence) return;
+      if (!response.ok && response.status !== 404) throw new Error('lookup');
+      const station = response.status === 404 ? null : await response.json();
+      if (version !== sequence) return;
+      if (station) fill(station);
+      setRevision(station?.radioid_revision);
+      let fallback = station ? known(station) : window.qsobookText("Indicativo novo no cadastro local.");
+      status.textContent = fallback;
+      const incomplete = !station || ['name', 'city', 'state', 'country'].some(name => !station[name]?.trim());
+      if (!external || form.dataset.radioidEnabled !== 'true' || !incomplete) return;
+      status.textContent = window.qsobookText("Consultando RadioID…");
+      busy(true);
+      const remote = await fetch('/lookup/radioid', {
+        method: 'POST', signal, headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: new URLSearchParams({csrf: form.elements.csrf.value, callsign}).toString()
+      });
+      if (version !== sequence) return;
+      if (!remote.ok) throw new Error('radioid');
+      const data = await remote.json();
+      if (version !== sequence) return;
+      setRevision(data.radioid_revision);
+      if (data.id) fallback = known(data);
+      if (data.radioid_status === 'found') {
+        fill(data, true);
+        feedback("Dados encontrados no RadioID.", version, fallback);
+      } else if (data.radioid_status === 'not_found') {
+        feedback("Indicativo não encontrado no RadioID.", version, fallback);
+      } else if (data.radioid_status === 'disabled' || data.radioid_status === 'local') {
+        status.textContent = fallback;
+      } else {
+        feedback("Consulta indisponível. Os dados poderão ser atualizados posteriormente.", version, fallback);
+      }
+    } catch (error) {
+      if (version === sequence && error.name !== 'AbortError') {
+        if (external && form.dataset.radioidEnabled === 'true') {
+          feedback("Consulta indisponível. Os dados poderão ser atualizados posteriormente.", version, '');
+        } else {
+          status.textContent = window.qsobookText("Não foi possível consultar. Você pode preencher os dados manualmente.");
+        }
+      }
+    } finally {
+      if (version === sequence) busy(false);
+    }
+  };
   for (const name of draftFields) {
     form.elements[name].addEventListener('input', () => edited.add(name));
   }
   input.addEventListener('input', () => {
     const version = ++sequence;
     clearTimeout(timer);
+    clearTimeout(messageTimer);
     if (request) request.abort();
+    enterLookup = null;
+    busy(false);
     const callsign = input.value.trim().toUpperCase();
     if (callsign !== current) {
       if (current) drafts.set(current, {
         values: Object.fromEntries(draftFields.map(name => [name, form.elements[name].value])),
-        edited: new Set(edited)
+        edited: new Set(edited), revision: revision?.value || ''
       });
       const draft = drafts.get(callsign);
       if (draft || current) {
         for (const name of draftFields) form.elements[name].value = draft ? draft.values[name] : '';
         edited = draft ? new Set(draft.edited) : new Set();
       }
+      setRevision(draft?.revision);
       current = callsign;
     }
     if (!callsign) { status.textContent = window.qsobookText("Informe um indicativo."); return; }
     status.textContent = window.qsobookText("Consultando cadastro local…");
-    timer = setTimeout(async () => {
-      request = new AbortController();
-      try {
-        const response = await fetch('/lookup?callsign=' + encodeURIComponent(callsign), {signal: request.signal});
-        if (version !== sequence) return;
-        if (response.status === 404) { status.textContent = window.qsobookText("Indicativo novo no cadastro local."); return; }
-        if (!response.ok) throw new Error('lookup');
-        const station = await response.json();
-        if (version !== sequence) return;
-        for (const name of fields) {
-          const value = station[name === 'operator_notes' ? 'notes' : name];
-          if (!edited.has(name) && typeof value === 'string' && value.trim()) {
-            const field = form.elements[name];
-            if (name === 'country' && field.tagName === 'SELECT' && !Array.from(field.options).some(option => option.value === value)) {
-              const option = document.createElement('option'); option.value = value; option.textContent = value; field.append(option);
-            }
-            field.value = value;
-          }
-        }
-        status.textContent = window.qsobookText("Operador conhecido · {count} QSO(s) anteriores. Para corrigir dados salvos, use Editar.", {count: station.contacts});
-      } catch (error) {
-        if (version === sequence && error.name !== 'AbortError') {
-          status.textContent = window.qsobookText("Não foi possível consultar. Você pode preencher os dados manualmente.");
-        }
-      }
-    }, 250);
+    timer = setTimeout(() => lookup(callsign, version), 250);
+  });
+  input.addEventListener('keydown', event => {
+    if (!qsoEntry || event.key !== 'Enter' || event.isComposing) return;
+    event.preventDefault();
+    input.value = input.value.trim().toUpperCase();
+    if (!input.value || enterLookup === input.value) return;
+    clearTimeout(timer);
+    clearTimeout(messageTimer);
+    if (request) request.abort();
+    const callsign = input.value, version = ++sequence;
+    enterLookup = callsign;
+    status.textContent = window.qsobookText("Consultando cadastro local…");
+    lookup(callsign, version, true).finally(() => { if (version === sequence) enterLookup = null; });
   });
 }
 

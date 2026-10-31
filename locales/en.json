@@ -283,5 +283,11 @@
   "Informe o nome da rodada.": "Enter the roundtable name.",
   "Edição inválida: use até 12 dígitos.": "Invalid edition: use up to 12 digits.",
   "Informe o nome da rodada para usar uma edição.": "Enter a roundtable name to use an edition.",
-  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "Invalid ADIF. Use an ASCII ADI file with CALL, QSO_DATE, TIME_ON and MODE. No contacts were imported."
+  "ADIF inválido. Use um arquivo ADI ASCII com CALL, QSO_DATE, TIME_ON e MODE. Nenhum contato foi importado.": "Invalid ADIF. Use an ASCII ADI file with CALL, QSO_DATE, TIME_ON and MODE. No contacts were imported.",
+  "Preenchimento automático pelo RadioID": "RadioID autofill",
+  "Ao ativar, somente o indicativo e o IP do servidor são enviados ao RadioID. Cadastros incompletos podem ser consultados diariamente. QSOs e observações não são enviados.": "When enabled, only the callsign and server IP are sent to RadioID. Incomplete registrations may be checked daily. QSOs and notes are not sent.",
+  "Consultando RadioID…": "Looking up RadioID…",
+  "Dados encontrados no RadioID.": "Data found on RadioID.",
+  "Indicativo não encontrado no RadioID.": "Callsign not found on RadioID.",
+  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Lookup unavailable. The data can be updated later."
 }

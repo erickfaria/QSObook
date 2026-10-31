@@ -7,7 +7,8 @@
 {{end}}
 {{define "records"}}{{template "record-entry" .}}{{end}}
 {{define "record-entry"}}
-<form method="post" action="{{.Action}}" class="record-form" autocomplete="off">
+<form method="post" action="{{.Action}}" class="record-form" autocomplete="off" data-radioid-enabled="{{.RadioIDEnabled}}">
+<input type="hidden" name="radioid_revision" value="{{.RadioIDRevision}}">
 {{if .RoundID}}<input type="hidden" name="round_id" value="{{.RoundID}}">{{end}}
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="submission_key" value="{{.SubmissionKey}}">
 <div class="fields record-fields">
