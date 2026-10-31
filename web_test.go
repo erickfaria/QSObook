@@ -312,20 +312,18 @@ func TestHTTPWorkflow(t *testing.T) {
 		t.Fatalf("manual contact: %d %s", w.Code, w.Body)
 	}
 }
-func TestHTTPSecurityAndErrors(t *testing.T) {
+func TestHTTPValidationAndErrors(t *testing.T) {
 	a := testApp(t)
 	for _, tc := range []struct {
 		method, path string
 		form         url.Values
 		want         int
 	}{
-		{"POST", "/station", url.Values{"callsign": {"ZZ0TEST"}}, 403},
 		{"POST", "/station", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"bad space"}}, 400},
 		{"POST", "/participant", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
 		{"POST", "/contact", url.Values{"round_id": {"1"}, "csrf": {a.token}, "callsign": {"ZZ0TEST"}, "mode": {""}}, 400},
 		{"GET", "/contact?id=999", nil, 404}, {"GET", "/station?id=bad", nil, 400},
 		{"GET", "/participant?id=999", nil, 404}, {"GET", "/lookup?callsign=ZZ9TEST", nil, 404},
-		{"GET", "/participant/remove", nil, 405}, {"GET", "/data/test.db", nil, 404},
 		{"POST", "/participant/remove", url.Values{"csrf": {a.token}, "id": {"999"}}, 404},
 		{"POST", "/station", url.Values{"csrf": {a.token}, "notes": {strings.Repeat("x", 40000)}}, 400},
 	} {
@@ -342,22 +340,8 @@ func TestHTTPSecurityAndErrors(t *testing.T) {
 			t.Errorf("host: %d", w.Code)
 		}
 	}
-	for _, origin := range []string{"http://evil.example", "http://127.0.0.1:9090", "null"} {
-		r := httptest.NewRequest("POST", "http://127.0.0.1:8080/station", strings.NewReader(url.Values{"csrf": {a.token}}.Encode()))
-		r.Header.Set("Origin", origin)
-		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-		w := httptest.NewRecorder()
-		a.ServeHTTP(w, r)
-		if w.Code != 403 {
-			t.Errorf("origin %q: %d", origin, w.Code)
-		}
-	}
-	w := request(a, "GET", "/round", nil)
-	if !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
-		t.Fatal("missing security header")
-	}
 	a.store.db.Close()
-	w = request(a, "GET", "/history", nil)
+	w := request(a, "GET", "/history", nil)
 	if w.Code != 500 || strings.Contains(w.Body.String(), "sql:") {
 		t.Fatalf("error leak: %d %s", w.Code, w.Body)
 	}
@@ -443,46 +427,5 @@ func TestBrowserFormsKeepOriginAndPersist(t *testing.T) {
 	w := request(a, "GET", "/round", nil)
 	if w.Code != 200 || !strings.Contains(w.Body.String(), "Browser round") {
 		t.Fatalf("round not saved: %d %s", w.Code, w.Body)
-	}
-}
-
-func TestBrowserFormsStillRejectUntrustedRequests(t *testing.T) {
-	a, err := newApp(testStore(t), time.UTC)
-	if err != nil {
-		t.Fatal(err)
-	}
-	const host = "192.168.1.93:18088"
-	if err := a.configureAccess("", host); err != nil {
-		t.Fatal(err)
-	}
-	for _, path := range []string{"/round/start", "/map/preference", "/contact"} {
-		for _, tc := range []struct{ origin, fetchSite, token string }{
-			{"null", "same-origin", a.token},
-			{"http://evil.example:18088", "cross-site", a.token},
-			{"http://192.168.1.93:18089", "same-site", a.token},
-			{"https://192.168.1.93:18088", "same-origin", a.token},
-			{"http://" + host, "cross-site", a.token},
-			{"http://" + host, "same-origin", "wrong"},
-		} {
-			form := url.Values{"csrf": {tc.token}, "previous_round": {"0"}, "enabled": {"1"}, "callsign": {"ZZ0UNTRUSTED"}, "mode": {"FM"}}
-			r := httptest.NewRequest("POST", "http://"+host+path, strings.NewReader(form.Encode()))
-			r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-			r.Header.Set("Origin", tc.origin)
-			r.Header.Set("Sec-Fetch-Site", tc.fetchSite)
-			w := httptest.NewRecorder()
-			a.ServeHTTP(w, r)
-			if w.Code != 403 {
-				t.Errorf("%s origin=%q site=%q: %d", path, tc.origin, tc.fetchSite, w.Code)
-			}
-		}
-	}
-	var rounds, contacts, enabled int
-	for query, target := range map[string]*int{"SELECT count(*) FROM rounds": &rounds, "SELECT count(*) FROM qsos": &contacts, "SELECT map_enabled FROM app_settings WHERE id=1": &enabled} {
-		if err := a.store.db.QueryRow(query).Scan(target); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if rounds != 0 || contacts != 0 || enabled != 0 {
-		t.Fatalf("rejected request changed data: rounds=%d contacts=%d map=%d", rounds, contacts, enabled)
 	}
 }

@@ -11,7 +11,22 @@ import (
 )
 
 func TestWriteRoutesRejectForgeryWithoutChangingData(t *testing.T) {
+	for _, target := range []struct{ host, wrongPort string }{
+		{"127.0.0.1:8080", "127.0.0.1:9090"},
+		{"192.168.1.93:18088", "192.168.1.93:18089"},
+	} {
+		t.Run(target.host, func(t *testing.T) {
+			checkForgedWrites(t, target.host, target.wrongPort)
+		})
+	}
+}
+
+func checkForgedWrites(t *testing.T, host, wrongPort string) {
+	t.Helper()
 	a := testApp(t)
+	if err := a.configureAccess("", host); err != nil {
+		t.Fatal(err)
+	}
 	ctx := context.Background()
 	if err := saveTestParticipant(t, a.store, ctx, Station{Callsign: "ZZ0SAFE"}, "FM", "Saved notes"); err != nil {
 		t.Fatal(err)
@@ -25,11 +40,12 @@ func TestWriteRoutesRejectForgeryWithoutChangingData(t *testing.T) {
 		for _, attack := range []struct{ origin, token, site string }{
 			{"http://external.example", a.token, ""},
 			{"null", a.token, ""},
-			{"https://127.0.0.1:8080", a.token, ""},
-			{"http://127.0.0.1:9090", a.token, ""},
-			{"http://127.0.0.1:8080", "invalid-token", ""},
-			{"http://127.0.0.1:8080", "", ""},
+			{"https://" + host, a.token, ""},
+			{"http://" + wrongPort, a.token, ""},
+			{"http://" + host, "invalid-token", ""},
+			{"http://" + host, "", ""},
 			{"", a.token, "cross-site"},
+			{"http://" + host, a.token, "cross-site"},
 		} {
 			fields := url.Values{"csrf": {attack.token}, "id": {"1"}, "round_id": {"1"}, "previous_round": {"1"}, "callsign": {"ZZ0SAFE"}, "name": {"Overwrite"}, "mode": {"FM"}, "notes": {"Overwrite"}, "active": {"0"}, "enabled": {"1"}, "language": {"fr"}, "return_to": {"/"}}
 			var body bytes.Buffer
@@ -53,7 +69,7 @@ func TestWriteRoutesRejectForgeryWithoutChangingData(t *testing.T) {
 			} else {
 				body.WriteString(fields.Encode())
 			}
-			r := httptest.NewRequest("POST", "http://127.0.0.1:8080"+path, &body)
+			r := httptest.NewRequest("POST", "http://"+host+path, &body)
 			r.Header.Set("Content-Type", contentType)
 			if attack.origin != "" {
 				r.Header.Set("Origin", attack.origin)
@@ -182,7 +198,7 @@ func TestWriteTargetsComeFromPostBody(t *testing.T) {
 func TestAboutShowsLocalVersionAndSecurityHeaders(t *testing.T) {
 	a := testApp(t)
 	w := request(a, "GET", "/about", nil)
-	if w.Code != 200 || !strings.Contains(w.Body.String(), "<strong>"+appVersion+"</strong>") || w.Header().Get("X-Frame-Options") != "DENY" {
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "<strong>"+appVersion+"</strong>") || w.Header().Get("X-Frame-Options") != "DENY" || !strings.Contains(w.Header().Get("Content-Security-Policy"), "frame-ancestors 'none'") {
 		t.Fatal("about version or headers", w.Code, w.Body)
 	}
 }
