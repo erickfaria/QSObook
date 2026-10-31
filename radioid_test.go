@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -97,13 +98,16 @@ func TestRadioIDCorrectionsHistoryAndBackup(t *testing.T) {
 		t.Fatal(err)
 	}
 	st := result.Station
-	st.City, st.radioIDRevision = "Manual correction", result.RadioIDRevision
+	// Save may arrive after API persistence but before the browser receives its
+	// revision. Explicitly typed values must still beat automatic data.
+	st.City, st.radioIDEdited = "Manual correction", 2
 	key, err := newSubmissionKey()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = a.store.saveWorkspaceEntry(ctx, round, st, "FM", "2 m", "", key, false); err != nil {
-		t.Fatal(err)
+	form := url.Values{"csrf": {a.token}, "round_id": {strconv.FormatInt(round, 10)}, "submission_key": {key}, "callsign": {st.Callsign}, "name": {st.Name}, "city": {st.City}, "state": {st.State}, "country": {st.Country}, "radioid_edited": {"2"}, "mode": {"FM"}, "band": {"2 m"}}
+	if w := request(a, "POST", "/qso/entry", form); w.Code != 303 {
+		t.Fatal("save before lookup revision arrives", w.Code, w.Body)
 	}
 	st.City = "Stale form"
 	if _, err = a.store.saveWorkspaceEntry(ctx, round, st, "FM", "2 m", "", key, false); err != nil {

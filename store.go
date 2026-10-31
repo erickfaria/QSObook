@@ -52,6 +52,7 @@ type Station struct {
 	Country         string `json:"country"`
 	Notes           string `json:"notes"`
 	radioIDRevision string
+	radioIDEdited   int
 }
 type Contact struct {
 	Station

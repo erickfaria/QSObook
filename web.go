@@ -46,6 +46,7 @@ type Page struct {
 	Schema                                           int
 	Language, ReturnTo, JSMessages                   string
 	RadioIDRevision                                  string
+	RadioIDEdited                                    int
 	RadioIDEnabled                                   bool
 	Title, View, Token, Query, Message, Action, Back string
 	Stations                                         []Station
@@ -244,6 +245,7 @@ func (a *App) render(w http.ResponseWriter, r *http.Request, p Page) {
 		return
 	}
 	p.RadioIDRevision = p.Station.radioIDRevision
+	p.RadioIDEdited = p.Station.radioIDEdited
 	p.Token = a.token
 	p.Language = requestLanguage(r)
 	p.ReturnTo = r.URL.RequestURI()
@@ -320,7 +322,11 @@ func identifier(r *http.Request, key string) (int64, error) {
 	return id, nil
 }
 func readStation(r *http.Request) Station {
-	return Station{Callsign: r.PostForm.Get("callsign"), Name: r.PostForm.Get("name"), City: r.PostForm.Get("city"), State: r.PostForm.Get("state"), Country: r.PostForm.Get("country"), Notes: r.PostForm.Get("notes"), radioIDRevision: r.PostForm.Get("radioid_revision")}
+	edited, err := strconv.Atoi(r.PostForm.Get("radioid_edited"))
+	if err != nil || edited < 0 || edited > 15 {
+		edited = 0
+	}
+	return Station{Callsign: r.PostForm.Get("callsign"), Name: r.PostForm.Get("name"), City: r.PostForm.Get("city"), State: r.PostForm.Get("state"), Country: r.PostForm.Get("country"), Notes: r.PostForm.Get("notes"), radioIDRevision: r.PostForm.Get("radioid_revision"), radioIDEdited: edited}
 }
 func redirect(w http.ResponseWriter, r *http.Request, path string) {
 	http.Redirect(w, r, path, http.StatusSeeOther)

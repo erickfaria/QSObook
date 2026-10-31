@@ -46,14 +46,22 @@ func clearRadioIDOrigin(ctx context.Context, tx *sql.Tx, id int64) error {
 	return err
 }
 
-// Only a fresh form may replace fields that RadioID supplied. Consuming the
-// revision prevents stale forms from undoing a subsequent manual correction.
+// Explicitly typed fields may replace external values even if Save wins the
+// race with the lookup response. Clearing their origin protects later edits.
 func correctRadioIDFields(ctx context.Context, tx *sql.Tx, st Station) error {
-	if len(st.radioIDRevision) != 32 {
+	if len(st.radioIDRevision) != 32 && st.radioIDEdited == 0 {
 		return nil
 	}
 	var fields int
-	err := tx.QueryRowContext(ctx, "SELECT auto_fields FROM radioid_lookups WHERE callsign=? AND revision=?", st.Callsign, st.radioIDRevision).Scan(&fields)
+	var revision string
+	err := tx.QueryRowContext(ctx, "SELECT auto_fields,revision FROM radioid_lookups WHERE callsign=?", st.Callsign).Scan(&fields, &revision)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	current, err := scanStation(tx.QueryRowContext(ctx, "SELECT "+stationColumns+" FROM stations WHERE callsign=? AND deleted_at IS NULL", st.Callsign))
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil
 	}
@@ -62,9 +70,12 @@ func correctRadioIDFields(ctx context.Context, tx *sql.Tx, st Station) error {
 	}
 	var sets []string
 	var args []any
-	for i, field := range []struct{ column, value string }{{"name", st.Name}, {"city", st.City}, {"state", st.State}, {"country", st.Country}} {
-		if fields&(1<<i) != 0 && field.value != "" {
+	edited := 0
+	for i, field := range []struct{ column, value, current string }{{"name", st.Name, current.Name}, {"city", st.City, current.City}, {"state", st.State, current.State}, {"country", st.Country, current.Country}} {
+		manual := st.radioIDEdited&(1<<i) != 0 || (revision != "" && revision == st.radioIDRevision && field.value != field.current)
+		if fields&(1<<i) != 0 && field.value != "" && manual {
 			sets, args = append(sets, field.column+"=?"), append(args, field.value)
+			edited |= 1 << i
 		}
 	}
 	if len(sets) > 0 {
@@ -73,7 +84,11 @@ func correctRadioIDFields(ctx context.Context, tx *sql.Tx, st Station) error {
 			return err
 		}
 	}
-	_, err = tx.ExecContext(ctx, "UPDATE radioid_lookups SET auto_fields=0,revision='' WHERE callsign=?", st.Callsign)
+	remaining := fields &^ edited
+	if remaining == 0 {
+		revision = ""
+	}
+	_, err = tx.ExecContext(ctx, "UPDATE radioid_lookups SET auto_fields=?,revision=? WHERE callsign=?", remaining, revision, st.Callsign)
 	return err
 }
 

@@ -7,6 +7,9 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
   const qsoEntry = ['/records', '/qso/entry'].includes(form.getAttribute('action'));
   if (qsoEntry) fields.push('operator_notes');
   const revision = form.elements.radioid_revision;
+  const manualInput = form.elements.radioid_edited;
+  let manual = Number(manualInput?.value) || 0;
+  const setManual = value => { manual = value; if (manualInput) manualInput.value = String(value); };
   const setRevision = value => { if (revision) revision.value = value || ''; };
   const busy = value => {
     status.setAttribute?.('data-loading', String(value));
@@ -84,7 +87,11 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
     }
   };
   for (const name of draftFields) {
-    form.elements[name].addEventListener('input', () => edited.add(name));
+    form.elements[name].addEventListener('input', () => {
+      edited.add(name);
+      const field = ['name', 'city', 'state', 'country'].indexOf(name);
+      if (field !== -1) setManual(manual | (1 << field));
+    });
   }
   input.addEventListener('input', () => {
     const version = ++sequence;
@@ -97,12 +104,13 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
     if (callsign !== current) {
       if (current) drafts.set(current, {
         values: Object.fromEntries(draftFields.map(name => [name, form.elements[name].value])),
-        edited: new Set(edited), revision: revision?.value || ''
+        edited: new Set(edited), revision: revision?.value || '', manual
       });
       const draft = drafts.get(callsign);
       if (draft || current) {
         for (const name of draftFields) form.elements[name].value = draft ? draft.values[name] : '';
         edited = draft ? new Set(draft.edited) : new Set();
+        setManual(draft?.manual || 0);
       }
       setRevision(draft?.revision);
       current = callsign;

@@ -32,7 +32,7 @@ function setup(action = '/participant', radioID = false) {
   const form = new Element();
   form.attributes.action = action;
   form.dataset.radioidEnabled = String(radioID);
-  form.elements = Object.fromEntries(['callsign', 'name', 'city', 'state', 'country', 'notes', 'operator_notes', 'csrf', 'radioid_revision'].map(name => [name, new Element()]));
+  form.elements = Object.fromEntries(['callsign', 'name', 'city', 'state', 'country', 'notes', 'operator_notes', 'csrf', 'radioid_revision', 'radioid_edited'].map(name => [name, new Element()]));
   form.elements.csrf.value = 'test-token';
   const input = form.elements.callsign;
   input.form = form;
@@ -281,6 +281,8 @@ test('Enter stays local by default and deduplicates optional RadioID lookup', as
   assert.equal(h.requests[1].options.method, 'POST');
   assert.equal(new URLSearchParams(h.requests[1].options.body).get('csrf'), 'test-token');
   h.edit('name', 'Typed during lookup');
+  assert.equal(h.form.elements.radioid_edited.value, '1');
+  assert.equal(h.form.emit('submit').defaultPrevented, false);
   await h.respond(1, {id: 1, callsign: 'ZZ0RADIO', name: 'External', city: 'Example', contacts: 2, radioid_status: 'found', radioid_revision: 'revision'});
   assert.equal(h.form.elements.name.value, 'Typed during lookup');
   assert.equal(h.form.elements.city.value, 'Example');
