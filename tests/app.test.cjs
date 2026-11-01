@@ -37,9 +37,12 @@ function setup(action = '/participant', radioID = false) {
   const input = form.elements.callsign;
   input.form = form;
   const status = {textContent: ''};
+  const lookupButton = new Element();
+  lookupButton.hidden = true;
+  lookupButton.disabled = false;
   const button = new Element();
   button.disabled = false;
-  form.querySelector = () => status;
+  form.querySelector = selector => selector === '[data-lookup-button]' ? lookupButton : status;
   form.querySelectorAll = () => [button];
   const link = new Element();
   link.attributes['aria-controls'] = 'editor';
@@ -70,9 +73,10 @@ function setup(action = '/participant', radioID = false) {
     }
   });
   return {
-    form, status, button, link, editor, window, requests,
+    form, status, button, lookupButton, link, editor, window, requests,
     input(value) { input.value = value; input.emit('input'); },
     enter() { return input.emit('keydown', {key: 'Enter'}); },
+    consult() { lookupButton.emit('click'); },
     edit(name, value) { form.elements[name].value = value; form.elements[name].emit('input'); },
     async tick() {
       const callbacks = [...timers.values()];
@@ -264,18 +268,22 @@ test('entry forms keep permanent notes separate from listening notes', async () 
   }
 });
 
-test('Enter stays local by default and deduplicates optional RadioID lookup', async () => {
+test('Enter and the visible button stay local by default and share one optional RadioID request', async () => {
   const local = setup('/qso/entry');
+  assert.equal(local.lookupButton.hidden, false);
   local.input('zz0radio');
   assert.equal(local.enter().defaultPrevented, true);
   await local.respond(0, {}, 404);
   assert.equal(local.form.elements.callsign.value, 'ZZ0RADIO');
   assert.equal(local.requests.length, 1);
+  assert.match(local.status.textContent, /desativado/);
 
   const h = setup('/qso/entry', true);
   h.input('zz0radio');
-  h.enter(); h.enter();
+  h.consult(); h.enter(); h.consult();
   assert.equal(h.requests.length, 1);
+  assert.equal(h.lookupButton.disabled, true);
+  assert.equal(h.button.disabled, false);
   await h.respond(0, {}, 404);
   assert.equal(h.requests[1].url, '/lookup/radioid');
   assert.equal(h.requests[1].options.method, 'POST');
@@ -283,13 +291,14 @@ test('Enter stays local by default and deduplicates optional RadioID lookup', as
   h.edit('name', 'Typed during lookup');
   assert.equal(h.form.elements.radioid_edited.value, '1');
   assert.equal(h.form.emit('submit').defaultPrevented, false);
-  await h.respond(1, {id: 1, callsign: 'ZZ0RADIO', name: 'External', city: 'Example', contacts: 2, radioid_status: 'found', radioid_revision: 'revision'});
+  await h.respond(1, {id: 1, callsign: 'ZZ0RADIO', name: 'External', city: 'Example', state: 'EX', country: 'Exampleland', contacts: 2, radioid_status: 'found', radioid_revision: 'revision'});
   assert.equal(h.form.elements.name.value, 'Typed during lookup');
   assert.equal(h.form.elements.city.value, 'Example');
   assert.equal(h.form.elements.radioid_revision.value, 'revision');
   assert.match(h.status.textContent, /RadioID/);
+  assert.equal(h.lookupButton.disabled, false);
   await h.tick();
-  assert.match(h.status.textContent, /2 QSO/);
+  assert.equal(h.status.textContent, 'Dados encontrados no RadioID.');
 });
 
 test('a late RadioID response cannot fill another callsign or restore its revision', async () => {
@@ -302,4 +311,60 @@ test('a late RadioID response cannot fill another callsign or restore its revisi
   assert.equal(h.form.elements.city.value, '');
   assert.equal(h.form.elements.radioid_revision.value, '');
   assert.equal(h.requests[1].options.signal.aborted, true);
+  assert.equal(h.lookupButton.disabled, false);
+});
+
+test('the lookup button handles an empty callsign and composing Enter keeps typing local', async () => {
+  const h = setup('/qso/entry', true);
+  h.consult();
+  assert.equal(h.requests.length, 0);
+  assert.equal(h.form.elements.callsign.focused, true);
+  assert.match(h.status.textContent, /Informe/);
+  h.input('ZZ0NEW');
+  assert.equal(h.form.elements.callsign.emit('keydown', {key: 'Enter', isComposing: true}).defaultPrevented, false);
+  assert.equal(h.requests.length, 0);
+  await h.tick();
+  await h.respond(0, {}, 404);
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.form.dataset.submitting, undefined);
+});
+
+test('lookup outcomes stay visible and distinguish no match, provider pause, opt-out and outage', async () => {
+  for (const [outcome, message] of [
+    ['not_found', /não encontrado/],
+    ['pending', /ocupado ou em pausa/],
+    ['disabled', /desativado/],
+    ['unavailable', /indisponível/]
+  ]) {
+    const h = setup('/qso/entry', true);
+    h.input('ZZ0STATUS'); h.consult();
+    await h.respond(0, {}, 404);
+    h.edit('notes', 'Listening draft');
+    await h.respond(1, {radioid_status: outcome});
+    await h.tick();
+    assert.match(h.status.textContent, message, outcome);
+    assert.equal(h.form.elements.notes.value, 'Listening draft');
+    assert.equal(h.lookupButton.disabled, false);
+    assert.equal(h.button.disabled, false);
+    assert.equal(h.form.dataset.submitting, undefined);
+  }
+});
+
+test('failed lookups allow another attempt without losing typed fields', async () => {
+  const h = setup('/qso/entry', true);
+  h.input('ZZ0RETRY'); h.consult();
+  await h.respond(0, {}, 404);
+  h.edit('name', 'Typed correction');
+  h.requests[1].reject(new Error('network failure'));
+  await flush();
+  await h.tick();
+  assert.match(h.status.textContent, /indisponível/);
+  assert.equal(h.lookupButton.disabled, false);
+  h.consult();
+  await h.respond(2, {}, 404);
+  await h.respond(3, {id: 1, name: 'External', city: 'Recovered', radioid_status: 'found'});
+  assert.equal(h.form.elements.name.value, 'Typed correction');
+  assert.equal(h.form.elements.city.value, 'Recovered');
+  assert.match(h.status.textContent, /dados incompletos/);
+  assert.equal(h.form.dataset.submitting, undefined);
 });

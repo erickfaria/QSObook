@@ -13,14 +13,14 @@
 {{if .RoundID}}<input type="hidden" name="round_id" value="{{.RoundID}}">{{end}}
 <input type="hidden" name="csrf" value="{{.Token}}"><input type="hidden" name="submission_key" value="{{.SubmissionKey}}">
 <div class="fields record-fields">
-<label>{{t "Indicativo"}}<input name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" data-lookup aria-describedby="lookup-status" autofocus></label>
+<div class="callsign-field"><label for="entry-callsign">{{t "Indicativo"}}</label><div class="callsign-control"><input id="entry-callsign" name="callsign" required maxlength="32" autocapitalize="characters" spellcheck="false" value="{{.Station.Callsign}}" data-lookup aria-describedby="lookup-status" enterkeyhint="search" autofocus><button type="button" class="secondary" data-lookup-button hidden>{{t "Consultar"}}</button></div></div>
 <label>{{t "Nome"}}<input name="name" maxlength="120" value="{{.Station.Name}}" autocomplete="off"></label>
 <label>{{t "Cidade"}}<input name="city" maxlength="120" value="{{.Station.City}}"></label>
 <label>{{t "Estado"}}<input name="state" maxlength="120" value="{{.Station.State}}"></label>
 <label>{{t "País"}}{{template "country" .Station.Country}}</label>
 {{template "radio-fields" .}}
 </div>
-<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{t "Digite um indicativo para consultar seu cadastro local."}}</p>
+<p id="lookup-status" data-lookup-status class="hint" role="status" aria-live="polite">{{if .RadioIDEnabled}}{{t "Busca local automática. Pressione Enter ou Consultar para buscar no RadioID."}}{{else}}{{t "Busca local automática. O RadioID está desativado em Preferências."}}{{end}}</p>
 <details class="extra-fields" {{if .Station.Notes}}open{{end}}><summary>{{t "Observações do operador"}}</summary><textarea aria-label="{{t "Observações do operador"}}" name="operator_notes" maxlength="4000" rows="2">{{.Station.Notes}}</textarea></details>
 <div class="record-checks"><label class="check"><input type="checkbox" name="confirmed" value="1" {{if .Confirmed}}checked{{end}}> {{t "QSO realizado"}}</label>{{if not .RoundID}}<label class="check"><input type="checkbox" name="in_round" value="1" data-toggle="round-details" {{if .RoundName}}checked{{end}}> {{t "Contato em rodada"}}</label>{{end}}</div>
 {{if not .RoundID}}<div id="round-details"><label>{{t "Nome da rodada"}}<input name="round_name" value="{{.RoundName}}" maxlength="120"></label></div>{{end}}

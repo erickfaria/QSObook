@@ -288,5 +288,11 @@
   "Consultando RadioID…": "Looking up RadioID…",
   "Dados encontrados no RadioID.": "Data found on RadioID.",
   "Indicativo não encontrado no RadioID.": "Callsign not found on RadioID.",
-  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Lookup unavailable. The data can be updated later."
+  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Lookup unavailable. The data can be updated later.",
+  "Busca local automática. O RadioID está desativado em Preferências.": "Local autofill is automatic. RadioID is disabled in Preferences.",
+  "Busca local automática. Pressione Enter ou Consultar para buscar no RadioID.": "Local autofill is automatic. Press Enter or Look up to query RadioID.",
+  "Consultar": "Look up",
+  "O RadioID está desativado em Preferências.": "RadioID is disabled in Preferences.",
+  "O RadioID está ocupado ou em pausa. Tente novamente mais tarde.": "RadioID is busy or paused. Try again later.",
+  "O RadioID retornou dados incompletos. Complete os campos manualmente.": "RadioID returned incomplete details. Fill in the missing fields manually."
 }

@@ -2,6 +2,7 @@
 for (const input of document.querySelectorAll('[data-lookup]')) {
   const form = input.form;
   const status = form.querySelector('[data-lookup-status]');
+  const lookupButton = form.querySelector('[data-lookup-button]');
   const fields = ['name', 'city', 'state', 'country'];
   if (form.getAttribute('action') === '/station') fields.push('notes');
   const qsoEntry = ['/records', '/qso/entry'].includes(form.getAttribute('action'));
@@ -14,12 +15,13 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
   const busy = value => {
     status.setAttribute?.('data-loading', String(value));
     status.setAttribute?.('aria-busy', String(value));
+    if (lookupButton) lookupButton.disabled = value;
   };
   const draftFields = [...new Set([...fields, 'notes'])];
   const drafts = new Map();
   let current = input.value.trim().toUpperCase();
   let edited = new Set(draftFields.filter(name => form.elements[name].value !== ''));
-  let timer, request, messageTimer, enterLookup;
+  let timer, request, explicitLookup;
   let sequence = 0;
   const fill = (station, onlyEmpty = false) => {
     for (const name of fields) {
@@ -33,9 +35,8 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
     }
   };
   const known = station => window.qsobookText("Operador conhecido · {count} QSO(s) anteriores. Para corrigir dados salvos, use Editar.", {count: station.contacts});
-  const feedback = (message, version, fallback) => {
+  const feedback = message => {
     status.textContent = window.qsobookText(message);
-    messageTimer = setTimeout(() => { if (version === sequence) status.textContent = fallback; }, 5000);
   };
   const lookup = async (callsign, version, external = false) => {
     request = new AbortController();
@@ -48,10 +49,15 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
       if (version !== sequence) return;
       if (station) fill(station);
       setRevision(station?.radioid_revision);
-      let fallback = station ? known(station) : window.qsobookText("Indicativo novo no cadastro local.");
+      const fallback = station ? known(station) : window.qsobookText("Indicativo novo no cadastro local.");
       status.textContent = fallback;
       const incomplete = !station || ['name', 'city', 'state', 'country'].some(name => !station[name]?.trim());
-      if (!external || form.dataset.radioidEnabled !== 'true' || !incomplete) return;
+      if (!external) return;
+      if (form.dataset.radioidEnabled !== 'true') {
+        status.textContent = fallback + ' ' + window.qsobookText("O RadioID está desativado em Preferências.");
+        return;
+      }
+      if (!incomplete) return;
       status.textContent = window.qsobookText("Consultando RadioID…");
       busy(true);
       const remote = await fetch('/lookup/radioid', {
@@ -63,21 +69,26 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
       const data = await remote.json();
       if (version !== sequence) return;
       setRevision(data.radioid_revision);
-      if (data.id) fallback = known(data);
       if (data.radioid_status === 'found') {
         fill(data, true);
-        feedback("Dados encontrados no RadioID.", version, fallback);
+        const missing = ['name', 'city', 'state', 'country'].some(name => !form.elements[name].value.trim());
+        feedback(missing ? "O RadioID retornou dados incompletos. Complete os campos manualmente." : "Dados encontrados no RadioID.");
       } else if (data.radioid_status === 'not_found') {
-        feedback("Indicativo não encontrado no RadioID.", version, fallback);
-      } else if (data.radioid_status === 'disabled' || data.radioid_status === 'local') {
-        status.textContent = fallback;
+        feedback("Indicativo não encontrado no RadioID.");
+      } else if (data.radioid_status === 'disabled') {
+        feedback("O RadioID está desativado em Preferências.");
+      } else if (data.radioid_status === 'local') {
+        fill(data, true);
+        status.textContent = data.id ? known(data) : fallback;
+      } else if (data.radioid_status === 'pending') {
+        feedback("O RadioID está ocupado ou em pausa. Tente novamente mais tarde.");
       } else {
-        feedback("Consulta indisponível. Os dados poderão ser atualizados posteriormente.", version, fallback);
+        feedback("Consulta indisponível. Os dados poderão ser atualizados posteriormente.");
       }
     } catch (error) {
       if (version === sequence && error.name !== 'AbortError') {
         if (external && form.dataset.radioidEnabled === 'true') {
-          feedback("Consulta indisponível. Os dados poderão ser atualizados posteriormente.", version, '');
+          feedback("Consulta indisponível. Os dados poderão ser atualizados posteriormente.");
         } else {
           status.textContent = window.qsobookText("Não foi possível consultar. Você pode preencher os dados manualmente.");
         }
@@ -96,9 +107,8 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
   input.addEventListener('input', () => {
     const version = ++sequence;
     clearTimeout(timer);
-    clearTimeout(messageTimer);
     if (request) request.abort();
-    enterLookup = null;
+    explicitLookup = null;
     busy(false);
     const callsign = input.value.trim().toUpperCase();
     if (callsign !== current) {
@@ -119,19 +129,31 @@ for (const input of document.querySelectorAll('[data-lookup]')) {
     status.textContent = window.qsobookText("Consultando cadastro local…");
     timer = setTimeout(() => lookup(callsign, version), 250);
   });
+  const consult = () => {
+    input.value = input.value.trim().toUpperCase();
+    if (!input.value) {
+      feedback("Informe um indicativo.");
+      input.focus();
+      return;
+    }
+    if (explicitLookup === input.value) return;
+    clearTimeout(timer);
+    if (request) request.abort();
+    const callsign = input.value, version = ++sequence;
+    explicitLookup = callsign;
+    status.textContent = window.qsobookText("Consultando cadastro local…");
+    busy(true);
+    lookup(callsign, version, true).finally(() => { if (version === sequence) explicitLookup = null; });
+  };
   input.addEventListener('keydown', event => {
     if (!qsoEntry || event.key !== 'Enter' || event.isComposing) return;
     event.preventDefault();
-    input.value = input.value.trim().toUpperCase();
-    if (!input.value || enterLookup === input.value) return;
-    clearTimeout(timer);
-    clearTimeout(messageTimer);
-    if (request) request.abort();
-    const callsign = input.value, version = ++sequence;
-    enterLookup = callsign;
-    status.textContent = window.qsobookText("Consultando cadastro local…");
-    lookup(callsign, version, true).finally(() => { if (version === sequence) enterLookup = null; });
+    consult();
   });
+  if (lookupButton) {
+    lookupButton.hidden = false;
+    lookupButton.addEventListener('click', consult);
+  }
 }
 
 // The links still open the existing edit page when JavaScript is unavailable.

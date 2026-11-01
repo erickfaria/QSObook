@@ -75,7 +75,7 @@ ssh -N -L 8081:127.0.0.1:8080 your-user@your-pi
 
 Then open `http://127.0.0.1:8081` on that computer. This uses your existing SSH access; QSObook does not configure SSH. For direct access from phones on a trusted home LAN, use the private-network configuration with optional password in [INSTALL.md](INSTALL.md). Choose the documented LAN/VPN profile to bind to a specific network interface.
 
-RadioID autofill is separate from map consent. Explicitly enable it under Preferences and press Enter on a callsign in QSO mode. Only the backend contacts RadioID. Missing data or internet access never prevents manual entry; see the [lookup and privacy rules](../README.md#optional-radioid-autofill).
+RadioID autofill is separate from map consent. Explicitly enable it under Preferences and press Enter or **Look up** beside the QSO callsign field. The button is a current-source improvement; published v0.2.0 uses Enter. Only the backend contacts RadioID. Missing data or internet access never prevents manual entry; see the [lookup and privacy rules](../README.md#optional-radioid-autofill).
 
 For a disposable source test, use a different Compose project and unused port, for example `QSOBOOK_PORT=18089 docker compose -p qsobook-test up -d --build`. Its separate volume must not be confused with the real `qsobook_data` notebook. Keep the project name stable for subsequent starts.
 

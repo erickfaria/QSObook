@@ -36,7 +36,9 @@ New entries preserve saved manual values and complete missing fields. Explicit e
 
 ## Optional RadioID autofill
 
-Enable **RadioID autofill** under Preferences, then type a callsign in QSO mode and press **Enter**. Local data appears first. If fields are missing, the backend performs an exact [RadioID API](https://radioid.net/api/) lookup, saves available details locally and fills only untouched empty inputs. Fresh manual corrections take priority; QSOs and closed-session participant details are preserved. The browser remains editable, with brief translated progress/outcome messages.
+Enable **RadioID autofill** under Preferences and press its **Apply** button, then type a callsign in QSO mode and press **Enter**. Local data appears first. If fields are missing, the backend performs an exact [RadioID API](https://radioid.net/api/) lookup, saves available details locally and fills only untouched empty inputs. Fresh manual corrections take priority; QSOs and closed-session participant details are preserved. The browser remains editable, with translated progress/outcome messages.
+
+Current source also adds a visible **Look up** button beside the QSO callsign field, using the same action as Enter. This UI improvement is not in the published v0.2.0 image. Outcome messages remain visible until the next lookup, distinguishing a disabled option, no match, partial details, provider pause and unavailability. Typing alone still queries only SQLite; consulting never confirms a QSO. An operator absent from RadioID can always be entered manually.
 
 This option is **off by default**. Enabling it sends the requested callsign and server IP to RadioID, with an identifying client header; no QSO details or notes are sent. A persisted daily schedule retries up to ten incomplete registered stations in a batch at most once per 24 hours, with spaced requests and provider cooldowns. It resumes after restart and does not look up unsaved failed drafts in the background. Failed calls retry after a day; no-result lookups are cached for seven days. The notebook remains usable offline. Anonymous API access is subject to the provider's availability and access policy.
 
@@ -203,7 +205,7 @@ Use a separate test database, never a personal notebook:
 6. In **My location**, save without map consent: no provider should be contacted. Opt in, save a city and confirm a contact there. Reload Home to check cache reuse, the house and local mode/band filters. Test offline/provider failure without losing contacts.
 7. Download a backup, validate its restoration preview, cancel, and test Trash/restore plus ADIF preview on the disposable notebook. Existing sessions, QRT, links and historical notes should survive upgrades through schema 8.
 
-8. Confirm RadioID is initially off. Its automated tests use simulated providers. For a deliberate manual external check, enable it under Preferences and press Enter on a callsign you intend to save. Edit a returned value, save, look up again and verify the correction survives. Disable the option to return to local-only lookup.
+8. Confirm RadioID is initially off. Its automated tests use simulated providers. In current source, check that **Look up** stays local while disabled and that the button never saves a contact. For a deliberate manual external check, enable RadioID under Preferences and use Enter or Look up on a callsign you intend to save. Edit a returned value while the request is running, save, look up again and verify the correction survives. Check persistent no-match/unavailable/pause messages without losing drafts; disable the option to return to local-only lookup. Published v0.2.0 uses Enter and has no Look up button.
 
 Automated geographic and RadioID tests use fake local providers. Public map services should only be exercised manually and sparingly in accordance with their policies. Hosted ARM64 CI complements physical Raspberry Pi testing.
 
