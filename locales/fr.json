@@ -288,5 +288,11 @@
   "Consultando RadioID…": "Consultation de RadioID…",
   "Dados encontrados no RadioID.": "Données trouvées sur RadioID.",
   "Indicativo não encontrado no RadioID.": "Indicatif introuvable sur RadioID.",
-  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Consultation indisponible. Les données pourront être mises à jour ultérieurement."
+  "Consulta indisponível. Os dados poderão ser atualizados posteriormente.": "Consultation indisponible. Les données pourront être mises à jour ultérieurement.",
+  "Busca local automática. O RadioID está desativado em Preferências.": "La recherche locale est automatique. RadioID est désactivé dans les Préférences.",
+  "Busca local automática. Pressione Enter ou Consultar para buscar no RadioID.": "La recherche locale est automatique. Appuyez sur Entrée ou Rechercher pour consulter RadioID.",
+  "Consultar": "Rechercher",
+  "O RadioID está desativado em Preferências.": "RadioID est désactivé dans les Préférences.",
+  "O RadioID está ocupado ou em pausa. Tente novamente mais tarde.": "RadioID est occupé ou en pause. Réessayez plus tard.",
+  "O RadioID retornou dados incompletos. Complete os campos manualmente.": "RadioID a renvoyé des informations incomplètes. Complétez les champs manuellement."
 }

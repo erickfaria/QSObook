@@ -108,6 +108,9 @@ func browserMessages() []string {
 	return []string{
 		"Consultando RadioID…", "Dados encontrados no RadioID.", "Indicativo não encontrado no RadioID.",
 		"Consulta indisponível. Os dados poderão ser atualizados posteriormente.",
+		"O RadioID está desativado em Preferências.",
+		"O RadioID está ocupado ou em pausa. Tente novamente mais tarde.",
+		"O RadioID retornou dados incompletos. Complete os campos manualmente.",
 		"Aproximar", "Afastar", "Fechar", "Meu local", "Nenhum contato para estes filtros.",
 		"Informe um indicativo.",
 		"Consultando cadastro local…",
