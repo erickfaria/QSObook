@@ -4,6 +4,8 @@ Reviewed on **2026-10-31** for the v0.2.0 source, including optional RadioID enr
 
 ## RadioID and privacy
 
+The **2026-11-01 current-source UI follow-up** adds a shared Enter/Look up action, explicit consent-state feedback and persistent outcomes. It changes no schema, provider request policy or security control. Local validation passed Go tests with/without the race detector, vet, AMD64/ARM64 builds, 23 JavaScript regressions and 22 isolated Firefox scenarios, including mobile widths, all four languages, stale responses, manual corrections and fictitious provider failures. Temporary browser profiles, notebooks and preview fixtures are removed after verification. These UI changes are not in the published v0.2.0 image; PR/CI checks identify the final revision.
+
 - Consent is off after migration. Local lookup, registration and confirmation remain usable offline. Browser requests target the local server; only the backend contacts RadioID.
 - Lookup sends an exact validated callsign, fixed query options and identifying client metadata. It sends no operator name, QSO details, notes or database. A missing entry is not license/identity verification.
 - The fixed HTTPS client rejects redirects, has a three-second timeout and bounds responses to 256 KiB/200 rows. Non-exact callsigns and invalid data cannot enrich another station. Multiple IDs share one registration.

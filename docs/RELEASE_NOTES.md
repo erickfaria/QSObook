@@ -1,5 +1,14 @@
 # Release notes
 
+## Unreleased — current source
+
+- Added a visible **Look up** button beside the QSO callsign field and a mobile search-key hint. Enter and the button share one deduplicated request; Save and manual fields remain available during lookup.
+- Lookup results remain visible instead of disappearing after five seconds. Disabled RadioID, no match, partial details, provider pause and unavailability have distinct translated messages.
+- Preserved local-only typing, explicit RadioID consent, manual corrections, stale-response protection and separate QSO confirmation. No database migration, runtime dependency or security-policy change.
+- Added browser regressions for button/Enter interaction, failures, retries and persistent feedback. Temporary Firefox checks use an isolated notebook and fictitious providers.
+
+These UI changes are not included in the v0.2.0 image. Merging source does not publish an image or update an existing deployment.
+
 ## QSObook v0.2.0
 
 This stable release adds optional RadioID autofill to the existing QSO workspace. Ready-made Linux ARM64/AMD64 images and digest-pinned Compose downloads use **schema 8**. RadioID remains disabled by default; no external account is required.
